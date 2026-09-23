@@ -24,4 +24,7 @@ RUN npm run build
 FROM caddy:2-alpine
 COPY --from=h5    /app/dist /srv/h5
 COPY --from=admin /app/dist /srv/admin
-COPY deploy/Caddyfile /etc/caddy/Caddyfile
+# 两份配置都打进来：默认这份自己签证书；
+# 接共享入口时由 docker-compose.edge.yml 换 command 用 Caddyfile.edge
+COPY deploy/Caddyfile       /etc/caddy/Caddyfile
+COPY deploy/Caddyfile.local /etc/caddy/Caddyfile.edge

@@ -14,5 +14,4 @@ services:
   web:
     ports: !override
       - "8080:80"
-    volumes:
-      - ./deploy/Caddyfile.local:/etc/caddy/Caddyfile:ro
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile.edge", "--adapter", "caddyfile"]

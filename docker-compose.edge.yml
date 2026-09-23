@@ -1,12 +1,12 @@
 # 接入共享 Caddy（edge 网络）——一台机器跑多个应用时用这个。
 #
 # 作用：本应用不再占 80/443，只把自己的 Caddy 挂到 edge 网络上，
-# 由统一入口负责 TLS 和域名分发。
+# 由 edge-caddy 入口负责 TLS 和域名分发。
 #
 # 启用方式（在 .env 里加一行，之后照常 docker compose up -d 即可）：
 #   echo 'COMPOSE_FILE=docker-compose.yml:docker-compose.edge.yml' >> .env
 #
-# 然后在共享 Caddy 的 conf.d/ 里加一个文件：
+# 然后在入口的 conf.d/ 里加一个文件：
 #   你的域名 {
 #       encode zstd gzip
 #       reverse_proxy fanly-web:80
@@ -15,11 +15,12 @@
 services:
   web:
     container_name: fanly-web
-    # 端口交给共享 Caddy，本应用不再对外暴露
+    # 端口交给入口，本应用不再对外暴露
     ports: !override []
-    # 证书归共享 Caddy 管，这里换成不签证书的那份配置
-    volumes: !override
-      - ./deploy/Caddyfile.local:/etc/caddy/Caddyfile:ro
+    # 证书归入口管，换成镜像里那份不签证书的配置（已打进镜像，不用挂载）
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile.edge", "--adapter", "caddyfile"]
+    # 证书卷归入口，这边一个都不要
+    volumes: !override []
     networks: [default, edge]
 
 networks:

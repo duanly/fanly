@@ -71,7 +71,13 @@ docker pull mysql:8.0
 
 ---
 
-## 第 3 步 · 拉代码、填配置
+## 第 3 步 · 放配置文件
+
+**服务器上不需要源码。** 镜像由 CI 构建，服务器只要 compose 文件和 `.env` 就够了。
+
+### 方式一：clone 仓库（推荐）
+
+`git pull` 就能同步 compose 和文档的改动，省心：
 
 ```bash
 cd /opt
@@ -79,6 +85,23 @@ git clone https://github.com/duanly/fanly.git
 cd fanly
 cp .env.example .env
 ```
+
+源码跟着下来了但不占多少空间，也不参与运行——容器里跑的是镜像里编译好的产物。
+
+### 方式二：只放三个文件
+
+想让服务器干净到极致，手动放这三个就行：
+
+```
+/opt/fanly/
+├── docker-compose.yml         # 主配置
+├── docker-compose.edge.yml    # 接共享入口时才要
+└── .env                       # 你自己填，不在仓库里
+```
+
+`deploy/Caddyfile` 已经打进镜像了，不用放。缺点是 compose 改了要手动同步。
+
+### 填 .env
 
 先把密码生成出来：
 
@@ -497,6 +520,7 @@ chmod +x /usr/local/bin/fanly-backup.sh
 | 拉镜像超时 | 加速源没配或配错 | 回第 2 步 |
 | 端口被占用起不来 | 别的应用占了 80/443 | 做第 10 步接共享 Caddy |
 | 共享入口 502 | 应用没接上 edge 网络，或容器名对不上 | `docker network inspect edge` 看成员 |
+| edge 模式下 web 容器反复重启 | 镜像太旧，没有 Caddyfile.edge | 拉新镜像：`docker compose pull web` |
 | 页面能开但数据全空 | 没灌种子数据 | 跑第 7 步的 seed |
 | 后台点对账报 500 | 贴日志 | `logs --tail=50 server` |
 | 提现审核通过但没打款 | 打款通道还没接，需手工登记 | 后台「登记打款成功」 |
