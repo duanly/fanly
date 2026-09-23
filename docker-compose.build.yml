@@ -1,0 +1,21 @@
+# 从源码本地构建，而不是拉现成镜像。
+# 用法（国内服务器）：
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# 镜像源通过 build args 传进去，CI 上不传就走官方源。
+services:
+  server:
+    build:
+      context: ./server
+      args:
+        NPM_REGISTRY: https://registry.npmmirror.com/
+        APK_MIRROR: mirrors.tencentyun.com
+    image: fanly-server:local
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.web
+      args:
+        NPM_REGISTRY: https://registry.npmmirror.com/
+    image: fanly-web:local

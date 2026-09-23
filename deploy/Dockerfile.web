@@ -1,20 +1,22 @@
 # 一个镜像同时构建两个前端，最后塞进 Caddy —— 免去共享卷的麻烦
-# npm 走淘宝源；非国内环境可以把那两行 sed/config 删掉
+ARG NPM_REGISTRY=https://registry.npmjs.org/
 
 FROM node:22-alpine AS h5
+ARG NPM_REGISTRY
 WORKDIR /app
 COPY h5/package*.json ./
-RUN sed -i 's#https://registry.npmjs.org/#https://registry.npmmirror.com/#g' package-lock.json \
-  && npm config set registry https://registry.npmmirror.com \
+RUN sed -i "s#https://registry.npmjs.org/#${NPM_REGISTRY}#g" package-lock.json \
+  && npm config set registry "${NPM_REGISTRY}" \
   && npm ci
 COPY h5/ ./
 RUN npm run build
 
 FROM node:22-alpine AS admin
+ARG NPM_REGISTRY
 WORKDIR /app
 COPY admin/package*.json ./
-RUN sed -i 's#https://registry.npmjs.org/#https://registry.npmmirror.com/#g' package-lock.json \
-  && npm config set registry https://registry.npmmirror.com \
+RUN sed -i "s#https://registry.npmjs.org/#${NPM_REGISTRY}#g" package-lock.json \
+  && npm config set registry "${NPM_REGISTRY}" \
   && npm ci
 COPY admin/ ./
 RUN npm run build

@@ -1,0 +1,76 @@
+name: 构建并推送镜像
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    # 只改文档不触发构建
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+  workflow_dispatch:
+
+env:
+  # 阿里云 ACR，例如 registry.cn-guangzhou.aliyuncs.com
+  REGISTRY: ${{ secrets.ACR_REGISTRY }}
+  # 命名空间，例如 duanly
+  NAMESPACE: ${{ secrets.ACR_NAMESPACE }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      # 一个挂了另一个继续，省得白等
+      fail-fast: false
+      matrix:
+        include:
+          - name: server
+            context: ./server
+            dockerfile: ./server/Dockerfile
+          - name: web
+            context: .
+            dockerfile: ./deploy/Dockerfile.web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: 登录阿里云 ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: 生成标签
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/fanly-${{ matrix.name }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+            type=semver,pattern={{version}}
+            type=ref,event=branch
+
+      - name: 构建并推送
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          # 腾讯云 CVM 是 amd64
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # 用 GitHub 的缓存，第二次构建快很多
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: 输出镜像地址
+        run: |
+          echo "### fanly-${{ matrix.name }} 已推送" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

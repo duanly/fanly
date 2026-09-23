@@ -40,8 +40,8 @@ services:
       - "6379"
 
   server:
-    build:
-      context: ./server
+    # 镜像由 GitHub Actions 构建推送；本地构建见 docker-compose.build.yml
+    image: ${IMAGE_PREFIX}/fanly-server:${IMAGE_TAG:-latest}
     restart: always
     depends_on:
       mysql:
@@ -84,9 +84,7 @@ services:
       - "3000"
 
   web:
-    build:
-      context: .
-      dockerfile: deploy/Dockerfile.web
+    image: ${IMAGE_PREFIX}/fanly-web:${IMAGE_TAG:-latest}
     restart: always
     depends_on:
       - server

@@ -1,5 +1,5 @@
 # 本地验证用：覆盖掉证书相关配置，走纯 HTTP 8080
-# 用法：docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+# 用法：docker compose -f docker-compose.yml -f docker-compose.build.yml -f docker-compose.local.yml up -d --build
 services:
   mysql:
     ports:

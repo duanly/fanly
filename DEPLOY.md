@@ -92,6 +92,8 @@ echo "REDIS_PASS=$(openssl rand -base64 18)"
 `vi .env`，把上面四行的输出粘进去，另外改这几项：
 
 ```bash
+IMAGE_PREFIX=registry.cn-guangzhou.aliyuncs.com/duanly   # ACR 地址+命名空间，见第 9 步
+IMAGE_TAG=latest             # 回滚时换成 sha-xxxxxxx
 DOMAIN=你的域名              # 不带 http://，不带斜杠
 ACME_EMAIL=你的邮箱          # 证书到期通知
 DB_SYNC=true                 # 首次建表用，第 6 步会改回 false
@@ -117,30 +119,24 @@ echo "域名解析到:  $(dig +short 你的域名 | tail -1)"
 
 ## 第 5 步 · 启动
 
+镜像由 GitHub Actions 构建好推到阿里云 ACR，服务器只管拉。
+
+先登录 ACR（一次就够，凭证会存在 `~/.docker/config.json`）：
+
+```bash
+docker login registry.cn-guangzhou.aliyuncs.com -u 你的ACR用户名
+```
+
 ```bash
 cd /opt/fanly
-docker compose up -d --build
-```
-
-第一次要构建三个镜像，**三到五分钟**。npm 和 apk 都已经配好国内源，不会卡在拉包上。
-
-想看详细进度就单独跑一次构建：
-
-```bash
-docker compose build --progress=plain
-```
-
-> **SSH 断了构建就会中断**（客户端被 SIGHUP 杀掉）。长任务挂 tmux 里跑：
-> `apt-get install -y tmux && tmux new -s fanly`，离开按 `Ctrl+b` 再 `d`，
-> 回来 `tmux attach -t fanly`。已完成的层有 BuildKit 缓存，重跑会接着走。
-
-```bash
+docker compose pull
+docker compose up -d
 docker compose logs -f web
 ```
 
 **预期**：出现 `certificate obtained successfully`。`Ctrl+C` 退出日志。
 
----
+拉镜像通常一两分钟。CI 还没配好、或者想临时从源码构建，见本文档末尾的「本地构建」。
 
 ## 第 6 步 · 关掉自动建表
 
@@ -206,27 +202,79 @@ docker compose logs --tail=50 server
 
 ---
 
-## 第 9 步 · 构建慢或失败时（这些已经做进仓库了）
+## 第 9 步 · 配 CI 自动构建（只做一次）
 
-以下三处优化已经在代码里，`git pull` 就有，这里只说明为什么这么写，出问题好排查。
+配好之后，push 到 main 就自动出镜像，服务器不用再装编译工具链、不用跑 `npm ci`，
+也不会再出现 SSH 断线把构建打断的事。
 
-**npm 和 apk 走国内源**。默认从 `registry.npmjs.org` 装五百来个包，国内走公网要十几二十分钟
-甚至超时——这是「卡在 fanly-server」最常见的原因，不是在编译。`package-lock.json` 里
-记死了 npmjs.org 的下载地址，所以光 `npm config set registry` 不管用，Dockerfile 里用 `sed`
-把锁文件里的地址一起替换了。
+### 开通阿里云 ACR 个人版
 
-> 不在腾讯云上跑的话，把两个 Dockerfile 里的 `mirrors.tencentyun.com`
-> 换成 `mirrors.aliyun.com`（那是公网源，哪都能用）。
+控制台 → 容器镜像服务 → 个人实例（免费）：
 
-**生产镜像不装 better-sqlite3**。它只有本地开发用得上，却要装 gcc 从源码编译。
-现在它在 `devDependencies` 里，运行阶段用 `npm ci --omit=dev --omit=optional` 跳过——
+1. 建命名空间，比如 `duanly`，**仓库类型选私有**
+2. 设置 Registry 登录密码（跟阿里云账号密码是两回事）
+3. 记下三样东西：
+   - registry 地址，形如 `registry.cn-guangzhou.aliyuncs.com`（选离服务器近的区）
+   - 命名空间名
+   - 用户名（一般是阿里云账号全名）和刚设的密码
+
+### 填 GitHub Secrets
+
+仓库 → Settings → Secrets and variables → Actions → New repository secret，加四条：
+
+| 名字 | 值 |
+| --- | --- |
+| `ACR_REGISTRY` | `registry.cn-guangzhou.aliyuncs.com` |
+| `ACR_NAMESPACE` | `duanly` |
+| `ACR_USERNAME` | ACR 用户名 |
+| `ACR_PASSWORD` | ACR 登录密码 |
+
+### 触发
+
+push 到 main 自动跑（只改 `.md` 不触发）。也可以在 Actions 页面手动点 Run workflow。
+
+出来的标签：
+
+| 标签 | 什么时候有 |
+| --- | --- |
+| `latest` | 每次 push main |
+| `sha-4fe247f` | 每次构建都有，**回滚就用它** |
+| `v1.0.0` | 打了 `git tag v1.0.0` 时 |
+
+### 服务器更新
+
+```bash
+cd /opt/fanly
+git pull                    # 拿到 compose 和文档的改动
+docker compose pull         # 拉新镜像
+docker compose up -d
+```
+
+### 回滚
+
+```bash
+# .env 里把 IMAGE_TAG 改成想回到的那个 sha
+sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=sha-4fe247f/' .env
+docker compose up -d
+```
+
+比重新构建快得多，出事的时候这点很关键。
+
+### 三个设计说明
+
+**镜像源是构建参数，不写死。** CI 跑在 GitHub 的机器上，用官方 npm 源最快；
+在国内服务器本地构建时由 `docker-compose.build.yml` 传国内源进去。
+另外 `package-lock.json` 里记死了 npmjs.org 的下载地址，光 `npm config set registry`
+不生效，Dockerfile 里用 `sed` 把锁文件一起替换了——「卡在 npm ci」多半是这个原因。
+
+**生产镜像不装 better-sqlite3。** 它只有本地开发用得上，却要装 gcc 从源码编译。
+现在它在 `devDependencies` 里，运行阶段 `npm ci --omit=dev --omit=optional` 跳过——
 两个 omit 都得给，因为它在锁文件里被标成 `devOptional`。
 
-**`build` 脚本是 `nest build && tsc-alias`**。代码里用了 `@/entities` 这种路径别名，
-`tsc` 只认 TypeScript 层面的映射，编译出来的 JS 里还是 `require("@/entities")`。
+**`build` 脚本是 `nest build && tsc-alias`。** 代码里用了 `@/entities` 这种路径别名，
+`tsc` 只做 TypeScript 层面的映射，编译出来的 JS 里还是 `require("@/entities")`。
 开发时 `ts-node -r tsconfig-paths/register` 能兜住，但容器里是 `node dist/main.js`，
-启动就会 `Cannot find module '@/entities'` 直接挂掉。`tsc-alias` 在构建后把这些别名
-改写成相对路径。**动 `build` 脚本前先想清楚这条。**
+启动就会 `Cannot find module '@/entities'` 直接挂掉。**动 build 脚本前先想清楚这条。**
 
 ---
 
@@ -400,12 +448,13 @@ docker compose logs -f server          # 跟服务端日志
 docker compose restart                 # 全部重启
 ```
 
-更新代码：
+更新：
 
 ```bash
 cd /opt/fanly
-git pull
-docker compose up -d --build           # 只改服务端就加 server，只改前端就加 web
+git pull                               # compose / 文档的改动
+docker compose pull                    # 新镜像
+docker compose up -d
 ```
 
 **数据库备份**，写进 crontab 每天跑：
@@ -434,8 +483,9 @@ chmod +x /usr/local/bin/fanly-backup.sh
 
 | 现象 | 原因 | 处理 |
 | --- | --- | --- |
-| build 卡在 `npm ci` 很久 | npm 源没走国内 | 见第 9 步，确认 Dockerfile 里的 sed 生效 |
-| build 到一半没了 | SSH 断线，客户端被杀 | 用 tmux；缓存还在，重跑会接着走 |
+| `docker compose pull` 报 denied | 没登录 ACR，或镜像还没推上去 | `docker login`；看 Actions 跑完没 |
+| 镜像拉不到 manifest unknown | `IMAGE_TAG` 写错 | 去 ACR 控制台看有哪些标签 |
+| 本地构建卡在 `npm ci` | 没叠加 build 覆盖文件 | 见文末「本地构建」 |
 | 容器起来就退，日志报 `Cannot find module '@/...'` | 构建漏了 tsc-alias | 检查 package.json 的 build 脚本 |
 | `certificate obtained` 一直不出现 | 80 没放行，或解析没生效 | 回第 0、4 步 |
 | `server` 卡在 `starting` | MySQL 还在初始化 | 等 1 分钟；仍不行看 `logs server` |
@@ -475,3 +525,45 @@ docker compose up -d server
 
 切之前先在本地用 `CPS_PROVIDER=aggregator` 跑一遍，确认转链能带上子渠道参数、拉单能反解出 userId，
 再动生产。归属参数丢了的话所有订单都会变成「未归属」，返利发不出去。
+
+
+---
+
+## 附录：本地构建（不用 CI 时）
+
+CI 还没配好，或者想在服务器上直接从源码构建，叠加 `docker-compose.build.yml`：
+
+```bash
+cd /opt/fanly
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
+
+它会把国内镜像源作为 build args 传进去（npm 走淘宝源，apk 走腾讯云内网源）。
+不在腾讯云上跑的话，把文件里的 `mirrors.tencentyun.com` 换成 `mirrors.aliyun.com`。
+
+**服务器上本地构建要挂 tmux**，SSH 一断构建就被杀：
+
+```bash
+apt-get install -y tmux
+tmux new -s fanly
+# 离开按 Ctrl+b 再 d，回来 tmux attach -t fanly
+```
+
+已完成的层有 BuildKit 缓存，中断后重跑会接着走。
+
+想看详细进度：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml build --progress=plain
+```
+
+### 本地 HTTP 调试（不签证书，走 8080）
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml -f docker-compose.local.yml up -d --build
+```
+
+- H5 http://localhost:8080
+- 后台 http://localhost:8080/admin
+- 服务端直连 http://localhost:3000
+- MySQL 客户端连 127.0.0.1:13306
