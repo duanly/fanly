@@ -294,52 +294,45 @@ GHCR 在国内偶尔会拉不动。真遇到了，切过去只要改两处：
 
 ---
 
-## 第 10 步 · 改成共享 Caddy（一台机器跑多个应用时）
+## 第 10 步 · 接入共享 Caddy（一台机器跑多个应用时）
 
-80 和 443 只能被一个进程占。上面的装法里 fanly 的 Caddy 容器霸着这两个端口，
-**下一个应用就没法用了**。要在同一台机器上部署别的应用，就得把 Caddy 抽出来当统一入口。
+80 和 443 只能被一个进程占。默认装法里 fanly 的 Caddy 容器霸着这两个端口，
+**下一个应用就进不来了**。要在同一台机器上部署别的应用，就得把 Caddy 抽出来当统一入口。
+
+### 架构
+
+两层：**前面一个 Caddy 只管 TLS 和域名分发**，各应用自己那个 Caddy 管内部路径路由。
+各应用通过一个叫 `edge` 的共享网络连到入口，每加一个应用只在 `conf.d/` 丢一个文件。
+
+```
+公网 :80/:443
+   └── shared-caddy（TLS + 域名分发，接在 edge 网络上）
+         ├── fanli.com     → fanly-web:80    → 内部 Caddy 管 / /admin /api
+         └── paohuzi.com   → paohuzi-caddy:80
+```
 
 ### 为什么不装宿主机 Caddy
 
 国内拉 Caddy 的 apt 源和 GitHub 二进制都不顺，而 `caddy:2-alpine` 镜像第 2 步已经拉下来了。
 用它单独起一个共享代理容器，再用 systemd 管着，效果跟宿主机 Caddy 一样，省掉下载的麻烦。
 
-### 架构
-
-两层：**前面一个 Caddy 只管 TLS 和域名分发**，各应用自己那个 Caddy 管内部路径路由。
-每加一个应用，只在 `conf.d/` 丢一个文件。
-
-```
-公网 :80/:443
-   └── shared-caddy（TLS + 域名分发）
-         ├── fanly.com      → fanly-web:80 → 内部 Caddy 管 / /admin /api
-         └── app2.com       → app2-web:80
-```
-
-### 建共享代理
+### 一、建共享入口（整台机器只做一次）
 
 ```bash
-docker network create web
+docker network create edge
 
 mkdir -p /opt/caddy/conf.d && cd /opt/caddy
 
-cat > Caddyfile <<'EOF'
+cat > Caddyfile <<'CADDY'
 {
     email 你的邮箱
 }
 
 # 每个应用一个文件，加应用不用动这里
 import /etc/caddy/conf.d/*.caddy
-EOF
+CADDY
 
-cat > conf.d/fanly.caddy <<'EOF'
-你的域名 {
-    encode zstd gzip
-    reverse_proxy fanly-web:80
-}
-EOF
-
-cat > docker-compose.yml <<'EOF'
+cat > docker-compose.yml <<'COMPOSE'
 services:
   caddy:
     image: caddy:2-alpine
@@ -354,64 +347,57 @@ services:
       - ./conf.d:/etc/caddy/conf.d:ro
       - caddy-data:/data
       - caddy-config:/config
-    networks:
-      - web
+    networks: [edge]
 
 volumes:
   caddy-data:
   caddy-config:
 
 networks:
-  web:
+  edge:
     external: true
-EOF
+    name: edge
+COMPOSE
+
+docker compose up -d
 ```
 
-### 改 fanly：不再占 80/443
+### 二、让 fanly 接进去
 
-编辑 `/opt/fanly/docker-compose.yml` 的 `web:` 那一段，**删掉整块 `ports`**，换成网络别名，
-并挂上不签证书的那份 Caddyfile：
-
-```yaml
-  web:
-    build:
-      context: .
-      dockerfile: deploy/Dockerfile.web
-    restart: always
-    depends_on:
-      - server
-    volumes:
-      - ./deploy/Caddyfile.local:/etc/caddy/Caddyfile:ro
-    networks:
-      default:
-      web:
-        aliases:
-          - fanly-web
-```
-
-文件末尾补上网络声明：
-
-```yaml
-networks:
-  default:
-  web:
-    external: true
-```
-
-顶层 `volumes:` 里原来那三个 `caddy-*` 卷可以删了，证书现在归共享 Caddy 管。
-
-### 起
+`docker-compose.edge.yml` 仓库里已经有了，不用自己写。启用它只要在 `.env` 加一行：
 
 ```bash
-cd /opt/fanly && docker compose up -d
-cd /opt/caddy && docker compose up -d
+cd /opt/fanly
+echo 'COMPOSE_FILE=docker-compose.yml:docker-compose.edge.yml' >> .env
+docker compose up -d
+```
+
+加了 `COMPOSE_FILE` 之后，**以后照常敲 `docker compose up -d` 就会自动合并两个文件**，
+不用每次带一串 `-f`。
+
+这个覆盖文件做了三件事：把容器命名为 `fanly-web` 好让入口找到它、
+用 `ports: !override []` 清掉 80/443、把 Caddy 配置换成不签证书的那份
+（证书统一归入口管）。
+
+### 三、在入口里加一条路由
+
+```bash
+cat > /opt/caddy/conf.d/fanly.caddy <<'CADDY'
+你的域名 {
+    encode zstd gzip
+    reverse_proxy fanly-web:80
+}
+CADDY
+
+cd /opt/caddy
+docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
 docker compose logs -f caddy      # 等 certificate obtained
 ```
 
-### systemd 托管
+### 四、systemd 托管入口
 
 ```bash
-cat > /etc/systemd/system/shared-caddy.service <<'EOF'
+cat > /etc/systemd/system/shared-caddy.service <<'UNIT'
 [Unit]
 Description=Shared Caddy reverse proxy
 Requires=docker.service
@@ -427,13 +413,13 @@ ExecReload=/usr/bin/docker compose exec -T caddy caddy reload --config /etc/cadd
 
 [Install]
 WantedBy=multi-user.target
-EOF
+UNIT
 
 systemctl daemon-reload
 systemctl enable --now shared-caddy
 ```
 
-改完配置热重载，不断连接：
+之后改配置热重载，不断连接：
 
 ```bash
 systemctl reload shared-caddy
@@ -441,18 +427,11 @@ systemctl reload shared-caddy
 
 ### 以后加新应用
 
-新应用的 compose 里：**不写 `ports`**，加 `networks: [default, web]` 和一个别名，然后
+每个应用照这个模式来：写一份自己的 `docker-compose.edge.yml`（清掉 ports、
+命名容器、接 `edge` 网络），`.env` 里加 `COMPOSE_FILE`，再在
+`/opt/caddy/conf.d/` 放一个路由文件，`systemctl reload shared-caddy`。
 
-```bash
-cat > /opt/caddy/conf.d/app2.caddy <<'EOF'
-app2.你的域名 {
-    reverse_proxy app2-web:内部端口
-}
-EOF
-systemctl reload shared-caddy
-```
-
-证书自动签，各应用互不干扰。
+证书自动签，各应用互不干扰，谁重启都不影响别人。
 
 ---
 
@@ -507,7 +486,8 @@ chmod +x /usr/local/bin/fanly-backup.sh
 | `certificate obtained` 一直不出现 | 80 没放行，或解析没生效 | 回第 0、4 步 |
 | `server` 卡在 `starting` | MySQL 还在初始化 | 等 1 分钟；仍不行看 `logs server` |
 | 拉镜像超时 | 加速源没配或配错 | 回第 2 步 |
-| 端口被占用起不来 | 别的应用占了 80/443 | 做第 10 步 |
+| 端口被占用起不来 | 别的应用占了 80/443 | 做第 10 步接共享 Caddy |
+| 共享入口 502 | 应用没接上 edge 网络，或容器名对不上 | `docker network inspect edge` 看成员 |
 | 页面能开但数据全空 | 没灌种子数据 | 跑第 7 步的 seed |
 | 后台点对账报 500 | 贴日志 | `logs --tail=50 server` |
 | 提现审核通过但没打款 | 打款通道还没接，需手工登记 | 后台「登记打款成功」 |
