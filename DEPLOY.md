@@ -306,7 +306,7 @@ GHCR 在国内偶尔会拉不动。真遇到了，切过去只要改两处：
 
 ```
 公网 :80/:443
-   └── shared-caddy（TLS + 域名分发，接在 edge 网络上）
+   └── edge-caddy（TLS + 域名分发，接在 edge 网络上）
          ├── fanli.com     → fanly-web:80    → 内部 Caddy 管 / /admin /api
          └── paohuzi.com   → paohuzi-caddy:80
 ```
@@ -318,10 +318,19 @@ GHCR 在国内偶尔会拉不动。真遇到了，切过去只要改两处：
 
 ### 一、建共享入口（整台机器只做一次）
 
+**入口已经跑着就跳过这节**，直接看第二、三步。确认一下：
+
+```bash
+docker ps --filter name=edge-caddy
+docker network ls | grep edge
+```
+
+没有的话再建（路径按你实际的来，这里用 `/opt/edge`）：
+
 ```bash
 docker network create edge
 
-mkdir -p /opt/caddy/conf.d && cd /opt/caddy
+mkdir -p /opt/edge/conf.d && cd /opt/edge
 
 cat > Caddyfile <<'CADDY'
 {
@@ -336,7 +345,7 @@ cat > docker-compose.yml <<'COMPOSE'
 services:
   caddy:
     image: caddy:2-alpine
-    container_name: shared-caddy
+    container_name: edge-caddy
     restart: always
     ports:
       - "80:80"
@@ -382,22 +391,22 @@ docker compose up -d
 ### 三、在入口里加一条路由
 
 ```bash
-cat > /opt/caddy/conf.d/fanly.caddy <<'CADDY'
+cat > /opt/edge/conf.d/fanly.caddy <<'CADDY'
 你的域名 {
     encode zstd gzip
     reverse_proxy fanly-web:80
 }
 CADDY
 
-cd /opt/caddy
+cd /opt/edge
 docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
 docker compose logs -f caddy      # 等 certificate obtained
 ```
 
-### 四、systemd 托管入口
+### 四、systemd 托管入口（入口已有就跳过）
 
 ```bash
-cat > /etc/systemd/system/shared-caddy.service <<'UNIT'
+cat > /etc/systemd/system/edge-caddy.service <<'UNIT'
 [Unit]
 Description=Shared Caddy reverse proxy
 Requires=docker.service
@@ -406,7 +415,7 @@ After=docker.service network-online.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/opt/caddy
+WorkingDirectory=/opt/edge
 ExecStart=/usr/bin/docker compose up -d
 ExecStop=/usr/bin/docker compose down
 ExecReload=/usr/bin/docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
@@ -416,20 +425,20 @@ WantedBy=multi-user.target
 UNIT
 
 systemctl daemon-reload
-systemctl enable --now shared-caddy
+systemctl enable --now edge-caddy
 ```
 
 之后改配置热重载，不断连接：
 
 ```bash
-systemctl reload shared-caddy
+systemctl reload edge-caddy
 ```
 
 ### 以后加新应用
 
 每个应用照这个模式来：写一份自己的 `docker-compose.edge.yml`（清掉 ports、
 命名容器、接 `edge` 网络），`.env` 里加 `COMPOSE_FILE`，再在
-`/opt/caddy/conf.d/` 放一个路由文件，`systemctl reload shared-caddy`。
+`/opt/edge/conf.d/` 放一个路由文件，`systemctl reload edge-caddy`。
 
 证书自动签，各应用互不干扰，谁重启都不影响别人。
 
@@ -496,7 +505,7 @@ chmod +x /usr/local/bin/fanly-backup.sh
 
 ## 几条不要踩的线
 
-- **证书卷别删** —— 独立部署是 fanly 的 `caddy-data`，共享模式是 `/opt/caddy` 下的 `caddy-data`。
+- **证书卷别删** —— 独立部署是 fanly 的 `caddy-data`，共享模式是 `/opt/edge` 下的 `caddy-data`。
   删了重签会撞 Let's Encrypt 的频率限制（同域名每周 5 次），撞上只能等一周
 - **MySQL 和 Redis 没暴露端口**，只在 compose 内网可达，这是故意的，别改成 `ports`
 - **时区已设成 `Asia/Shanghai`**，MySQL 也是 `+08:00`，订单时间跟联盟后台对得上，别动
