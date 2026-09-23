@@ -2,11 +2,18 @@
   <div class="page">
     <van-nav-bar title="我的订单" fixed placeholder />
 
+    <NeedLogin
+      v-if="!logged"
+      title="登录后查看订单"
+      desc="登录后这里会显示你的每一笔返利订单，以及到账状态"
+    />
+
+    <template v-else>
     <van-tabs v-model:active="tab" color="#ff4b3a" line-width="20" @change="reset">
       <van-tab v-for="t in tabs" :key="t.label" :title="t.label" />
     </van-tabs>
 
-    <van-list v-model:loading="loading" :finished="finished" finished-text="没有更多了" @load="load">
+    <van-list v-if="logged" v-model:loading="loading" :finished="finished" finished-text="没有更多了" @load="load">
       <div
         v-for="o in list"
         :key="o.id"
@@ -30,12 +37,16 @@
     </van-list>
 
     <van-empty v-if="finished && !list.length" description="还没有订单，去首页逛逛" />
+    </template>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
 import { api } from '../api';
+import NeedLogin from '../components/NeedLogin.vue';
+
+const logged = ref(!!localStorage.getItem('token'));
 
 const tabs = [
   { label: '全部', status: undefined },

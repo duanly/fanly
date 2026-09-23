@@ -1,5 +1,12 @@
 <template>
   <div class="page">
+    <NeedLogin
+      v-if="!logged"
+      title="登录后查看我的"
+      desc="余额、提现、推广中心都在登录后可用"
+    />
+
+    <template v-else>
     <div style="background:linear-gradient(135deg,#ff6a3d,#ff3b30);padding:20px 16px 0">
       <div style="display:flex;align-items:center;gap:12px;color:#fff">
         <van-image round width="54" height="54" :src="p?.avatar" >
@@ -65,6 +72,7 @@
     <div style="padding:24px 16px">
       <van-button block round plain @click="logout">退出登录</van-button>
     </div>
+    </template>
   </div>
 </template>
 
@@ -73,12 +81,17 @@ import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showConfirmDialog, showToast } from 'vant';
 import { api } from '../api';
+import NeedLogin from '../components/NeedLogin.vue';
 
+const logged = ref(!!localStorage.getItem('token'));
 const p = ref(null);
 const router = useRouter();
 const money = (v) => (+(v || 0)).toFixed(2);
 
-async function load() { p.value = await api.profile(); }
+async function load() {
+  if (!logged.value) return;
+  p.value = await api.profile();
+}
 
 async function apply() {
   await showConfirmDialog({
@@ -92,7 +105,8 @@ async function apply() {
 
 function logout() {
   localStorage.removeItem('token');
-  router.push('/login');
+  logged.value = false;
+  p.value = null;
 }
 
 onMounted(load);

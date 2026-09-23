@@ -24,7 +24,7 @@
         </van-button>
       </div>
       <div class="muted" style="text-align:center;margin-top:12px">
-        开发模式下验证码会自动填入
+        {{ skipVerify ? '测试模式：无需验证码，直接登录' : '点获取验证码后会自动填入' }}
       </div>
     </div>
   </div>
@@ -41,6 +41,7 @@ const smsCode = ref('');
 const inviteCode = ref('');
 const loading = ref(false);
 const counting = ref(0);
+const skipVerify = ref(false);
 const route = useRoute();
 const router = useRouter();
 
@@ -48,7 +49,11 @@ async function send() {
   if (!/^1[3-9]\d{9}$/.test(mobile.value)) return showToast('手机号格式不对');
   const r = await api.sendSms(mobile.value);
   // 开发模式：服务端把验证码直接返回，接短信服务商后这里会是 undefined
-  if (r.devCode) {
+  if (r.skipVerify) {
+    smsCode.value = r.devCode || '000000';
+    skipVerify.value = true;
+    showToast('测试模式，无需验证码');
+  } else if (r.devCode) {
     smsCode.value = r.devCode;
     showToast(`开发模式验证码 ${r.devCode}`);
   } else {
@@ -62,6 +67,8 @@ async function send() {
 }
 
 async function submit() {
+  // 测试模式下服务端不校验验证码，前端补个占位值
+  if (skipVerify.value && !smsCode.value) smsCode.value = '000000';
   if (!smsCode.value) return showToast('请先获取验证码');
   loading.value = true;
   try {

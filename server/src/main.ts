@@ -28,6 +28,12 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   const log = new Logger('Bootstrap');
   log.log(`服务已启动 :${port}  环境 ${process.env.NODE_ENV || 'development'}`);
+  if (process.env.SKIP_SMS_VERIFY === 'true') {
+    log.warn('='.repeat(60));
+    log.warn('⚠️  SKIP_SMS_VERIFY=true：任何人输任意手机号都能登录');
+    log.warn('⚠️  仅供测试，正式运营前必须在 .env 里改回 false');
+    log.warn('='.repeat(60));
+  }
   if (showDocs) log.log(`接口文档 http://localhost:${port}/docs`);
 }
 bootstrap();

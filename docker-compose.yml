@@ -63,6 +63,8 @@ services:
       # 首次部署设 true 建表，建完改回 false 再 up -d
       DB_SYNC: ${DB_SYNC:-false}
       ENABLE_DOCS: ${ENABLE_DOCS:-false}
+      # ⚠️ 测试用：任意验证码都放行，正式运营前必须 false
+      SKIP_SMS_VERIFY: ${SKIP_SMS_VERIFY:-false}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASS: ${REDIS_PASS}

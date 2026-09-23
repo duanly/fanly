@@ -24,6 +24,11 @@ export class AuthService {
   async sendSms(mobile: string) {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     this.codes.set(mobile, { code, exp: Date.now() + 5 * 60_000 });
+    // 免验证码模式下前端直接填个占位码就能登录
+    if (this.skipSmsVerify) {
+      this.logger.warn(`⚠️  SKIP_SMS_VERIFY 已开启，${mobile} 无需验证码`);
+      return { sent: true, skipVerify: true, devCode: '000000' };
+    }
     // TODO 接入短信服务商后在这里发短信
     if (process.env.NODE_ENV === 'production') {
       this.logger.log(`向 ${mobile} 发送验证码`);
@@ -34,7 +39,19 @@ export class AuthService {
     return { sent: true, devCode: code };
   }
 
+  /** 测试开关：任意验证码都放行。生产环境必须关掉。 */
+  private get skipSmsVerify(): boolean {
+    return process.env.SKIP_SMS_VERIFY === 'true';
+  }
+
   private verifySms(mobile: string, code: string) {
+    if (this.skipSmsVerify) {
+      this.logger.warn(
+        `⚠️  SKIP_SMS_VERIFY 已开启，${mobile} 未校验验证码直接放行——上线前务必关闭`,
+      );
+      this.codes.delete(mobile);
+      return;
+    }
     const rec = this.codes.get(mobile);
     if (!rec || rec.exp < Date.now()) throw new BadRequestException('验证码已过期');
     if (rec.code !== code) throw new BadRequestException('验证码错误');

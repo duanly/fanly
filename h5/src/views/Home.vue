@@ -1,34 +1,109 @@
 <template>
   <div class="page">
-    <van-nav-bar title="省钱猫" fixed placeholder>
-      <template #right>
-        <van-icon name="search" size="20" @click="$router.push('/search')" />
-      </template>
-    </van-nav-bar>
+    <!-- 顶部：搜索 + 转链/活动 -->
+    <div class="home-head">
+      <div class="search-row">
+        <div class="search-box" @click="$router.push('/search')">
+          <van-icon name="search" color="#ff4b3a" size="16" style="margin-right:6px" />
+          <input v-model="keyword" placeholder="搜隐藏优惠券" readonly />
+          <span class="search-btn">搜索</span>
+        </div>
+        <div class="head-icon" @click="focusPaste">
+          <van-icon name="exchange" size="20" />
+          <span>转链</span>
+        </div>
+        <div class="head-icon" @click="toast('活动页还没做')">
+          <van-icon name="chat-o" size="20" />
+          <span>活动</span>
+        </div>
+      </div>
 
-    <!-- 口令粘贴条：返利平台的核心留存入口 -->
-    <div class="pad">
-      <van-field
-        v-model="paste"
-        placeholder="粘贴淘宝/抖音口令或商品链接，自动查返利"
-        left-icon="notes-o"
-        clearable
-        :border="false"
-        style="border-radius:10px;background:#fff"
-      >
-        <template #button>
-          <van-button size="small" type="primary" color="#ff4b3a" :loading="parsing" @click="doParse">
-            查返利
-          </van-button>
-        </template>
-      </van-field>
+      <!-- 口令粘贴条：返利平台的核心留存入口 -->
+      <div class="paste-bar" @click="doParse">
+        <span style="font-weight:600">复制</span>
+        <span class="plats">
+          <i class="plat-dot" style="background:#ff5000">淘</i>
+          <i class="plat-dot" style="background:#e2231a">京</i>
+          <i class="plat-dot" style="background:#e02e24">拼</i>
+          <i class="plat-dot" style="background:#161823">抖</i>
+        </span>
+        <span style="font-weight:600">商品链接</span>
+        <van-icon name="play" color="#ff4b3a" size="11" />
+        <span class="cta">领券 + 返现 ›</span>
+      </div>
+
+      <!-- 快捷入口横滑 -->
+      <div class="chip-row">
+        <div
+          v-for="(p, i) in platforms"
+          :key="p.key"
+          class="chip"
+          :class="{ active: platformIdx === i }"
+          @click="switchPlatform(i)"
+        >
+          {{ p.name }}
+        </div>
+        <div class="chip" @click="toast('签到还没做')">签到领福利 ›</div>
+        <div class="chip" @click="toast('榜单还没做')">高佣榜 ›</div>
+      </div>
+
+      <!-- 轮播 -->
+      <van-swipe class="banner" :autoplay="4000" indicator-color="#fff">
+        <van-swipe-item
+          v-for="b in banners"
+          :key="b.t1"
+          :style="{ background: b.bg, height: '100%', display: 'grid', placeItems: 'center' }"
+        >
+          <div>
+            <div class="t1">{{ b.t1 }}</div>
+            <div class="t2">{{ b.t2 }}</div>
+          </div>
+        </van-swipe-item>
+      </van-swipe>
     </div>
 
-    <van-tabs v-model:active="platformIdx" color="#ff4b3a" line-width="20" @change="load">
-      <van-tab v-for="p in platforms" :key="p.key" :title="p.name" />
-    </van-tabs>
+    <!-- 新人福利 -->
+    <div class="newbie">
+      <div class="newbie-head">
+        <div>
+          <span class="t">新人福利</span>
+          <span class="s">0 元购 · 先付后返</span>
+        </div>
+        <span class="more" @click="$router.push('/search')">马上抢 ›</span>
+      </div>
+      <div class="newbie-grid">
+        <div v-for="g in newbie" :key="g.goodsId" class="newbie-card" @click="go(g)">
+          <img :src="g.image" :alt="g.title" loading="lazy" />
+          <div class="n">{{ g.title }}</div>
+          <div class="p">新人价 ¥0</div>
+        </div>
+      </div>
+    </div>
 
-    <div class="section-title">🔥 今日爆款</div>
+    <!-- 平台宫格 -->
+    <div class="grid-card">
+      <div class="plat-grid">
+        <div v-for="e in entries" :key="e.l" class="plat-item" @click="onEntry(e)">
+          <div class="plat-icon" :style="{ background: e.bg }">{{ e.icon }}</div>
+          <div class="l">{{ e.l }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 活动入口 -->
+    <div class="act-row">
+      <div v-for="a in acts" :key="a.t" class="act-card" @click="toast(a.t + ' 还没做')">
+        <div class="t">{{ a.t }}</div>
+        <div class="s">{{ a.s }}</div>
+        <span class="emoji">{{ a.icon }}</span>
+      </div>
+    </div>
+
+    <!-- 商品流 -->
+    <div class="section-title">
+      🔥 今日爆款
+      <span class="muted" style="font-weight:400">· {{ platforms[platformIdx].name }}</span>
+    </div>
 
     <van-loading v-if="loading" style="padding:40px;text-align:center" />
     <div v-else class="goods-grid">
@@ -42,7 +117,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { showToast } from 'vant';
+import { showToast, showConfirmDialog } from 'vant';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
 
@@ -52,33 +127,90 @@ const platforms = [
   { key: 'TB', name: '淘宝' },
   { key: 'DY', name: '抖音' },
 ];
+
+const banners = [
+  { t1: '天天领超级金币', t2: '最高得 100000 金币', bg: 'linear-gradient(135deg,#ff8a3d,#ff3b30)' },
+  { t1: '大额券专区', t2: '券后 78 折起', bg: 'linear-gradient(135deg,#8b6b3d,#5d4322)' },
+  { t1: '9.9 包邮', t2: '天天上新，买到就是赚到', bg: 'linear-gradient(135deg,#ff6a9a,#ff3b6b)' },
+];
+
+const entries = [
+  { l: '旅行优惠', icon: '🏔', bg: 'linear-gradient(135deg,#5ec26a,#34a853)' },
+  { l: '加油打车', icon: '🚗', bg: 'linear-gradient(135deg,#5b9cf8,#3a7bd5)' },
+  { l: '吃喝玩乐', icon: '🎮', bg: 'linear-gradient(135deg,#a05bf8,#7b3ad5)' },
+  { l: '大牌秒杀', icon: '⚡️', bg: 'linear-gradient(135deg,#ff6a6a,#e23b3b)' },
+  { l: '省钱外卖', icon: '🍔', bg: 'linear-gradient(135deg,#4fc3f7,#2196f3)' },
+  { l: '拼多多', icon: '拼', bg: 'linear-gradient(135deg,#ff5f5f,#e02e24)', p: 0 },
+  { l: '京东', icon: '京', bg: 'linear-gradient(135deg,#f45c5c,#e2231a)', p: 1 },
+  { l: '淘宝', icon: '淘', bg: 'linear-gradient(135deg,#ff8a3d,#ff5000)', p: 2 },
+  { l: '唯品会', icon: '唯', bg: 'linear-gradient(135deg,#f06ba8,#e4007f)' },
+  { l: '抖音', icon: '抖', bg: 'linear-gradient(135deg,#3a3a45,#161823)', p: 3 },
+];
+
+const acts = [
+  { t: '新人 0 元购', s: '限首单', icon: '🎁' },
+  { t: '营销日历', s: '大促预告', icon: '📅' },
+  { t: '超级爆品', s: '低价冲量', icon: '🔥' },
+  { t: '签到领福利', s: '最高 666', icon: '💰' },
+  { t: '在线点餐', s: '外卖红包', icon: '🍜' },
+];
+
 const platformIdx = ref(0);
 const list = ref([]);
+const newbie = ref([]);
 const loading = ref(true);
-const paste = ref('');
-const parsing = ref(false);
+const keyword = ref('');
 const router = useRouter();
+const toast = (m) => showToast(m);
+const go = (g) => router.push(`/goods/${g.platform}/${g.goodsId}`);
+
+function switchPlatform(i) {
+  platformIdx.value = i;
+  load();
+}
+
+function onEntry(e) {
+  if (e.p !== undefined) switchPlatform(e.p);
+  else toast(e.l + ' 还没做');
+}
+
+/** 口令解析：从剪贴板读，读不到就让用户粘进来 */
+async function doParse() {
+  if (!localStorage.getItem('token')) return router.push('/login');
+  let text = '';
+  try {
+    text = await navigator.clipboard.readText();
+  } catch {
+    /* 浏览器不给读剪贴板，走手动输入 */
+  }
+  if (!text) {
+    const r = await showConfirmDialog({
+      title: '粘贴商品链接或口令',
+      message: '复制淘宝/京东/拼多多/抖音的商品链接或口令，回到这里点确定',
+      confirmButtonText: '我已复制',
+    }).catch(() => null);
+    if (!r) return;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      return toast('读不到剪贴板，请用上方搜索');
+    }
+  }
+  const res = await api.parse(text.trim());
+  if (!res?.goods) return toast('没认出这个商品');
+  go(res.goods);
+}
+
+function focusPaste() { doParse(); }
 
 async function load() {
   loading.value = true;
   try {
     const r = await api.recommend(platforms[platformIdx.value].key);
     list.value = r.list || [];
+    newbie.value = (r.list || []).slice(0, 3);
   } finally {
     loading.value = false;
-  }
-}
-
-async function doParse() {
-  if (!paste.value.trim()) return showToast('先粘贴口令或链接');
-  if (!localStorage.getItem('token')) return router.push('/login');
-  parsing.value = true;
-  try {
-    const r = await api.parse(paste.value.trim());
-    if (!r?.goods) return showToast('没认出这个商品');
-    router.push(`/goods/${r.goods.platform}/${r.goods.goodsId}`);
-  } finally {
-    parsing.value = false;
   }
 }
 
