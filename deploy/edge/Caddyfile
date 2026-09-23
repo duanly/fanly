@@ -1,0 +1,10 @@
+# ── 统一入口：只管 TLS 和域名分发 ──────────────────────────────
+# 应用内部的路径路由（/ /admin /api）由各应用自己的 Caddy 处理。
+#
+# 加一个应用 = 在 conf.d/ 丢一个 .caddy 文件，这里一个字都不用改。
+
+{
+    email {$ACME_EMAIL}
+}
+
+import /etc/caddy/conf.d/*.caddy

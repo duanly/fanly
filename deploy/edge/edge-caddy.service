@@ -1,0 +1,21 @@
+# 安装：
+#   cp deploy/edge/edge-caddy.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now edge-caddy
+# 改完路由热重载（不断连接）：
+#   systemctl reload edge-caddy
+
+[Unit]
+Description=Shared Caddy reverse proxy (edge)
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/edge
+ExecStart=/usr/bin/docker compose up -d
+ExecStop=/usr/bin/docker compose down
+ExecReload=/usr/bin/docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+
+[Install]
+WantedBy=multi-user.target

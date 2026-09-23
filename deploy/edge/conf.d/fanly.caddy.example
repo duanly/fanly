@@ -1,0 +1,27 @@
+# 复制成 conf.d/fanly.caddy，把域名换成你自己的已备案域名。
+# 改完热重载：systemctl reload edge-caddy
+
+fanly.yytbank.cn {
+    encode zstd gzip
+
+    # fanly 应用自己的 Caddy，容器名由 docker-compose.edge.yml 固定
+    reverse_proxy fanly-caddy:80
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    # 带 hash 的静态资源长缓存
+    @hashed path_regexp \.(js|css|woff2?|png|jpg|svg)$
+    header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+    log {
+        output file /var/log/caddy/fanly.log {
+            roll_size 50mb
+            roll_keep 7
+        }
+    }
+}
