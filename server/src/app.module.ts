@@ -13,6 +13,7 @@ import { AllExceptionFilter } from './common/all-exception.filter';
 import { CpsModule } from './modules/cps/cps.module';
 import { CpsService } from './modules/cps/cps.service';
 import { GoodsController } from './modules/cps/goods.controller';
+import { OauthController } from './modules/cps/oauth.controller';
 import { AuthService } from './modules/auth/auth.service';
 import { AuthController } from './modules/auth/auth.controller';
 import { OrderService } from './modules/order/order.service';
@@ -71,7 +72,7 @@ const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'functi
     CpsModule,
   ],
   controllers: [
-    AuthController, GoodsController, OrderController,
+    AuthController, GoodsController, OauthController, OrderController,
     FundController, AgentController, AdminController, HealthController,
   ],
   providers: [

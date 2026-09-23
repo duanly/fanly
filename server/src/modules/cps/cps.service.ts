@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AggregatorProvider } from './providers/aggregator.provider';
 import { MockProvider } from './providers/mock.provider';
+import { PddProvider } from './providers/pdd.provider';
 import { ConvertedLink, CpsProvider, SearchParams, UnifiedGoods, UnifiedOrder } from './cps.types';
 import { explainParseFailure, parseShareContent } from '@/common/share-content';
 
@@ -20,18 +21,39 @@ export class CpsService implements OnModuleInit {
 
   onModuleInit() {
     const mode = this.config.get<string>('CPS_PROVIDER', 'mock');
+
+    // 拼多多单独开口子：只要填了 client_id 就走直连，不跟着全局 mode 走。
+    // 四家里只有它不用授权、不用渠道备案，没理由等其他平台一起上。
+    const pddId = this.config.get<string>('PDD_CLIENT_ID', '');
+    const pddSecret = this.config.get<string>('PDD_CLIENT_SECRET', '');
+    const pddPid = this.config.get<string>('PDD_PID', '');
+
+    const used: string[] = [];
     for (const p of PLATFORMS) {
+      if (p === 'PDD' && pddId && pddSecret) {
+        this.providers.set(p, new PddProvider({
+          clientId: pddId,
+          clientSecret: pddSecret,
+          pid: pddPid,
+          gateway: this.config.get<string>('PDD_GATEWAY', ''),
+        }));
+        used.push('PDD=direct');
+        if (!pddPid) this.logger.warn('PDD_PID 为空，转链会失败——去多多进宝后台拿推广位 ID');
+        continue;
+      }
       if (mode === 'aggregator') {
         this.providers.set(p, new AggregatorProvider(
           p,
           this.config.get('AGG_BASE_URL', ''),
           this.config.get('AGG_API_KEY', ''),
         ));
+        used.push(`${p}=aggregator`);
       } else {
         this.providers.set(p, new MockProvider(p));
+        used.push(`${p}=mock`);
       }
     }
-    this.logger.log(`CPS 渠道模式: ${mode}，已注册平台: ${[...this.providers.keys()].join(', ')}`);
+    this.logger.log(`CPS 渠道: ${used.join(', ')}`);
   }
 
   get(platform: string): CpsProvider {
