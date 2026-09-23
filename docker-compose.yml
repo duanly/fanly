@@ -1,0 +1,110 @@
+services:
+  mysql:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+      # 钱的事，事务隔离别用默认的 REPEATABLE-READ 跑长事务
+      - --transaction-isolation=READ-COMMITTED
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${DB_ROOT_PASS}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    # 不对外暴露端口，只在 compose 内网可达
+    expose:
+      - "3306"
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASS}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASS}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    expose:
+      - "6379"
+
+  server:
+    build:
+      context: ./server
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      TZ: Asia/Shanghai
+      JWT_SECRET: ${JWT_SECRET}
+      H5_BASE_URL: https://${DOMAIN}
+      DB_TYPE: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_NAME: ${DB_NAME}
+      # 首次部署设 true 建表，建完改回 false 再 up -d
+      DB_SYNC: ${DB_SYNC:-false}
+      ENABLE_DOCS: ${ENABLE_DOCS:-false}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASS: ${REDIS_PASS}
+      CPS_PROVIDER: ${CPS_PROVIDER:-mock}
+      AGG_BASE_URL: ${AGG_BASE_URL:-}
+      AGG_API_KEY: ${AGG_API_KEY:-}
+      PDD_CLIENT_ID: ${PDD_CLIENT_ID:-}
+      PDD_CLIENT_SECRET: ${PDD_CLIENT_SECRET:-}
+      PDD_PID: ${PDD_PID:-}
+      JD_APP_KEY: ${JD_APP_KEY:-}
+      JD_APP_SECRET: ${JD_APP_SECRET:-}
+      JD_SITE_ID: ${JD_SITE_ID:-}
+      TB_APP_KEY: ${TB_APP_KEY:-}
+      TB_APP_SECRET: ${TB_APP_SECRET:-}
+      TB_ADZONE_ID: ${TB_ADZONE_ID:-}
+      DY_APP_KEY: ${DY_APP_KEY:-}
+      DY_APP_SECRET: ${DY_APP_SECRET:-}
+    expose:
+      - "3000"
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.web
+    restart: always
+    depends_on:
+      - server
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data      # 证书存这里，别删，删了会触发 LE 频率限制
+      - caddy-config:/config
+      - caddy-logs:/var/log/caddy
+
+volumes:
+  mysql-data:
+  redis-data:
+  caddy-data:
+  caddy-config:
+  caddy-logs:

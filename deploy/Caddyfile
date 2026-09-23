@@ -1,0 +1,55 @@
+# ── 生产：Caddy 自动签发并续期 Let's Encrypt 证书 ──────────────
+# DOMAIN / ACME_EMAIL 由 docker-compose 从 .env 注入
+
+{
+    email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+    encode zstd gzip
+
+    # 服务端 API：同源 /api，前端不需要配 CORS
+    handle /api/* {
+        reverse_proxy server:3000
+    }
+
+    # 接口文档，上线后建议加 basic_auth 或直接注释掉
+    handle /docs* {
+        reverse_proxy server:3000
+    }
+
+    # 不带斜杠的 /admin 也要能进后台
+    redir /admin /admin/
+
+    # 管理后台挂子路径
+    handle_path /admin/* {
+        root * /srv/admin
+        try_files {path} /index.html
+        file_server
+    }
+
+    # 根路径是 H5
+    handle {
+        root * /srv/h5
+        try_files {path} /index.html
+        file_server
+    }
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    # 带 hash 的静态资源可以长缓存
+    @hashed path_regexp \.(js|css|woff2?|png|jpg|svg)$
+    header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 50mb
+            roll_keep 7
+        }
+    }
+}

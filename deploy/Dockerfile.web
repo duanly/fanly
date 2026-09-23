@@ -1,0 +1,20 @@
+# 一个镜像同时构建两个前端，最后塞进 Caddy —— 免去共享卷的麻烦
+
+FROM node:22-alpine AS h5
+WORKDIR /app
+COPY h5/package*.json ./
+RUN npm ci
+COPY h5/ ./
+RUN npm run build
+
+FROM node:22-alpine AS admin
+WORKDIR /app
+COPY admin/package*.json ./
+RUN npm ci
+COPY admin/ ./
+RUN npm run build
+
+FROM caddy:2-alpine
+COPY --from=h5    /app/dist /srv/h5
+COPY --from=admin /app/dist /srv/admin
+COPY deploy/Caddyfile /etc/caddy/Caddyfile

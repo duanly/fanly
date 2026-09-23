@@ -1,0 +1,18 @@
+# 本地验证用：覆盖掉证书相关配置，走纯 HTTP 8080
+# 用法：docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+services:
+  mysql:
+    ports:
+      - "13306:3306"     # 本地方便用客户端连进去看数据
+
+  server:
+    environment:
+      H5_BASE_URL: http://localhost:8080
+    ports:
+      - "3000:3000"      # 本地直连服务端调试用
+
+  web:
+    ports: !override
+      - "8080:80"
+    volumes:
+      - ./deploy/Caddyfile.local:/etc/caddy/Caddyfile:ro
