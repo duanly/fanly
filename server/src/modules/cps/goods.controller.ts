@@ -7,6 +7,7 @@ import { PromotionPosition, User } from '@/entities';
 import { CurrentUser } from '@/common/decorators';
 import { Public } from '@/common/jwt.guard';
 import { CommissionService } from '../commission/commission.service';
+import { platformName } from '@/common/share-content';
 
 @ApiTags('选品与转链')
 @Controller('api')
@@ -76,13 +77,26 @@ export class GoodsController {
   }
 
   @Post('link/parse')
-  @ApiOperation({ summary: '口令/链接解析' })
+  @ApiOperation({ summary: '口令/链接解析，认出商品并直接转好链' })
   async parse(@Body() body: { content: string }, @CurrentUser('sub') userId: number) {
-    const g = await this.cps.parseAny(body.content);
-    if (!g) return null;
-    const [withRebate] = await this.withRebate([g], userId);
-    const pos = await this.posRepo.findOneBy({ userId, platform: g.platform });
-    const link = pos ? await this.cps.convertLink(g.platform, g.goodsId, pos.positionId) : null;
-    return { goods: withRebate, link };
+    const { goods, platform, reason } = await this.cps.parseAny(body?.content || '');
+    if (!goods) {
+      // 认不出来也算正常结果，带上原因让前端直接展示，不要抛 500
+      return { ok: false, platform, reason: reason || '没认出这个商品' };
+    }
+
+    const [withRebate] = await this.withRebate([goods], userId);
+    const pos = await this.posRepo.findOneBy({ userId, platform: goods.platform });
+    const link = pos
+      ? await this.cps.convertLink(goods.platform, goods.goodsId, pos.positionId)
+      : null;
+
+    return {
+      ok: true,
+      platform: goods.platform,
+      platformName: platformName(goods.platform),
+      goods: withRebate,
+      link,
+    };
   }
 }

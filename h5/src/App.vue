@@ -19,11 +19,15 @@
     <van-tabbar-item to="/orders" icon="orders-o">订单</van-tabbar-item>
     <van-tabbar-item to="/mine" icon="user-o">我的</van-tabbar-item>
   </van-tabbar>
+
+  <!-- 从电商 App 复制完回来，自动提示查返利 -->
+  <ClipboardWatcher v-if="showTab" />
 </template>
 
 <script setup>
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
+import ClipboardWatcher from './components/ClipboardWatcher.vue';
 
 const route = useRoute();
 const active = ref(0);

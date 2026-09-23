@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AggregatorProvider } from './providers/aggregator.provider';
 import { MockProvider } from './providers/mock.provider';
 import { ConvertedLink, CpsProvider, SearchParams, UnifiedGoods, UnifiedOrder } from './cps.types';
+import { explainParseFailure, parseShareContent } from '@/common/share-content';
 
 export const PLATFORMS = ['PDD', 'JD', 'TB', 'DY'] as const;
 
@@ -60,16 +61,45 @@ export class CpsService implements OnModuleInit {
     return this.get(platform).fetchOrders(s, e);
   }
 
-  /** 口令解析：挨个平台试，谁认出来算谁的 */
-  async parseAny(text: string): Promise<UnifiedGoods | null> {
-    for (const [name, p] of this.providers) {
-      try {
-        const g = await p.parseContent(text);
-        if (g) return g;
-      } catch (e) {
-        this.logger.debug(`${name} 解析失败: ${e.message}`);
-      }
+  /**
+   * 口令/链接解析。
+   *
+   * 先在本地认出是哪个平台，只调那一家的接口——比挨个平台瞎试快，
+   * 失败时也能告诉用户到底哪儿不对，而不是干巴巴一句「没认出来」。
+   */
+  async parseAny(text: string): Promise<{
+    goods: UnifiedGoods | null;
+    platform?: string;
+    reason?: string;
+  }> {
+    const hit = parseShareContent(text);
+    if (!hit) {
+      return { goods: null, reason: explainParseFailure(text) };
     }
-    return null;
+
+    this.logger.debug(`识别为 ${hit.platform} / ${hit.kind} / ${hit.token}`);
+    const provider = this.providers.get(hit.platform);
+    if (!provider) {
+      return { goods: null, platform: hit.platform, reason: `暂未接入${hit.platform}渠道` };
+    }
+
+    try {
+      // 商品 ID 能直查就直查，省一次解析调用
+      const goods = hit.kind === 'goodsId'
+        ? (await provider.getGoodsDetail(hit.token)) ?? (await provider.parseContent(text))
+        : await provider.parseContent(text);
+
+      if (goods) return { goods, platform: hit.platform };
+      return {
+        goods: null,
+        platform: hit.platform,
+        reason: hit.title
+          ? `没查到「${hit.title}」，可能是该商品没有返利`
+          : '这个商品暂时没有返利，换一个试试',
+      };
+    } catch (e) {
+      this.logger.warn(`${hit.platform} 解析失败: ${e.message}`);
+      return { goods: null, platform: hit.platform, reason: '解析服务暂时不可用，稍后再试' };
+    }
   }
 }

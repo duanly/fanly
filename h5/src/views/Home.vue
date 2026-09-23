@@ -8,7 +8,7 @@
           <input v-model="keyword" placeholder="搜隐藏优惠券" readonly />
           <span class="search-btn">搜索</span>
         </div>
-        <div class="head-icon" @click="focusPaste">
+        <div class="head-icon" @click="goParse">
           <van-icon name="exchange" size="20" />
           <span>转链</span>
         </div>
@@ -19,7 +19,7 @@
       </div>
 
       <!-- 口令粘贴条：返利平台的核心留存入口 -->
-      <div class="paste-bar" @click="doParse">
+      <div class="paste-bar" @click="goParse">
         <span style="font-weight:600">复制</span>
         <span class="plats">
           <i class="plat-dot" style="background:#ff5000">淘</i>
@@ -117,7 +117,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { showToast, showConfirmDialog } from 'vant';
+import { showToast } from 'vant';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
 
@@ -174,34 +174,13 @@ function onEntry(e) {
   else toast(e.l + ' 还没做');
 }
 
-/** 口令解析：从剪贴板读，读不到就让用户粘进来 */
-async function doParse() {
-  if (!localStorage.getItem('token')) return router.push('/login');
-  let text = '';
-  try {
-    text = await navigator.clipboard.readText();
-  } catch {
-    /* 浏览器不给读剪贴板，走手动输入 */
+/** 转链统一走独立页面，那里有粘贴框、历史记录和结果卡 */
+function goParse() {
+  if (!localStorage.getItem('token')) {
+    return router.push({ path: '/login', query: { redirect: '/parse' } });
   }
-  if (!text) {
-    const r = await showConfirmDialog({
-      title: '粘贴商品链接或口令',
-      message: '复制淘宝/京东/拼多多/抖音的商品链接或口令，回到这里点确定',
-      confirmButtonText: '我已复制',
-    }).catch(() => null);
-    if (!r) return;
-    try {
-      text = await navigator.clipboard.readText();
-    } catch {
-      return toast('读不到剪贴板，请用上方搜索');
-    }
-  }
-  const res = await api.parse(text.trim());
-  if (!res?.goods) return toast('没认出这个商品');
-  go(res.goods);
+  router.push('/parse');
 }
-
-function focusPaste() { doParse(); }
 
 async function load() {
   loading.value = true;
