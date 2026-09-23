@@ -330,7 +330,7 @@ GHCR 在国内偶尔会拉不动。真遇到了，切过去只要改两处：
 ```
 公网 :80/:443
    └── edge-caddy（TLS + 域名分发，接在 edge 网络上）
-         ├── fanli.com     → fanly-web:80    → 内部 Caddy 管 / /admin /api
+         ├── fanli.com     → fanly-caddy:80  → 内部 Caddy 管 / /admin /api
          └── paohuzi.com   → paohuzi-caddy:80
 ```
 
@@ -407,7 +407,8 @@ docker compose up -d
 加了 `COMPOSE_FILE` 之后，**以后照常敲 `docker compose up -d` 就会自动合并两个文件**，
 不用每次带一串 `-f`。
 
-这个覆盖文件做了三件事：把容器命名为 `fanly-web` 好让入口找到它、
+这个覆盖文件做了三件事：把容器命名为 `fanly-caddy` 好让入口找到它
+（跟 `paohuzi-caddy` 一个命名规则，`<应用>-caddy`）、
 用 `ports: !override []` 清掉 80/443、把 Caddy 配置换成不签证书的那份
 （证书统一归入口管）。
 
@@ -417,7 +418,7 @@ docker compose up -d
 cat > /opt/edge/conf.d/fanly.caddy <<'CADDY'
 你的域名 {
     encode zstd gzip
-    reverse_proxy fanly-web:80
+    reverse_proxy fanly-caddy:80
 }
 CADDY
 

@@ -9,12 +9,12 @@
 # 然后在入口的 conf.d/ 里加一个文件：
 #   你的域名 {
 #       encode zstd gzip
-#       reverse_proxy fanly-web:80
+#       reverse_proxy fanly-caddy:80
 #   }
 
 services:
   web:
-    container_name: fanly-web
+    container_name: fanly-caddy
     # 端口交给入口，本应用不再对外暴露
     ports: !override []
     # 证书归入口管，换成镜像里那份不签证书的配置（已打进镜像，不用挂载）
