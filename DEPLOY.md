@@ -92,7 +92,7 @@ echo "REDIS_PASS=$(openssl rand -base64 18)"
 `vi .env`，把上面四行的输出粘进去，另外改这几项：
 
 ```bash
-IMAGE_PREFIX=registry.cn-guangzhou.aliyuncs.com/duanly   # ACR 地址+命名空间，见第 9 步
+IMAGE_PREFIX=ghcr.io/duanly  # 镜像仓库+命名空间，见第 9 步
 IMAGE_TAG=latest             # 回滚时换成 sha-xxxxxxx
 DOMAIN=你的域名              # 不带 http://，不带斜杠
 ACME_EMAIL=你的邮箱          # 证书到期通知
@@ -119,13 +119,17 @@ echo "域名解析到:  $(dig +short 你的域名 | tail -1)"
 
 ## 第 5 步 · 启动
 
-镜像由 GitHub Actions 构建好推到阿里云 ACR，服务器只管拉。
+镜像由 GitHub Actions 构建好推到 GHCR，服务器只管拉。
 
-先登录 ACR（一次就够，凭证会存在 `~/.docker/config.json`）：
+**如果 GHCR 上的包设成了 public，这步可以跳过。** 私有包要先登录（一次就够，
+凭证存在 `~/.docker/config.json`）：
 
 ```bash
-docker login registry.cn-guangzhou.aliyuncs.com -u 你的ACR用户名
+echo '你的GitHub_PAT' | docker login ghcr.io -u 你的GitHub用户名 --password-stdin
 ```
+
+PAT 在 GitHub → Settings → Developer settings → Personal access tokens (classic) 生成，
+只勾 `read:packages` 就够。
 
 ```bash
 cd /opt/fanly
@@ -207,39 +211,40 @@ docker compose logs --tail=50 server
 配好之后，push 到 main 就自动出镜像，服务器不用再装编译工具链、不用跑 `npm ci`，
 也不会再出现 SSH 断线把构建打断的事。
 
-### 开通阿里云 ACR 个人版
+### GHCR：不用配任何 Secret
 
-控制台 → 容器镜像服务 → 个人实例（免费）：
+工作流用的是内置的 `GITHUB_TOKEN`，权限已经在 `build.yml` 里声明好了
+（`permissions: packages: write`）。push 到 main 就会跑。
 
-1. 建命名空间，比如 `duanly`，**仓库类型选私有**
-2. 设置 Registry 登录密码（跟阿里云账号密码是两回事）
-3. 记下三样东西：
-   - registry 地址，形如 `registry.cn-guangzhou.aliyuncs.com`（选离服务器近的区）
-   - 命名空间名
-   - 用户名（一般是阿里云账号全名）和刚设的密码
+唯一要确认的是**仓库的 Actions 有写 packages 的权限**：
+仓库 → Settings → Actions → General → Workflow permissions，
+选 **Read and write permissions**。
 
-### 填 GitHub Secrets
+### 首次构建后：决定包是公开还是私有
 
-仓库 → Settings → Secrets and variables → Actions → New repository secret，加四条：
+第一次推完，镜像会出现在 GitHub → 你的头像 → Packages 里，**默认是私有**。
 
-| 名字 | 值 |
-| --- | --- |
-| `ACR_REGISTRY` | `registry.cn-guangzhou.aliyuncs.com` |
-| `ACR_NAMESPACE` | `duanly` |
-| `ACR_USERNAME` | ACR 用户名 |
-| `ACR_PASSWORD` | ACR 登录密码 |
+- **设成 public**（推荐，省事）：进包的 Package settings → Change visibility → Public。
+  之后服务器 `docker pull` 不用登录。注意这是公开的，别把密钥打进镜像——
+  本项目的配置全走 `.env`，镜像里没有敏感信息。
+- **保持私有**：服务器要用 PAT 登录一次，见第 5 步。
 
-### 触发
+### 触发与标签
 
 push 到 main 自动跑（只改 `.md` 不触发）。也可以在 Actions 页面手动点 Run workflow。
-
-出来的标签：
 
 | 标签 | 什么时候有 |
 | --- | --- |
 | `latest` | 每次 push main |
 | `sha-4fe247f` | 每次构建都有，**回滚就用它** |
 | `v1.0.0` | 打了 `git tag v1.0.0` 时 |
+
+镜像地址形如：
+
+```
+ghcr.io/duanly/fanly-server:latest
+ghcr.io/duanly/fanly-web:sha-4fe247f
+```
 
 ### 服务器更新
 
@@ -259,6 +264,17 @@ docker compose up -d
 ```
 
 比重新构建快得多，出事的时候这点很关键。
+
+### 以后换阿里云 ACR
+
+GHCR 在国内偶尔会拉不动。真遇到了，切过去只要改两处：
+
+1. `.github/workflows/build.yml` 顶部：`REGISTRY` 改成 ACR 地址（如
+   `registry.cn-guangzhou.aliyuncs.com`），`IMAGE_NAMESPACE` 改成命名空间；
+   仓库 Secrets 加 `ACR_USERNAME` / `ACR_PASSWORD`（登录步骤已经写好了自动切换）
+2. 服务器 `.env` 的 `IMAGE_PREFIX` 改成对应地址
+
+阿里云 ACR 个人版免费，控制台 → 容器镜像服务 → 个人实例开通即可。
 
 ### 三个设计说明
 
@@ -483,7 +499,8 @@ chmod +x /usr/local/bin/fanly-backup.sh
 
 | 现象 | 原因 | 处理 |
 | --- | --- | --- |
-| `docker compose pull` 报 denied | 没登录 ACR，或镜像还没推上去 | `docker login`；看 Actions 跑完没 |
+| `docker compose pull` 报 denied | 包是私有且没登录，或镜像还没推上去 | 把包设 public，或 `docker login ghcr.io`；看 Actions 跑完没 |
+| CI 报 denied: permission_denied | Actions 没有写 packages 权限 | 仓库 Settings → Actions → Workflow permissions 选 Read and write |
 | 镜像拉不到 manifest unknown | `IMAGE_TAG` 写错 | 去 ACR 控制台看有哪些标签 |
 | 本地构建卡在 `npm ci` | 没叠加 build 覆盖文件 | 见文末「本地构建」 |
 | 容器起来就退，日志报 `Cannot find module '@/...'` | 构建漏了 tsc-alias | 检查 package.json 的 build 脚本 |

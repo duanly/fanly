@@ -11,14 +11,18 @@ on:
   workflow_dispatch:
 
 env:
-  # 阿里云 ACR，例如 registry.cn-guangzhou.aliyuncs.com
-  REGISTRY: ${{ secrets.ACR_REGISTRY }}
-  # 命名空间，例如 duanly
-  NAMESPACE: ${{ secrets.ACR_NAMESPACE }}
+  # 默认推 GHCR，用内置 GITHUB_TOKEN，不用配任何 Secret。
+  # 要换阿里云 ACR：把 REGISTRY 改成 ACR 地址、IMAGE_NAMESPACE 改成命名空间，
+  # 再配 ACR_USERNAME / ACR_PASSWORD 两个 Secret（下面登录步骤会自动切换）。
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write     # 推 GHCR 必需
     strategy:
       # 一个挂了另一个继续，省得白等
       fail-fast: false
@@ -36,18 +40,20 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: 登录阿里云 ACR
+      - name: 登录镜像仓库
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+          # GHCR 用内置 token；换成别家时配了 ACR_USERNAME 就走那套
+          username: ${{ secrets.ACR_USERNAME || github.actor }}
+          password: ${{ secrets.ACR_PASSWORD || secrets.GITHUB_TOKEN }}
 
       - name: 生成标签
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/fanly-${{ matrix.name }}
+          # GHCR 要求全小写
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/fanly-${{ matrix.name }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-,format=short
