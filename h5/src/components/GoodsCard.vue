@@ -2,9 +2,8 @@
   <div class="goods-card" @click="go">
     <div class="img-wrap">
       <img :src="g.image" :alt="g.title" loading="lazy" />
-      <span class="plat-badge" :style="{ background: PLAT[g.platform]?.bg }">
-        {{ PLAT[g.platform]?.name || g.platform }}
-      </span>
+      <!-- 来源只是个提示，不该跟商品抢注意力，所以放右上角、半透明 -->
+      <span class="plat-badge">{{ PLAT[g.platform]?.name || g.platform }}</span>
       <span v-if="g.orderCount" class="hot-badge">{{ g.orderCount }} 人买过</span>
     </div>
 
@@ -97,14 +96,18 @@ async function doRecommend() {
 <style scoped>
 .img-wrap { position: relative; }
 .plat-badge {
-  position: absolute; left: 6px; top: 6px;
-  color: #fff; font-size: 10px; line-height: 1;
-  padding: 3px 6px; border-radius: 4px;
-}
-.hot-badge {
   position: absolute; right: 6px; top: 6px;
-  background: rgba(0, 0, 0, .55); color: #fff;
-  font-size: 10px; padding: 3px 6px; border-radius: 4px;
+  background: rgba(255, 255, 255, .88);
+  color: #646566;
+  font-size: 10px; line-height: 1;
+  padding: 3px 7px; border-radius: 999px;
+  backdrop-filter: blur(2px);
+}
+/* 热销角标挪到左下，别跟来源标挤一起 */
+.hot-badge {
+  position: absolute; left: 6px; bottom: 6px;
+  background: rgba(0, 0, 0, .5); color: #fff;
+  font-size: 10px; padding: 3px 7px; border-radius: 999px;
 }
 .foot {
   display: flex; align-items: center;

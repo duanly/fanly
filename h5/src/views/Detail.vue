@@ -14,6 +14,14 @@
         </div>
         <div style="margin-top:10px;font-size:15px;line-height:1.5">{{ g.title }}</div>
         <div class="muted" style="margin-top:8px">{{ g.shopName }} · 已售 {{ g.salesVolume }} 件</div>
+
+        <!-- 卡片上低调，到了详情页必须说清楚：钱要付给谁、货从哪儿发 -->
+        <div class="from-bar">
+          <span class="dot" :style="{ background: PLAT[g.platform]?.bg }">
+            {{ PLAT[g.platform]?.short }}
+          </span>
+          <span>本商品由 <b>{{ PLAT[g.platform]?.name || g.platform }}</b> 发货，点击购买会跳转到该 App 下单</span>
+        </div>
       </div>
 
       <!-- 返利明细：把钱算给用户看，这是转化的关键 -->
@@ -80,6 +88,13 @@ import { useRoute, useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { api } from '../api';
 import { cartCount, bumpCartCount } from '../utils/cart-badge';
+
+const PLAT = {
+  PDD: { name: '拼多多', short: '拼', bg: '#e02e24' },
+  JD: { name: '京东', short: '京', bg: '#e2231a' },
+  TB: { name: '淘宝', short: '淘', bg: '#ff5000' },
+  DY: { name: '抖音', short: '抖', bg: '#161823' },
+};
 
 const route = useRoute();
 const router = useRouter();
