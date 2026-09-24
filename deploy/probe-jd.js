@@ -67,7 +67,17 @@ function sign(params) {
   };
 }
 
-async function call(method, bizObj, { debug = false } = {}) {
+/**
+ * 业务参数到底放哪个字段，京东有三种写法，各接口还不统一：
+ *   param_json        —— 联盟文档里写的
+ *   360buy_param_json —— 宙斯网关的老写法，很多接口至今只认这个
+ *   flat              —— 业务参数直接平铺成表单字段
+ * 字段名不对时业务层收不到参数，只会回一个没有任何细节的「参数错误」，
+ * 而且不管内容怎么改都一样——所以必须先把模式探出来。
+ */
+let PARAM_MODE = process.env.JD_PARAM_MODE || '';
+
+function buildParams(method, bizObj, mode) {
   const params = {
     method,
     app_key: APP_KEY,
@@ -75,11 +85,21 @@ async function call(method, bizObj, { debug = false } = {}) {
     format: 'json',
     v: '1.0',
     sign_method: 'md5',
-    // 业务参数整个塞进一个字段，不像拼多多那样平铺
-    param_json: JSON.stringify(bizObj),
   };
-  // 有授权 key 就带上；它参与签名，不能只放在 body 里
   if (TOKEN) params.access_token = TOKEN;
+
+  if (mode === '360buy') params['360buy_param_json'] = JSON.stringify(bizObj);
+  else if (mode === 'flat') {
+    for (const [k, v] of Object.entries(bizObj)) {
+      params[k] = typeof v === 'object' ? JSON.stringify(v) : String(v);
+    }
+  } else params.param_json = JSON.stringify(bizObj);
+
+  return params;
+}
+
+async function call(method, bizObj, { debug = false, mode } = {}) {
+  const params = buildParams(method, bizObj, mode || PARAM_MODE);
   const { sign: sg, raw } = sign(params);
   params.sign = sg;
 
@@ -122,6 +142,39 @@ async function call(method, bizObj, { debug = false } = {}) {
 (async () => {
   let skuId = null;
   let materialUrl = null;
+
+  console.log('【0】业务参数字段名探测 —— 这个不对后面全是「参数错误」');
+  if (PARAM_MODE) {
+    console.log(`  已由 JD_PARAM_MODE 指定为 ${PARAM_MODE}，跳过探测`);
+  } else {
+    // 拿一个有权限的接口当探针：报「参数错误」说明字段名没进去，
+    // 报别的（或直接成功）说明业务层收到参数了
+    for (const mode of ['param_json', '360buy', 'flat']) {
+      try {
+        await call('jd.union.open.goods.jingfen.query',
+          { goodsReq: { eliteId: 1, pageIndex: 1, pageSize: 20 } }, { mode });
+        PARAM_MODE = mode;
+        console.log(`  ✓ ${mode} —— 直接通了`);
+        break;
+      } catch (e) {
+        const msg = e.message || '';
+        if (/参数错误|400/.test(msg)) {
+          console.log(`  ✗ ${mode.padEnd(12)} 参数没进去`);
+        } else {
+          PARAM_MODE = mode;
+          console.log(`  ✓ ${mode.padEnd(12)} 参数进去了（报的是「${msg.slice(0, 30)}」，属于内容问题）`);
+          break;
+        }
+      }
+    }
+    if (!PARAM_MODE) {
+      PARAM_MODE = 'param_json';
+      console.log('  三种都不行，先按 param_json 往下跑，后面的结果仅供参考');
+    } else {
+      console.log(`  → 后续全部用 ${PARAM_MODE}`);
+    }
+  }
+  console.log('');
 
   console.log('【1】关键词搜索 jd.union.open.goods.query');
   try {
