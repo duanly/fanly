@@ -65,7 +65,7 @@ export const api = {
   compareRemove: (id) => http.delete(`/api/admin/compare/${id}`),
 
   // 首页运营
-  homeLinks: () => http.get('/api/admin/home/links'),
+  homeLinks: (slot) => http.get('/api/admin/home/links', { params: { slot } }),
   homeLinkSave: (data) => http.post('/api/admin/home/links', data),
   homeLinkRemove: (id) => http.delete(`/api/admin/home/links/${id}`),
 

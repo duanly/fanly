@@ -14,3 +14,4 @@ export * from './cart-item.entity';
 export * from './order-claim.entity';
 export * from './coin-ledger.entity';
 export * from './checkin.entity';
+export * from './goods-recommend.entity';

@@ -44,7 +44,7 @@ export const api = {
   compareDetail: (id) => http.get(`/api/compare/${id}`),
 
   // 首页活动位和榜单
-  homeLinks: () => http.get('/api/home/links'),
+  homeLinks: (slot) => http.get('/api/home/links', { params: { slot } }),
   ranking: (type, limit) => http.get('/api/home/ranking', { params: { type, limit } }),
 
   compareCategories: () => http.get('/api/compare/categories'),
@@ -73,6 +73,9 @@ export const api = {
   claimList: (params) => http.get('/api/claim', { params }),
 
   // 签到与金币
+  recommendGoods: (platform, goodsId) =>
+    http.post('/api/goods/recommend', { platform, goodsId }),
+
   coinStatus: () => http.get('/api/coin/status'),
   checkin: () => http.post('/api/coin/checkin'),
   coinExchange: (coins) => http.post('/api/coin/exchange', { coins }),

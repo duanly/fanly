@@ -9,16 +9,17 @@ export class HomeLinkService {
     @InjectRepository(HomeLink) private readonly repo: Repository<HomeLink>,
   ) {}
 
-  /** 前台只要上架的 */
-  publicList() {
-    return this.repo.find({
-      where: { status: 1 },
-      order: { sortWeight: 'DESC', id: 'ASC' },
-    });
+  /** 前台只要上架的；传了 slot 就只给那一块 */
+  publicList(slot?: string) {
+    const where: any = { status: 1 };
+    if (slot) where.slot = slot;
+    return this.repo.find({ where, order: { sortWeight: 'DESC', id: 'ASC' } });
   }
 
-  adminList() {
-    return this.repo.find({ order: { sortWeight: 'DESC', id: 'ASC' } });
+  adminList(slot?: string) {
+    const where: any = {};
+    if (slot) where.slot = slot;
+    return this.repo.find({ where, order: { sortWeight: 'DESC', id: 'ASC' } });
   }
 
   async save(body: Partial<HomeLink> & { id?: number }) {
@@ -27,6 +28,8 @@ export class HomeLinkService {
       : this.repo.create();
     if (!row) throw new NotFoundException('活动位不存在');
     Object.assign(row, {
+      slot: body.slot ?? row.slot ?? 'entry',
+      image: body.image ?? row.image,
       title: body.title ?? row.title,
       subtitle: body.subtitle ?? row.subtitle,
       icon: body.icon ?? row.icon,

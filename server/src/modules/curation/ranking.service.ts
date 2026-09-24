@@ -32,6 +32,7 @@ export class RankingService {
       commissionRate: Number(r.commissionRate),
       commission: Number(r.commission),
       salesVolume: r.salesVolume,
+      recommendScore: r.recommendScore,
     };
   }
 
@@ -98,13 +99,19 @@ export class RankingService {
     return rows.map((r) => this.toGoods(r));
   }
 
-  /** 主编推荐：选品池里权重最高的，纯人工控 */
+  /**
+   * 推荐榜：用户推荐次数优先，后台权重其次。
+   *
+   * 两条路都能上榜——用户一人一票投上来的，和运营手动置顶的。
+   * 权重排在推荐后面，意味着运营想压一件商品上榜得给足权重，
+   * 不能轻易盖掉真实的用户偏好。
+   */
   async pick(limit = 10) {
     const rows = await this.goodsRepo.find({
       where: { status: CuratedStatus.ON },
-      order: { sortWeight: 'DESC', id: 'DESC' },
+      order: { recommendScore: 'DESC', sortWeight: 'DESC', id: 'DESC' },
       take: limit,
     });
-    return rows.map((r) => this.toGoods(r));
+    return rows.map((r) => ({ ...this.toGoods(r), recommendScore: r.recommendScore }));
   }
 }

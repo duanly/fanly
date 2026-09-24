@@ -1,6 +1,5 @@
 <template>
   <div class="page">
-    <!-- 顶部：搜索 + 转链 -->
     <div class="home-head">
       <div class="search-row">
         <div class="search-box" @click="$router.push('/search')">
@@ -12,9 +11,36 @@
           <van-icon name="exchange" size="20" />
           <span>转链</span>
         </div>
+        <div class="head-icon" @click="$router.push('/checkin')">
+          <van-icon name="gift-o" size="20" />
+          <span>签到</span>
+        </div>
       </div>
 
-      <!-- 口令粘贴条：返利平台的核心留存入口 -->
+      <!--
+        平台授权：摆在最显眼的地方，就是为了拉新时当面能教会。
+        没授权的订单认不到人，这一步比什么都重要。
+      -->
+      <div class="auth-row">
+        <div class="ar-title">
+          <span>开启返利</span>
+          <span class="muted">授权后订单才认得到你</span>
+        </div>
+        <div class="ar-plats">
+          <div
+            v-for="p in PLATS"
+            :key="p.key"
+            class="ar-item"
+            :class="{ done: auth[p.key] === true }"
+            @click="goAuth(p)"
+          >
+            <span class="dot" :style="{ background: p.bg }">{{ p.short }}</span>
+            <span class="n">{{ p.name }}</span>
+            <span class="st">{{ auth[p.key] === true ? '已开启' : '去开启' }}</span>
+          </div>
+        </div>
+      </div>
+
       <div class="paste-bar" @click="goParse">
         <span style="font-weight:600">复制</span>
         <span class="plats">
@@ -31,18 +57,18 @@
       <van-swipe class="banner" :autoplay="4000" indicator-color="#fff">
         <van-swipe-item
           v-for="b in banners"
-          :key="b.t1"
-          :style="{ background: b.bg, height: '100%', display: 'grid', placeItems: 'center' }"
+          :key="b.id || b.title"
+          :style="bannerStyle(b)"
+          @click="openLink(b)"
         >
           <div>
-            <div class="t1">{{ b.t1 }}</div>
-            <div class="t2">{{ b.t2 }}</div>
+            <div class="t1">{{ b.title }}</div>
+            <div class="t2">{{ b.subtitle }}</div>
           </div>
         </van-swipe-item>
       </van-swipe>
     </div>
 
-    <!-- 比价入口：没建比价组就不显示 -->
     <div v-if="compare.length" class="cmp-entry" @click="$router.push('/compare')">
       <div class="left">
         <div class="t">⚖️ 全网比价</div>
@@ -54,7 +80,6 @@
       </div>
     </div>
 
-    <!-- 分类：一屏 8 个（两行四列），多了横滑翻页 -->
     <div class="grid-card">
       <div class="cat-scroll">
         <div class="cat-pages">
@@ -63,7 +88,7 @@
               v-for="e in pageItems"
               :key="e.key"
               class="plat-item"
-              @click="$router.push(`/group/${e.key}`)"
+              @click="openCat(e)"
             >
               <div class="plat-icon" :style="{ background: e.bg }">{{ e.icon }}</div>
               <div class="l">{{ e.name }}</div>
@@ -76,7 +101,6 @@
       </div>
     </div>
 
-    <!-- 活动位：后台配的，没配就不占地方 -->
     <div v-if="links.length" class="act-row">
       <div v-for="a in links" :key="a.id" class="act-card" @click="openLink(a)">
         <div class="t">{{ a.title }}</div>
@@ -85,7 +109,6 @@
       </div>
     </div>
 
-    <!-- 榜单 -->
     <van-tabs v-model:active="rankIdx" color="#ff4b3a" line-width="20" @change="loadRank">
       <van-tab v-for="r in RANKS" :key="r.type" :title="r.name" />
     </van-tabs>
@@ -94,7 +117,13 @@
 
     <van-loading v-if="loading" style="padding:40px;text-align:center" />
     <div v-else class="goods-grid">
-      <GoodsCard v-for="g in list" :key="g.platform + g.goodsId" :g="g" />
+      <GoodsCard
+        v-for="g in list"
+        :key="g.platform + g.goodsId"
+        :g="g"
+        show-recommend
+        @recommended="onRecommended"
+      />
     </div>
 
     <van-empty v-if="!loading && !list.length" :description="emptyText" />
@@ -104,7 +133,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { api } from '../api';
@@ -112,26 +141,37 @@ import GoodsCard from '../components/GoodsCard.vue';
 import BeianFooter from '../components/BeianFooter.vue';
 import { GRID_GROUPS, groupMeta } from '../constants/groups';
 
-const RANKS = [
-  { type: 'hot', name: '🔥 热销榜', tip: '按最近 7 天本站下单量排，不是平台的全站销量' },
-  { type: 'rebate', name: '💰 返利榜', tip: '按到手返利排，返得最多的在前面' },
-  { type: 'pick', name: '⭐️ 主编推荐', tip: '人工挑的，按后台权重排' },
+const PLATS = [
+  { key: 'PDD', name: '拼多多', short: '拼', bg: '#e02e24' },
+  { key: 'JD', name: '京东', short: '京', bg: '#e2231a' },
+  { key: 'TB', name: '淘宝', short: '淘', bg: '#ff5000' },
+  { key: 'DY', name: '抖音', short: '抖', bg: '#161823' },
 ];
 
-const banners = [
-  { t1: '天天领超级金币', t2: '最高得 100000 金币', bg: 'linear-gradient(135deg,#ff8a3d,#ff3b30)' },
-  { t1: '大额券专区', t2: '券后 78 折起', bg: 'linear-gradient(135deg,#8b6b3d,#5d4322)' },
-  { t1: '9.9 包邮', t2: '天天上新，买到就是赚到', bg: 'linear-gradient(135deg,#ff6a9a,#ff3b6b)' },
+const RANKS = [
+  { type: 'hot', name: '🔥 热销榜', tip: '按最近 7 天本站下单量排，不是平台的全站销量' },
+  { type: 'rebate', name: '💰 返利榜', tip: '按买了能返多少排，返得最多的在前面' },
+  { type: 'pick', name: '⭐️ 推荐榜', tip: '大家推荐次数最多的，你也可以给喜欢的商品点推荐' },
+];
+
+/** 后台一条 banner 都没配时的兜底，不让首页开天窗 */
+const FALLBACK_BANNERS = [
+  { title: '天天签到领金币', subtitle: '攒够就能换钱', image: 'linear-gradient(135deg,#ff8a3d,#ff3b30)', url: '/checkin', internal: true },
+  { title: '全网比价', subtitle: '同款哪家最便宜，一眼看清', image: 'linear-gradient(135deg,#4a3aff,#7b3ad5)', url: '/compare', internal: true },
+  { title: '邀请好友赚钱', subtitle: '他买东西，你拿分成', image: 'linear-gradient(135deg,#ff6a9a,#ff3b6b)', url: '/agent', internal: true },
 ];
 
 const router = useRouter();
 const keyword = ref('');
 const groups = ref([]);
+const cats = ref([]);
 const links = ref([]);
+const banners = ref(FALLBACK_BANNERS);
 const compare = ref([]);
 const list = ref([]);
 const loading = ref(true);
 const rankIdx = ref(0);
+const auth = reactive({});
 
 const rankTip = computed(() => RANKS[rankIdx.value]?.tip || '');
 const emptyText = computed(() =>
@@ -139,19 +179,35 @@ const emptyText = computed(() =>
     ? '还没有订单，热销榜攒够数据就出来了'
     : '后台还没选品',
 );
+const topSave = computed(() => compare.value.reduce((m, g) => Math.max(m, g.maxSave || 0), 0));
 
-const topSave = computed(() =>
-  compare.value.reduce((m, g) => Math.max(m, g.maxSave || 0), 0),
-);
-
-/** 分类宫格：后台真有货的优先，一件都没选时退回预设，免得首页空一块 */
-const catGroups = computed(() => {
-  const real = groups.value.filter((g) => g.groupKey !== 'default' && g.onShelf > 0);
-  if (!real.length) return GRID_GROUPS.slice(0, 8);
-  return real.map((g, i) => groupMeta(g.groupKey, i));
+const bannerStyle = (b) => ({
+  height: '100%',
+  display: 'grid',
+  placeItems: 'center',
+  cursor: 'pointer',
+  background: /^https?:|^data:/.test(b.image || '')
+    ? `center/cover no-repeat url(${b.image})`
+    : (b.image || 'linear-gradient(135deg,#ff8a3d,#ff3b30)'),
 });
 
-/** 每页 8 个（两行四列），多出来的横滑翻页 */
+/** 分区优先用后台配的；没配就退回「池子里真有货的专题」；再没有才用预设 */
+const catGroups = computed(() => {
+  if (cats.value.length) {
+    return cats.value.map((c, i) => ({
+      key: c.url || '',
+      name: c.title,
+      icon: c.icon || '📦',
+      bg: c.image || groupMeta(String(c.url || '').replace('/group/', ''), i).bg,
+      url: c.url,
+      internal: c.internal,
+    }));
+  }
+  const real = groups.value.filter((g) => g.groupKey !== 'default' && g.onShelf > 0);
+  const src = real.length ? real.map((g, i) => groupMeta(g.groupKey, i)) : GRID_GROUPS.slice(0, 8);
+  return src.map((g) => ({ ...g, url: `/group/${g.key}`, internal: true }));
+});
+
 const catPages = computed(() => {
   const all = catGroups.value;
   const pages = [];
@@ -166,10 +222,25 @@ function goParse() {
   router.push('/parse');
 }
 
+function goAuth(p) {
+  if (!localStorage.getItem('token')) {
+    return router.push({ path: '/login', query: { redirect: '/' } });
+  }
+  if (auth[p.key] === true) return showToast(`${p.name}已经开启了`);
+  router.push({ path: `/auth/${p.key}`, query: { redirect: '/' } });
+}
+
 function openLink(a) {
-  if (!a.url) return showToast('这个活动还没配链接');
+  if (!a?.url) return;
   if (a.internal) router.push(a.url);
   else window.open(a.url, '_blank');
+}
+
+const openCat = (e) => openLink(e);
+
+function onRecommended(g) {
+  // 推荐榜当前页要立刻看到名次变化，其他榜不用动
+  if (RANKS[rankIdx.value].type === 'pick') loadRank();
 }
 
 async function loadRank() {
@@ -184,20 +255,38 @@ async function loadRank() {
   }
 }
 
-/** 这三个都不该拖住首页主流，各自失败各自空，不互相牵连 */
+/** 侧边数据各自失败各自空，不互相牵连，更不能拖住主商品流 */
 async function loadSide() {
-  const safe = async (fn, target) => {
-    try { target.value = await fn(); } catch { target.value = []; }
+  const safe = async (fn, target, map) => {
+    try {
+      const v = await fn();
+      target.value = map ? map(v) : v;
+    } catch { /* 保持默认值 */ }
   };
   await Promise.all([
     safe(() => api.goodsGroups(), groups),
-    safe(() => api.homeLinks(), links),
+    safe(() => api.homeLinks('entry'), links),
+    safe(() => api.homeLinks('category'), cats),
+    safe(() => api.homeLinks('banner'), banners, (v) => (v?.length ? v : FALLBACK_BANNERS)),
     safe(() => api.compareList({ limit: 20 }), compare),
   ]);
+}
+
+async function loadAuth() {
+  if (!localStorage.getItem('token')) return;
+  await Promise.all(PLATS.map(async (p) => {
+    try {
+      const s = await api.authzStatus(p.key);
+      auth[p.key] = !s.needAuth;
+    } catch {
+      auth[p.key] = undefined;
+    }
+  }));
 }
 
 onMounted(() => {
   loadRank();
   loadSide();
+  loadAuth();
 });
 </script>

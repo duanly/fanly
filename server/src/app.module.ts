@@ -38,7 +38,8 @@ import { CartService } from './modules/cart/cart.service';
 import { CartController } from './modules/cart/cart.controller';
 import { HomeLinkService } from './modules/curation/home.service';
 import { RankingService } from './modules/curation/ranking.service';
-import { HomeController, HomeAdminController } from './modules/curation/home.controller';
+import { RecommendService } from './modules/curation/recommend.service';
+import { HomeController, HomeAdminController, RecommendController } from './modules/curation/home.controller';
 import { CurationService } from './modules/curation/curation.service';
 import { CurationController } from './modules/curation/curation.controller';
 import { JobService } from './modules/job/job.service';
@@ -91,13 +92,14 @@ const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'functi
     FundController, AgentController, AdminController, HealthController,
     CurationController, AuthzController,
     ComparePublicController, CompareAdminController,
-    HomeController, HomeAdminController, CartController,
+    HomeController, HomeAdminController, RecommendController, CartController,
     OrderClaimController, OrderClaimAdminController, CoinController,
   ],
   providers: [
     SysConfigService, AuthService, OrderService, CommissionService,
     FundService, AgentService, CurationService, AuthzService, CompareService,
-    HomeLinkService, RankingService, CartService, OrderClaimService, CoinService, JobService,
+    HomeLinkService, RankingService, RecommendService,
+    CartService, OrderClaimService, CoinService, JobService,
     { provide: APP_GUARD, useClass: JwtGuard },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
     { provide: APP_FILTER, useClass: AllExceptionFilter },

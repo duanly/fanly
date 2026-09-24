@@ -46,6 +46,10 @@ export class CuratedGoods {
   /** 越大越靠前；同权重之间按佣金金额降序 */
   @Column({ type: 'int', default: 0 }) sortWeight: number;
 
+  /** 用户推荐累计次数，推荐榜按它排 */
+  @Index()
+  @Column({ type: 'int', default: 0 }) recommendScore: number;
+
   @Index()
   @Column({ type: 'tinyint', default: CuratedStatus.ON }) status: number;
 

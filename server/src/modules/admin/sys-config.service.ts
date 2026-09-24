@@ -21,6 +21,7 @@ export const DEFAULT_CONFIG: Record<string, { value: string; remark: string }> =
   'withdraw.fee_fixed':      { value: '0',    remark: '提现固定手续费（元），通道收多少填多少' },
   'withdraw.daily_limit':    { value: '1',    remark: '每日提现次数上限' },
   // 金币：平台自贴的营销成本，跟联盟返利分开记账
+  'goods.recommend_limit':   { value: '5',    remark: '每人对同一商品最多推荐几次' },
   'coin.checkin_base':       { value: '10',   remark: '签到基础金币' },
   'coin.checkin_streak_bonus': { value: '5',  remark: '连续签到每多一天加多少金币' },
   'coin.checkin_max':        { value: '50',   remark: '单日签到金币上限' },

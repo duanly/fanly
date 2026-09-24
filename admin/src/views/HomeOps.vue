@@ -1,11 +1,14 @@
 <template>
   <el-card shadow="never">
+    <el-tabs v-model="slot" @tab-change="load">
+      <el-tab-pane label="跑马灯" name="banner" />
+      <el-tab-pane label="八大分区" name="category" />
+      <el-tab-pane label="活动位" name="entry" />
+    </el-tabs>
+
     <div class="bar">
-      <el-button type="primary" @click="openNew">新增活动位</el-button>
-      <span class="hint">
-        首页那一排活动入口。可以是外链（跳出去），也可以是站内路径（如 /checkin 签到）。
-        一个都没配的话首页不显示这一排。
-      </span>
+      <el-button type="primary" @click="openNew">新增</el-button>
+      <span class="hint">{{ SLOT_HINT[slot] }}</span>
     </div>
 
     <el-table :data="rows" v-loading="loading" size="small">
@@ -22,7 +25,13 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="链接" min-width="260">
+      <el-table-column v-if="slot === 'banner'" label="背景" width="120">
+        <template #default="{ row }">
+          <div class="bg-prev" :style="bgStyle(row.image)" />
+        </template>
+      </el-table-column>
+
+      <el-table-column label="链接" min-width="240">
         <template #default="{ row }">
           <el-tag :type="row.internal ? 'success' : 'info'" size="small" style="margin-right:6px">
             {{ row.internal ? '站内' : '外链' }}
@@ -54,6 +63,15 @@
       <el-form label-width="80px">
         <el-form-item label="图标">
           <el-input v-model="form.icon" placeholder="一个 emoji，例如 🎁" style="width:120px" />
+        </el-form-item>
+        <el-form-item v-if="slot === 'banner' || slot === 'category'" label="背景">
+          <el-input
+            v-model="form.image"
+            :placeholder="slot === 'banner'
+              ? '图片 URL，或 CSS 渐变如 linear-gradient(135deg,#ff8a3d,#ff3b30)'
+              : '图标底色，CSS 渐变'"
+          />
+          <div class="bg-prev" :style="bgStyle(form.image)" style="margin-top:6px" />
         </el-form-item>
         <el-form-item label="标题">
           <el-input v-model="form.title" placeholder="例如 新人 0 元购" />
@@ -97,24 +115,41 @@ import { api } from '../api';
 const rows = ref([]);
 const loading = ref(false);
 const visible = ref(false);
+const SLOT_HINT = {
+  banner: '首页顶部轮播。背景可以填图片 URL，也可以填 CSS 渐变。点击会跳到配的链接。',
+  category: '首页八大分区。链接一般填 /group/专题key，图标用 emoji，背景填渐变。一页放 8 个，多了横滑。',
+  entry: '分区下面那一排活动入口。可以是外链，也可以是站内路径（如 /checkin）。',
+};
+const slot = ref('banner');
 const form = reactive({
-  id: null, icon: '🎁', title: '', subtitle: '', url: '', internal: false, sortWeight: 0, status: 1,
+  id: null, slot: 'banner', icon: '🎁', title: '', subtitle: '',
+  image: '', url: '', internal: true, sortWeight: 0, status: 1,
+});
+
+const bgStyle = (v) => ({
+  height: '28px',
+  borderRadius: '6px',
+  border: '1px solid #ebeef5',
+  background: /^https?:|^data:/.test(v || '')
+    ? `center/cover no-repeat url(${v})`
+    : (v || '#f5f7fa'),
 });
 
 async function load() {
   loading.value = true;
-  try { rows.value = await api.homeLinks(); } finally { loading.value = false; }
+  try { rows.value = await api.homeLinks(slot.value); } finally { loading.value = false; }
 }
 
 function openNew() {
   Object.assign(form, {
-    id: null, icon: '🎁', title: '', subtitle: '', url: '', internal: false, sortWeight: 0, status: 1,
+    id: null, slot: slot.value, icon: '🎁', title: '', subtitle: '',
+    image: '', url: '', internal: true, sortWeight: 0, status: 1,
   });
   visible.value = true;
 }
 
 function openEdit(row) {
-  Object.assign(form, { ...row });
+  Object.assign(form, { ...row, slot: row.slot || slot.value });
   visible.value = true;
 }
 
@@ -145,4 +180,5 @@ onMounted(load);
 .bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
 .hint { color: #909399; font-size: 12px; }
 .m { color: #909399; font-size: 12px; }
+.bg-prev { width: 100px; }
 </style>

@@ -19,27 +19,37 @@
       </div>
       <div class="row">
         <span class="tag-coupon">券 {{ g.couponAmount }}</span>
-        <span class="tag-earn">赚 ¥{{ g.rebate ?? 0 }}</span>
+        <span class="tag-earn">买了返 ¥{{ g.rebate ?? 0 }}</span>
       </div>
 
-      <!-- 有比价组就给个入口：「别家还有」是点进去的理由 -->
-      <div
-        v-if="g.compareGroupId"
-        class="cmp-badge"
-        @click.stop="$router.push(`/compare/${g.compareGroupId}`)"
-      >
-        ⚖️ 多平台比价 ›
-      </div>
-      <div v-else class="muted" style="margin-top:5px">
-        已售 {{ g.salesVolume }} 件 · 到手约 ¥{{ afterRebate }}
+      <div class="foot">
+        <div
+          v-if="g.compareGroupId"
+          class="cmp-badge"
+          @click.stop="$router.push(`/compare/${g.compareGroupId}`)"
+        >
+          ⚖️ 多平台比价 ›
+        </div>
+        <span v-else class="muted">已售 {{ g.salesVolume }}</span>
+
+        <div
+          v-if="showRecommend"
+          class="rec-btn"
+          :class="{ mine: times > 0, full: full }"
+          @click.stop="doRecommend"
+        >
+          👍 {{ score > 0 ? score : '推荐' }}
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { showToast } from 'vant';
+import { api } from '../api';
 
 const PLAT = {
   PDD: { name: '拼多多', bg: '#e02e24' },
@@ -48,43 +58,67 @@ const PLAT = {
   DY: { name: '抖音', bg: '#161823' },
 };
 
-const props = defineProps({ g: { type: Object, required: true } });
+const props = defineProps({
+  g: { type: Object, required: true },
+  showRecommend: { type: Boolean, default: false },
+});
+const emit = defineEmits(['recommended']);
+
 const router = useRouter();
 const go = () => router.push(`/goods/${props.g.platform}/${props.g.goodsId}`);
-const afterRebate = computed(() =>
-  (props.g.couponPrice - (props.g.rebate ?? 0)).toFixed(2),
-);
+
+// 本地覆盖服务端值，点完立刻看到数字变，不等下一次拉取
+const localScore = ref(null);
+const localTimes = ref(null);
+const busy = ref(false);
+
+const score = computed(() => localScore.value ?? props.g.recommendScore ?? 0);
+const times = computed(() => localTimes.value ?? props.g.myRecommend ?? 0);
+const full = computed(() => times.value >= 5);
+
+async function doRecommend() {
+  if (!localStorage.getItem('token')) return router.push('/login');
+  if (busy.value) return;
+  busy.value = true;
+  try {
+    const r = await api.recommendGoods(props.g.platform, props.g.goodsId);
+    localScore.value = r.recommendScore;
+    localTimes.value = r.myTimes;
+    showToast(r.remain > 0 ? `推荐成功，还能推 ${r.remain} 次` : '推荐成功');
+    emit('recommended', props.g);
+  } catch (e) {
+    showToast(e?.response?.data?.msg || '推荐失败');
+  } finally {
+    busy.value = false;
+  }
+}
 </script>
 
 <style scoped>
 .img-wrap { position: relative; }
 .plat-badge {
-  position: absolute;
-  left: 6px;
-  top: 6px;
-  color: #fff;
-  font-size: 10px;
-  line-height: 1;
-  padding: 3px 6px;
-  border-radius: 4px;
+  position: absolute; left: 6px; top: 6px;
+  color: #fff; font-size: 10px; line-height: 1;
+  padding: 3px 6px; border-radius: 4px;
 }
 .hot-badge {
-  position: absolute;
-  right: 6px;
-  top: 6px;
-  background: rgba(0, 0, 0, .55);
-  color: #fff;
-  font-size: 10px;
-  padding: 3px 6px;
-  border-radius: 4px;
+  position: absolute; right: 6px; top: 6px;
+  background: rgba(0, 0, 0, .55); color: #fff;
+  font-size: 10px; padding: 3px 6px; border-radius: 4px;
+}
+.foot {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-top: 6px;
 }
 .cmp-badge {
-  margin-top: 5px;
-  display: inline-block;
-  font-size: 11px;
-  color: #4a3aff;
-  background: #eeecff;
-  border-radius: 999px;
-  padding: 2px 8px;
+  font-size: 11px; color: #4a3aff;
+  background: #eeecff; border-radius: 999px; padding: 2px 8px;
 }
+.rec-btn {
+  font-size: 11px; color: #969799;
+  border: 1px solid #ebedf0; border-radius: 999px;
+  padding: 2px 9px; white-space: nowrap;
+}
+.rec-btn.mine { color: #ff4b3a; border-color: #ffd9d3; background: #fff5f3; }
+.rec-btn.full { opacity: .5; }
 </style>
