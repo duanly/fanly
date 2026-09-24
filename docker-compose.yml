@@ -80,6 +80,7 @@ services:
       JD_APP_KEY: ${JD_APP_KEY:-}
       JD_APP_SECRET: ${JD_APP_SECRET:-}
       JD_SITE_ID: ${JD_SITE_ID:-}
+      JD_PID: ${JD_PID:-}
       TB_APP_KEY: ${TB_APP_KEY:-}
       TB_APP_SECRET: ${TB_APP_SECRET:-}
       TB_ADZONE_ID: ${TB_ADZONE_ID:-}

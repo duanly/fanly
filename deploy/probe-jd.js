@@ -144,14 +144,24 @@ async function call(method, bizObj, { debug = false } = {}) {
   } catch (e) { console.log('  ✗', e.message); }
 
   console.log('\n【2】京粉精选 jd.union.open.goods.jingfen.query —— 首页榜单的料');
-  try {
-    const d = await call('jd.union.open.goods.jingfen.query', {
-      goodsReq: { eliteId: 1, pageIndex: 1, pageSize: 10 },
-    });
-    const list = d?.data || d || [];
-    console.log(`  ✓ eliteId=1 返回 ${list.length} 条 | 首条：${String(list[0]?.skuName).slice(0, 26)}`);
-    console.log('  （eliteId 是频道号：1 好券商品、2 超级大牌…，值得挨个试一遍再定用哪些）');
-  } catch (e) { console.log('  ✗', e.message); }
+  console.log('    eliteId 是频道号，文档给的一串未必都还活着，扫一遍看哪些能用');
+  for (const eliteId of [1, 2, 3, 4, 10, 15, 22, 23, 30]) {
+    try {
+      const d = await call('jd.union.open.goods.jingfen.query', {
+        goodsReq: { eliteId, pageIndex: 1, pageSize: 20 },
+      });
+      const list = d?.data || d || [];
+      if (!list.length) { console.log(`  eliteId=${String(eliteId).padEnd(2)} → 空`); continue; }
+      const g = list[0];
+      const price = Number(g.priceInfo?.lowestCouponPrice ?? g.priceInfo?.price ?? 0);
+      const rate = Number(g.commissionInfo?.commissionShare ?? 0) / 100;
+      console.log(`  eliteId=${String(eliteId).padEnd(2)} → ${list.length} 条 | ` +
+                  `${String(g.skuName).slice(0, 18)} | 券后 ${price.toFixed(2)} | 佣金 ${(price * rate).toFixed(2)}`);
+      if (!skuId) { skuId = g.skuId; materialUrl = g.materialUrl; }
+    } catch (e) {
+      console.log(`  eliteId=${String(eliteId).padEnd(2)} ✗ ${e.message.slice(0, 60)}`);
+    }
+  }
 
   console.log('\n【3】推广位 jd.union.open.position.query —— 订单归属靠它');
   try {
@@ -190,8 +200,9 @@ async function call(method, bizObj, { debug = false } = {}) {
   console.log('\n【5】订单行 jd.union.open.order.row.query（近 1 小时）');
   try {
     const now = new Date();
+    // 京东订单行要的是 yyyyMMddHH，精确到**小时**，多给几位就报参数错误
     const fmt = (d) => d.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
-      .replace('T', '').replace(/[-: ]/g, '').slice(0, 12);
+      .replace('T', ' ').replace(/[-: ]/g, '').slice(0, 10);
     const d = await call('jd.union.open.order.row.query', {
       orderReq: {
         pageNo: 1, pageSize: 20, type: 1,     // type: 1 下单时间 / 2 完成时间 / 3 更新时间
@@ -208,9 +219,53 @@ async function call(method, bizObj, { debug = false } = {}) {
     if (!list.length) console.log('  （近 1 小时没有订单，正常）');
   } catch (e) { console.log('  ✗', e.message); }
 
+  console.log('\n【6】权限扫描 —— 搞清楚这个 appKey 到底能调哪些接口');
+  console.log('    判据：403=没权限；400/其他报错=有权限只是参数不对；✓=直接通了');
+  const PROBE_APIS = [
+    ['商品搜索',      'jd.union.open.goods.query',                  { goodsReqDTO: { keyword: '纸巾', pageIndex: 1, pageSize: 10 } }],
+    ['京粉精选',      'jd.union.open.goods.jingfen.query',          { goodsReq: { eliteId: 1, pageIndex: 1, pageSize: 20 } }],
+    ['商品详情',      'jd.union.open.goods.bigfield.query',         { goodsReq: { skuIds: [100012043978] } }],
+    ['类目',          'jd.union.open.category.goods.get',           { req: { parentId: 0, grade: 0 } }],
+    ['优惠券',        'jd.union.open.coupon.query',                 { couponUrls: ['https://coupon.jd.com/ilink/couponActiveInfo'] }],
+    ['通用转链',      'jd.union.open.promotion.common.get',         { promotionCodeReq: { materialId: 'https://item.jd.com/100012043978.html', siteId: Number(SITE_ID) || undefined } }],
+    ['子推客转链',    'jd.union.open.promotion.bysubunionid.get',   { promotionCodeReq: { materialId: 'https://item.jd.com/100012043978.html', positionId: Number(POSITION) || undefined } }],
+    ['推广位查询',    'jd.union.open.position.query',               { positionReq: { unionId: Number(UNION_ID) || 0, pageIndex: 1, pageSize: 20, type: 3 } }],
+    ['推广位创建',    'jd.union.open.position.create',              { positionReq: { unionId: Number(UNION_ID) || 0, key: '', type: 3, spaceNameList: ['probe-test'] } }],
+    ['订单行',        'jd.union.open.order.row.query',              { orderReq: { pageNo: 1, pageSize: 20, type: 1, startTime: '2026010100', endTime: '2026010101' } }],
+  ];
+
+  const open = [];
+  const denied = [];
+  for (const [label, method, biz] of PROBE_APIS) {
+    try {
+      await call(method, biz);
+      open.push(label);
+      console.log(`  ✓  ${label.padEnd(12)} ${method}`);
+    } catch (e) {
+      const msg = e.message || '';
+      if (/403|无访问权限|无权限|未授权/.test(msg)) {
+        denied.push(label);
+        console.log(`  ✗  ${label.padEnd(12)} 没权限`);
+      } else {
+        open.push(label);
+        console.log(`  ○  ${label.padEnd(12)} 有权限，参数待调: ${msg.slice(0, 50)}`);
+      }
+    }
+  }
+  console.log(`\n  有权限: ${open.length ? open.join('、') : '一个都没有'}`);
+  console.log(`  没权限: ${denied.length ? denied.join('、') : '无'}`);
+  if (open.length && denied.length) {
+    console.log('  → 先用有权限的那几个把链路跑通，没权限的去联盟后台单独申请');
+  }
+  if (!open.length) {
+    console.log('  → 一个都调不了，多半是这个 appKey 还没绑定媒体，或者整体权限没开通');
+  }
+
   console.log('\n常见报错对照：');
   console.log('  invalid signature / 签名错误 → appSecret 填错，或时间戳不是北京时间');
   console.log('  ip 白名单              → 开放平台后台把服务器公网 IP 加进白名单');
-  console.log('  权限不足 / 未授权       → 对应接口的权限还没申请下来');
+  console.log('  403 无访问权限          → 接口权限没开通，或缺 access_token');
+  console.log('                            去 union.jd.com「我的API」申请接口权限并领授权key');
+  console.log('  400 参数错误            → 入参结构或格式不对，不是权限问题');
   console.log('  推广位不存在            → JD_POSITION_ID 不是这个联盟账号的推广位');
 })();
