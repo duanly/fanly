@@ -196,6 +196,47 @@ const yuan = v => (Math.round(Number(v || 0)) / 100).toFixed(2);
   console.log(`  能用的 channel_type: ${alive.length ? alive.join(', ') : '一个都没有'}`);
   if (alive.length) console.log('  → 把这些数字填回 pdd.provider.ts 的 CHANNEL_TYPE 表');
 
+  console.log('\n【6】推广位备案 —— pid 没备案的话上面 1/2/3 全都会 50001');
+  console.log(`  pid = ${PID}  custom_parameters = {"uid":"${UID}"}`);
+
+  // 备案有两个维度：pid 本身，以及 pid + custom_parameters 的组合。
+  // 先查 pid（不带 custom），再查带 custom 的那组，分别看结果。
+  for (const [label, biz] of [
+    ['仅 pid', { pid: PID }],
+    ['pid + custom', { pid: PID, custom_parameters: JSON.stringify({ uid: UID }) }],
+  ]) {
+    try {
+      const d = await call('pdd.ddk.member.authority.query', biz);
+      console.log(`  ${label.padEnd(14)} → ${JSON.stringify(d).slice(0, 200)}`);
+    } catch (e) {
+      console.log(`  ${label.padEnd(14)} ✗ ${e.message.slice(0, 120)}`);
+    }
+  }
+
+  console.log('\n  生成备案链接（channel_type=10）：');
+  try {
+    const d = await call('pdd.ddk.rp.prom.url.generate', {
+      p_id_list: [PID],
+      channel_type: 10,
+      generate_we_app: true,
+      generate_short_url: true,
+      custom_parameters: JSON.stringify({ uid: UID }),
+    });
+    const item = (d.url_list || d.list || [])[0] || d;
+    console.log('  ' + JSON.stringify(item).slice(0, 500));
+    if (item.we_app_info) {
+      console.log('\n  ★ 用手机打开拼多多 APP，进入上面 we_app_info 里的小程序页面完成授权，');
+      console.log('    授权成功即备案完成。之后再跑一次【6】确认状态，再跑【1】【3】验证。');
+    }
+    if (item.short_url || item.url) {
+      console.log(`\n  ★ 或者直接在微信/浏览器里打开：${item.short_url || item.url}`);
+    }
+  } catch (e) {
+    console.log(`  ✗ ${e.message}`);
+    console.log('  参数名可能对不上（p_id_list / pid_list、generate_we_app / generateWeApp），');
+    console.log('  把这条报错发我，我按真实报错调。');
+  }
+
   console.log('\n常见报错对照：');
   console.log('  10001 签名错误      → client_secret 填错，或参数里混了空值');
   console.log('  10002 时间戳过期    → 服务器时间不准，date 对一下');
