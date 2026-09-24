@@ -8,9 +8,10 @@
       <img :src="g.image" style="width:100%;aspect-ratio:1;object-fit:cover;display:block" />
 
       <div style="background:#fff;padding:14px">
-        <div style="display:flex;align-items:baseline;gap:8px">
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
           <span class="price" style="font-size:28px">¥{{ g.couponPrice }}</span>
           <span class="strike">原价 ¥{{ g.price }}</span>
+          <span class="ref-tag">{{ PLAT[g.platform]?.name }}参考价</span>
         </div>
         <div style="margin-top:10px;font-size:15px;line-height:1.5">{{ g.title }}</div>
         <div class="muted" style="margin-top:8px">{{ g.shopName }} · 已售 {{ g.salesVolume }} 件</div>
@@ -21,6 +22,17 @@
             {{ PLAT[g.platform]?.short }}
           </span>
           <span>本商品由 <b>{{ PLAT[g.platform]?.name || g.platform }}</b> 发货，点击购买会跳转到该 App 下单</span>
+        </div>
+
+        <!--
+          把丑话说在前面，而且说成好话。
+          平台的满减、百亿补贴、会员价我们拿不到，所以这里的价只能是参考；
+          但偏差方向绝大多数是「实际更便宜」，索性挑明了讲——
+          用户跳过去发现更便宜是惊喜，比事后解释强得多。
+        -->
+        <div class="price-note">
+          实际价格以{{ PLAT[g.platform]?.name }}结算为准。平台的满减、补贴、会员价我们看不到，
+          <b>你实付通常只会更低</b>。返利按平台实际结算的佣金计算，不受这个价影响。
         </div>
       </div>
 

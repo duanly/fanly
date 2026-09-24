@@ -276,6 +276,75 @@ body {
   margin-top: 6px;
 }
 
+.ref-tag {
+  font-size: 11px;
+  color: var(--ink-3);
+  border: 1px solid #e5e6eb;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.price-note {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-3);
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 9px 11px;
+}
+.price-note b { color: var(--ink-2); }
+
+/* ── 商品卡：返利当主角 ───────────────────────────────
+   返利是我们唯一能兑现的承诺，给它最大的字号和品牌色；
+   价格是平台的事，退成一行灰字并标明「参考价」 */
+.rebate-hero {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 7px;
+}
+.rebate-hero .r-label {
+  font-size: 12px;
+  color: var(--brand);
+}
+.rebate-hero .r-amt {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--brand);
+  line-height: 1.1;
+  letter-spacing: -.5px;
+}
+
+.price-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  min-width: 0;
+}
+.price-line .p-amt {
+  font-size: 13px;
+  color: var(--ink-2);
+  font-weight: 600;
+  flex: none;
+}
+/* 没有返利的商品（榜单里偶尔混进来），价格还是得当主角 */
+.price-line .p-amt.lead {
+  font-size: 18px;
+  color: var(--brand);
+  font-weight: 700;
+}
+.price-line .p-ref {
+  font-size: 10px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  flex: none;
+}
+.price-line .tag-coupon {
+  margin-left: auto;
+  flex: none;
+}
+
 .tag-coupon {
   display: inline-block;
   background: linear-gradient(90deg, #ff6a3d, var(--brand));

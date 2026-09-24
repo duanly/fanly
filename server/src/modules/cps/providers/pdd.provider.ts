@@ -104,9 +104,18 @@ export class PddProvider implements CpsProvider {
    */
   private mapGoods(r: any): UnifiedGoods {
     const price = yuan(r.min_group_price ?? r.min_normal_price);
-    const coupon = r.has_coupon ? yuan(r.coupon_discount) : 0;
+
+    // 券有门槛：满 coupon_min_order_amount 才能用。买一件够不着门槛的话
+    // 这张券就是看得见用不了，减了等于给用户报一个他拿不到的价——
+    // 显示贵了只是少赚，显示便宜了是到付款页才发现，那是砸招牌的
+    const quota = yuan(r.coupon_min_order_amount ?? 0);
+    const usable = r.has_coupon && (quota <= 0 || price >= quota);
+    const coupon = usable ? yuan(r.coupon_discount) : 0;
+
     const couponPrice = round2(Math.max(price - coupon, 0));
     const rate = Number(r.promotion_rate ?? 0) / 1000; // 千分比
+    // 佣金优先用拼多多返回的金额，自己乘出来的迟早跟结算对不上
+    const est = yuan(r.promotion_amount ?? 0);
 
     return {
       platform: 'PDD',
@@ -118,7 +127,7 @@ export class PddProvider implements CpsProvider {
       couponPrice,
       couponAmount: coupon,
       commissionRate: rate,
-      commission: round2(couponPrice * rate),
+      commission: est > 0 ? est : round2(couponPrice * rate),
       salesVolume: parseSales(r.sales_tip ?? r.sold_quantity),
     };
   }

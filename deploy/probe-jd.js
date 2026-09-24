@@ -401,6 +401,62 @@ async function call(method, bizObj, { debug = false, mode } = {}) {
   console.log('\n  试通的：', Object.keys(won).length ? JSON.stringify(won) : '一个都没通');
   console.log(`  业务参数字段名：${PARAM_MODE}   ← 写 JdProvider 时要用这个`);
 
+  // ── 【8】价格字段原样打印 ──────────────────────────
+  // 「显示的券后价跟京东 App 对不上」只能靠看原始字段定位：
+  // 到底是我们映射错了字段，还是京东联盟接口本来就不知道那个满减活动。
+  //   SKU=100012043978 node deploy/probe-jd.js
+  //   KEYWORD=抽纸 node deploy/probe-jd.js
+  console.log('\n【8】价格字段原样打印 —— 对不上账时看这里');
+  try {
+    const pool = await call('jd.union.open.goods.jingfen.query', {
+      goodsReq: { eliteId: 1, pageIndex: 1, pageSize: 100 },
+    });
+    const all = Array.isArray(pool) ? pool : (pool?.data ?? []);
+    const want = process.env.SKU || '';
+    let picked = all;
+    if (want) picked = all.filter((r) => String(r.skuId) === want);
+    else if (process.env.KEYWORD) {
+      picked = all.filter((r) => String(r.skuName || '').includes(process.env.KEYWORD));
+    }
+    if (!picked.length) {
+      console.log(`  精选池 ${all.length} 条里没找到目标，改用前 2 条演示`);
+      picked = all.slice(0, 2);
+    }
+
+    for (const r of picked.slice(0, 3)) {
+      const pi = r.priceInfo || {};
+      const ci = r.commissionInfo || {};
+      console.log(`\n  ── ${String(r.skuName || '').slice(0, 40)}`);
+      console.log(`     skuId            ${r.skuId}`);
+      console.log(`     whiteImage       ${r.whiteImage || '(空，只能退回营销图)'}`);
+      console.log(`     priceInfo        ${JSON.stringify(pi)}`);
+      console.log(`     commissionInfo   ${JSON.stringify(ci)}`);
+      console.log(`     couponInfo       ${JSON.stringify(r.couponInfo || {})}`);
+      // 我们现在是这么算的，把它跟上面的原始值摆一起，错在哪一眼能看出来
+      const price = Number(pi.price ?? 0);
+      const cp = Number(pi.lowestCouponPrice ?? pi.lowestPrice ?? price);
+      console.log(`     → 我们显示：原价 ${price} / 券后 ${cp} / 券 ${(price - cp).toFixed(2)}`);
+      console.log(`     → 京东给的佣金 ${ci.commission}，佣金比例 ${ci.commissionShare}%`);
+      console.log(`     → 若按 券后×比例 自己算 = ${(cp * Number(ci.commissionShare ?? 0) / 100).toFixed(2)}`);
+      const list = r.couponInfo?.couponList || [];
+      if (list.length) {
+        console.log('     券列表（discount=面额, quota=使用门槛, bindType 0平台券/1店铺券）:');
+        list.forEach((c, i) => console.log(
+          `       [${i}] 满${c.quota}减${c.discount} bindType=${c.bindType} isBest=${c.isBest} ${c.startTime ? new Date(Number(c.startTime)).toLocaleDateString() : ''}`,
+        ));
+      } else {
+        console.log('     券列表：空 —— 说明这个商品在联盟这边没有可推广的券');
+      }
+    }
+    console.log('\n  怎么读：');
+    console.log('   · 京东 App 上的到手价 = 券 + 满减 + PLUS价 + 秒杀 一起算出来的');
+    console.log('   · 联盟接口只认「可推广的券」，店铺满减/百亿补贴/PLUS价它给不了');
+    console.log('   · 所以 couponList 里没有那张大额券 = 接口本来就不知道，不是我们映射错');
+    console.log('   · 反之 couponList 里有、lowestCouponPrice 却没减掉 = 该我们改');
+  } catch (e) {
+    console.log('  ✗', e.message);
+  }
+
   console.log('\n常见报错对照：');
   console.log('  invalid signature / 签名错误 → appSecret 填错，或时间戳不是北京时间');
   console.log('  ip 白名单              → 开放平台后台把服务器公网 IP 加进白名单');

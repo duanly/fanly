@@ -147,23 +147,53 @@ export class JdProvider implements CpsProvider {
     return '';
   }
 
+  /**
+   * 价格口径的说明，别删：
+   *
+   * 联盟接口给的「到手价」只算得上**可推广的券**，店铺满减、百亿补贴、
+   * PLUS 价、限时秒杀它一概不知道。所以我们显示的券后价天然可能比用户在
+   * 京东 App 里看到的高——那不是 bug，是联盟数据的边界。
+   *
+   * 反过来，绝不能自己拿券面额去减：券有门槛(quota)、有互斥、有领取上限，
+   * 自己减出来的价十有八九偏低，用户点进去发现要多付钱，这个方向的错
+   * 比显示贵了严重得多。所以一律以 lowestCouponPrice / lowestPrice 为准。
+   */
   private mapGoods(r: any): UnifiedGoods {
-    const price = Number(r.priceInfo?.price ?? 0);
-    const couponPrice = Number(r.priceInfo?.lowestCouponPrice ?? r.priceInfo?.lowestPrice ?? price);
+    const pi = r.priceInfo ?? {};
+    const ci = r.commissionInfo ?? {};
+    const price = Number(pi.price ?? 0);
+
+    const cp = Number(pi.lowestCouponPrice ?? pi.lowestPrice ?? price);
+    // 兜底：字段缺失或明显不合理（比到原价还贵、为 0）时退回原价，
+    // 宁可显示「没有券」，也不能显示一个假的低价
+    const couponPrice = cp > 0 && cp <= price ? cp : price;
+
     // commissionShare 是百分数：5.0 表示 5%
-    const rate = Number(r.commissionInfo?.commissionShare ?? 0) / 100;
+    const rate = Number(ci.commissionShare ?? 0) / 100;
+    // 佣金以京东返回的为准。自己用「券后价 × 佣金比例」算出来的数
+    // 迟早跟结算对不上，而这个数直接决定给用户看的返利金额——是钱。
+    const paid = Number(ci.commission);
+    const commission = paid > 0 ? paid : round2(couponPrice * rate);
+
+    if (price > 0 && cp > price) {
+      this.logger.warn(`京东 ${r.skuId} 券后价(${cp})比原价(${price})还高，已按原价显示`);
+    }
 
     return {
       platform: 'JD',
       goodsId: this.pickSkuId(r),
       title: r.skuName ?? '',
-      image: (r.imageInfo?.imageList?.[0]?.url) ?? r.imgUrl ?? '',
+      // 白底图优先。京粉的营销主图上常把「￥367 券128 到手239」直接烧进图里，
+      // 那套数字是商家自己做图时写的，跟接口返回的价格对不上是常态——
+      // 一旦图上的数跟我们显示的券后价打架，用户当场就判我们虚标，
+      // 比显示贵了严重得多。白底图没有任何文案，不会自己拆自己的台。
+      image: r.whiteImage || r.imageInfo?.imageList?.[0]?.url || r.imgUrl || '',
       shopName: r.shopInfo?.shopName ?? '',
       price: round2(price),
       couponPrice: round2(couponPrice),
       couponAmount: round2(Math.max(price - couponPrice, 0)),
       commissionRate: rate,
-      commission: round2(couponPrice * rate),
+      commission: round2(commission),
       salesVolume: Number(r.inOrderCount30Days ?? r.inOrderCount ?? 0),
     };
   }

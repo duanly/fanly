@@ -13,16 +13,23 @@
 
     <div class="body">
       <div class="title">{{ g.title }}</div>
-      <div class="row">
-        <div>
-          <span class="muted" style="font-size:11px">券后</span>
-          <span class="price" style="font-size:17px">¥{{ g.couponPrice }}</span>
-        </div>
-        <span class="strike">¥{{ g.price }}</span>
+      <!--
+        返利当主角，价格退成参考。
+        理由：平台的满减、百亿补贴、PLUS 价、秒杀，联盟接口结构性地看不到，
+        所以我们的券后价永远做不到跟 App 里一模一样。把信誉押在一个注定不准的
+        数字上是必输的；而返利走实结佣金，平台结多少我们返多少，是我们唯一
+        能打包票的数。押能兑现的那个。
+      -->
+      <div v-if="rebate > 0" class="rebate-hero">
+        <span class="r-label">买了返</span>
+        <span class="r-amt">¥{{ rebate }}</span>
       </div>
-      <div class="row">
-        <span class="tag-coupon">券 {{ g.couponAmount }}</span>
-        <span class="tag-earn">买了返 ¥{{ g.rebate ?? 0 }}</span>
+
+      <div class="price-line">
+        <span class="p-amt" :class="{ lead: rebate <= 0 }">¥{{ g.couponPrice }}</span>
+        <!-- 「参考价」三个字是关键：跳过去更便宜是惊喜，贵了也不算我们虚标 -->
+        <span class="p-ref">{{ platName(g.platform) }}参考价</span>
+        <span v-if="g.couponAmount > 0" class="tag-coupon">券 {{ g.couponAmount }}</span>
       </div>
 
       <div class="foot">
@@ -60,6 +67,10 @@ const props = defineProps({
   g: { type: Object, required: true },
   showRecommend: { type: Boolean, default: false },
 });
+
+// 返利可能是 0（榜单里混进没佣金的商品），那种时候不能显示「买了返 ¥0」，
+// 退回让价格当主角
+const rebate = computed(() => Number(props.g?.rebate ?? 0));
 const emit = defineEmits(['recommended']);
 
 const router = useRouter();
