@@ -98,7 +98,8 @@ const yuan = v => (Math.round(Number(v || 0)) / 100).toFixed(2);
   console.log('【1】商品搜索 pdd.ddk.goods.search');
   try {
     const d = await call('pdd.ddk.goods.search',
-      { keyword: KEYWORD, page: 1, page_size: 5, sort_type: 0, pid: PID },
+      // page_size 必须 10~100，传小了会报参数校验失败
+      { keyword: KEYWORD, page: 1, page_size: 10, sort_type: 0, pid: PID },
       { debug: true });
     const list = d.goods_list || [];
     console.log(`  共 ${d.total_count ?? '?'} 条，取前 ${list.length} 条：`);
@@ -213,29 +214,34 @@ const yuan = v => (Math.round(Number(v || 0)) / 100).toFixed(2);
     }
   }
 
-  console.log('\n  生成备案链接（channel_type=10）：');
-  try {
-    const d = await call('pdd.ddk.rp.prom.url.generate', {
-      p_id_list: [PID],
-      channel_type: 10,
-      generate_we_app: true,
-      generate_short_url: true,
-      custom_parameters: JSON.stringify({ uid: UID }),
-    });
-    const item = (d.url_list || d.list || [])[0] || d;
-    console.log('  ' + JSON.stringify(item).slice(0, 500));
-    if (item.we_app_info) {
-      console.log('\n  ★ 用手机打开拼多多 APP，进入上面 we_app_info 里的小程序页面完成授权，');
-      console.log('    授权成功即备案完成。之后再跑一次【6】确认状态，再跑【1】【3】验证。');
+  // 分两种备案链接：
+  //   「仅 pid」——最通用，备一次可能就够，先做这个
+  //   「pid + custom」——如果拼多多要求每组组合单独备案，就得走这条
+  for (const [label, extra] of [
+    ['仅 pid（先做这个）', {}],
+    [`pid + custom {"uid":"${UID}"}`, { custom_parameters: JSON.stringify({ uid: UID }) }],
+  ]) {
+    console.log(`\n  生成备案链接 · ${label}`);
+    try {
+      const d = await call('pdd.ddk.rp.prom.url.generate', {
+        p_id_list: [PID],
+        channel_type: 10,
+        generate_we_app: true,
+        generate_short_url: true,
+        ...extra,
+      });
+      const item = (d.url_list || d.list || [])[0] || d;
+      const short = item.short_url || item.url || item.mobile_short_url || item.mobile_url;
+      if (short) console.log(`    打开这个链接完成授权：${short}`);
+      const wa = item.we_app_info;
+      if (wa) console.log(`    或拼多多小程序 ${wa.user_name}  ${String(wa.page_path).slice(0, 60)}…`);
+    } catch (e) {
+      console.log(`    ✗ ${e.message.slice(0, 160)}`);
     }
-    if (item.short_url || item.url) {
-      console.log(`\n  ★ 或者直接在微信/浏览器里打开：${item.short_url || item.url}`);
-    }
-  } catch (e) {
-    console.log(`  ✗ ${e.message}`);
-    console.log('  参数名可能对不上（p_id_list / pid_list、generate_we_app / generateWeApp），');
-    console.log('  把这条报错发我，我按真实报错调。');
   }
+
+  console.log('\n  授权完再跑一次本脚本：第【6】步的 bind 从 0 变 1 就是备案成功，');
+  console.log('  然后看【1】和【3】通不通。');
 
   console.log('\n常见报错对照：');
   console.log('  10001 签名错误      → client_secret 填错，或参数里混了空值');

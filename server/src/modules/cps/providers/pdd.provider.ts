@@ -173,7 +173,8 @@ export class PddProvider implements CpsProvider {
     const data = await this.call<any>('pdd.ddk.goods.search', {
       keyword: p.keyword,
       page: p.page ?? 1,
-      page_size: Math.min(p.pageSize ?? 20, 100),
+      // 实测：拼多多搜索的 page_size 必须落在 10~100，传 5 会直接报参数校验失败
+      page_size: Math.min(Math.max(p.pageSize ?? 20, 10), 100),
       sort_type: sortMap[p.sort ?? ''] ?? 0,
       pid: this.opt.pid,
     });
@@ -186,15 +187,19 @@ export class PddProvider implements CpsProvider {
    * 原先走 pdd.ddk.top.goods.list.query（实时收益榜/热销榜），但那个接口
    * 拼多多已经下线了（报 50001「当前接口已下线」），现在只剩商品推荐这一个。
    *
-   * channel_type 的取值拼多多改过几次，下面这张表是按文档写的，没实测过。
-   * 用 deploy/probe-pdd.js 的第【5】步会把 0~12 全扫一遍，告诉你哪些还活着、
-   * 各自返回什么，拿实测结果回来改这张表。
+   * channel_type 下面这张表是 probe 第【5】步实测出来的，不是照文档抄的：
+   *   0            → 低价品（样本券后 1.58 元）
+   *   6            → 高佣（样本佣金 8.21，明显高于其他频道）
+   *   1/2/5/7~12   → 返回的是同一批默认商品，彼此没区别
+   *   3            → 报「商品id不能为空」，不是频道，别用
+   *   4            → 要备案，先不碰
+   * 所以真正有区分度的只有 0、6 和默认池三种。
    */
   private static readonly CHANNEL_TYPE: Record<string, number> = {
-    pick: 3,   // 默认推荐
-    hot: 1,    // 今日爆款
-    earn: 6,   // 高佣榜单
-    cheap: 5,  // 9.9 特卖
+    cheap: 0,  // 低价
+    earn: 6,   // 高佣
+    hot: 1,    // 默认池
+    pick: 1,
   };
 
   async recommendGoods(p: RecommendParams = {}): Promise<UnifiedGoods[]> {
