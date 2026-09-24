@@ -52,6 +52,10 @@ export class CuratedGoods {
   /** 自动下架时记下原因，后台一眼能看出为什么没了 */
   @Column({ length: 128, default: '' }) offReason: string;
 
+  /** 属于哪个比价组，null 表示不参与比价 */
+  @Index()
+  @Column({ type: 'int', nullable: true }) compareGroupId: number | null;
+
   @Column({ type: 'datetime', nullable: true }) lastSyncAt: Date | null;
 
   @CreateDateColumn() createdAt: Date;

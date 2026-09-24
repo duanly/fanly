@@ -116,6 +116,56 @@ export class CpsService implements OnModuleInit {
   }
 
   /**
+   * 跨平台搜索。
+   *
+   * 四家并发查，谁慢谁超时、谁挂了跳过谁——一家抽风不能让整个搜索白屏，
+   * 这是「统一货架」能不能立住的关键：用户搜一次要看到所有平台的结果。
+   *
+   * 排序同样按佣金金额降序（等价于按到手返利降序，见 searchByRebate 的说明），
+   * 所以跨平台混排的口径是一致的。
+   */
+  async searchAll(
+    params: SearchParams,
+    platforms?: string[],
+    timeoutMs = 6000,
+  ): Promise<UnifiedGoods[]> {
+    const targets = (platforms?.length ? platforms : [...PLATFORMS]).map((p) => p.toUpperCase());
+    const size = Math.max(params.pageSize ?? 20, 10);
+    const key = `all|${targets.join(',')}|${params.keyword ?? ''}|${size}|${params.sort ?? ''}`;
+
+    return this.goodsCache.wrap(key, async () => {
+      const batches = await Promise.all(targets.map((p) => {
+        const task = this.get(p)
+          .searchGoods({ ...params, pageSize: size })
+          .catch((e: any) => {
+            this.logger.warn(`${p} 搜索失败，跳过: ${e.message}`);
+            return [] as UnifiedGoods[];
+          });
+        // 超时只是不等它了，底下的请求继续跑完，下次缓存能用上
+        return Promise.race([
+          task,
+          new Promise<UnifiedGoods[]>((r) => setTimeout(() => {
+            this.logger.warn(`${p} 搜索超过 ${timeoutMs}ms，先不等了`);
+            r([]);
+          }, timeoutMs)),
+        ]);
+      }));
+
+      const seen = new Set<string>();
+      return batches
+        .flat()
+        .filter((g) => {
+          const k = `${g.platform}:${g.goodsId}`;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        })
+        .sort((a, b) => b.commission - a.commission)
+        .slice(0, size);
+    });
+  }
+
+  /**
    * 按「到手返利」排序。
    *
    * 返利 = 佣金金额 × 用户分成比例，而分成比例对每件商品都一样，

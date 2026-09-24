@@ -24,6 +24,10 @@ export class CurationController {
     @Query('pageSize') pageSize = '30',
     @Query('sort') sort = 'rebate',
   ) {
+    // 全平台搜是比价组的前提——要把同款从各家找出来才能放进一组
+    if ((platform || '').toUpperCase() === 'ALL') {
+      return { list: await this.cps.searchAll({ keyword, pageSize: +pageSize, sort }) };
+    }
     const list = sort === 'rebate'
       ? await this.cps.searchByRebate(platform, { keyword, pageSize: +pageSize })
       : await this.cps.searchGoods(platform, { keyword, pageSize: +pageSize, sort });

@@ -108,6 +108,12 @@ async function buy() {
     const r = await api.convert(route.params.platform, route.params.goodsId);
     if (r?.needAuth) return toAuth(r.platform || route.params.platform);
     link.value = r;
+    // deeplink 为空时绝不能往 location.href 里塞 undefined，
+    // 那会被当成相对路径跳走，表现就是「点了购买莫名其妙回到首页」
+    if (!r.deeplink) {
+      showLink.value = true;
+      return;
+    }
     // 真机上这一步唤起电商 App，浏览器里唤不起就展示链接
     showToast('正在打开购物 App…');
     location.href = r.deeplink;

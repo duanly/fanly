@@ -73,30 +73,29 @@
       </van-swipe>
     </div>
 
-    <!-- 新人福利 -->
-    <div class="newbie">
-      <div class="newbie-head">
-        <div>
-          <span class="t">新人福利</span>
-          <span class="s">0 元购 · 先付后返</span>
-        </div>
-        <span class="more" @click="$router.push('/search')">马上抢 ›</span>
+    <!-- 比价入口：没建比价组就不显示，别给用户一个点进去是空的东西 -->
+    <div v-if="compare.length" class="cmp-entry" @click="$router.push('/compare')">
+      <div class="left">
+        <div class="t">⚖️ 全网比价</div>
+        <div class="s">同款商品各平台<b>到手价</b>对比 · {{ compare.length }} 组</div>
       </div>
-      <div class="newbie-grid">
-        <div v-for="g in newbie" :key="g.goodsId" class="newbie-card" @click="go(g)">
-          <img :src="g.image" :alt="g.title" loading="lazy" />
-          <div class="n">{{ g.title }}</div>
-          <div class="p">新人价 ¥0</div>
-        </div>
+      <div class="right">
+        <div v-if="topSave > 0" class="save">最多省 ¥{{ topSave }}</div>
+        <van-icon name="arrow" color="#fff" />
       </div>
     </div>
 
-    <!-- 平台宫格 -->
+    <!-- 分类宫格：每一格对应选品池的一个专题 -->
     <div class="grid-card">
       <div class="plat-grid">
-        <div v-for="e in entries" :key="e.l" class="plat-item" @click="onEntry(e)">
+        <div
+          v-for="e in gridGroups"
+          :key="e.key"
+          class="plat-item"
+          @click="$router.push(`/group/${e.key}`)"
+        >
           <div class="plat-icon" :style="{ background: e.bg }">{{ e.icon }}</div>
-          <div class="l">{{ e.l }}</div>
+          <div class="l">{{ e.name }}</div>
         </div>
       </div>
     </div>
@@ -112,8 +111,10 @@
 
     <!-- 商品流 -->
     <div class="section-title">
-      {{ source === 'curated' ? '⭐️ 精选好货' : '🔥 实时收益榜' }}
-      <span class="muted" style="font-weight:400">· {{ platforms[platformIdx].name }}</span>
+      {{ source === 'curated' ? '⭐️ 精选好货' : '🔥 今日推荐' }}
+      <span v-if="platformIdx > 0" class="muted" style="font-weight:400">
+        · {{ platforms[platformIdx].name }}
+      </span>
     </div>
 
     <van-loading v-if="loading" style="padding:40px;text-align:center" />
@@ -126,13 +127,17 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
+import { GRID_GROUPS, groupMeta } from '../constants/groups';
 
+// 第一项是「全部」——统一货架的默认视图，用户不用关心商品来自哪家。
+// 后面几项留给想筛的人，不做主导航。
 const platforms = [
+  { key: '', name: '全部' },
   { key: 'PDD', name: '拼多多' },
   { key: 'JD', name: '京东' },
   { key: 'TB', name: '淘宝' },
@@ -167,12 +172,14 @@ const acts = [
 ];
 
 const platformIdx = ref(0);
+// 专题清单是写死的常量，不是接口拉的——首页宫格要秒出，
+// 而且后台选品时也用同一份，key 必须两边一致
 const groups = ref([]);
 const groupKey = ref('default');
 /** curated=读的选品池，recommend=池子空回落到了平台榜单 */
 const source = ref('');
+const compare = ref([]);
 const list = ref([]);
-const newbie = ref([]);
 const loading = ref(true);
 const keyword = ref('');
 const router = useRouter();
@@ -189,7 +196,22 @@ function switchGroup(k) {
   load();
 }
 
-const groupLabel = (k) => (k === 'default' ? '精选' : k);
+const groupLabel = (k) => (k === 'default' ? '精选' : groupMeta(k).name);
+
+/**
+ * 宫格显示后台真正有货的专题（含后台自建的，比如「婴儿」）。
+ * 一件都没选的时候退回预设清单，不然新装的站首页是一片空白。
+ */
+/** 比价里最大的一笔差价，拿来当首页钩子 */
+const topSave = computed(() =>
+  compare.value.reduce((m, g) => Math.max(m, g.maxSave || 0), 0),
+);
+
+const gridGroups = computed(() => {
+  const real = groups.value.filter((g) => g.groupKey !== 'default' && g.onShelf > 0);
+  if (!real.length) return GRID_GROUPS.slice(0, 10);
+  return real.slice(0, 10).map((g, i) => groupMeta(g.groupKey, i));
+});
 
 function onEntry(e) {
   if (e.p !== undefined) switchPlatform(e.p);
@@ -207,9 +229,10 @@ function goParse() {
 async function load() {
   loading.value = true;
   try {
+    // platformIdx 为 0 是「全部」，不传 platform 就是跨平台混排
     const r = await api.feed({
       group: groupKey.value,
-      platform: platforms[platformIdx.value].key,
+      platform: platformIdx.value === 0 ? undefined : platforms[platformIdx.value].key,
       limit: 20,
     });
     list.value = r.list || [];
@@ -229,8 +252,17 @@ async function loadGroups() {
   }
 }
 
+async function loadCompare() {
+  try {
+    compare.value = await api.compareList({ limit: 20 });
+  } catch {
+    compare.value = [];
+  }
+}
+
 onMounted(() => {
   load();
   loadGroups();
+  loadCompare();
 });
 </script>

@@ -197,6 +197,19 @@ export class CurationService {
     return stat;
   }
 
+  /**
+   * 只刷比价组里的商品。
+   * 比价页上价格过期是最伤信任的事，这批值得比普通选品刷得勤。
+   */
+  async refreshCompareMembers(rows: CuratedGoods[]) {
+    const stat = { total: rows.length, ok: 0, expired: 0, error: 0 };
+    for (const row of rows) {
+      stat[await this.refreshOne(row)] += 1;
+      if (REFRESH_GAP_MS) await new Promise((r) => setTimeout(r, REFRESH_GAP_MS));
+    }
+    return stat;
+  }
+
   async refreshById(id: number) {
     const row = await this.repo.findOneBy({ id });
     if (!row) throw new NotFoundException('选品不存在');

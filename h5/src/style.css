@@ -132,7 +132,7 @@ body {
 .chip.active { background: var(--brand); color: #fff; }
 
 .banner {
-  height: 124px;
+  height: 168px;
   border-radius: var(--radius-lg);
   overflow: hidden;
   margin-top: 12px;
@@ -142,8 +142,8 @@ body {
   text-align: center;
 }
 
-.banner .t1 { font-size: 23px; font-weight: 800; letter-spacing: 1px; }
-.banner .t2 { font-size: 13px; opacity: .92; margin-top: 5px; }
+.banner .t1 { font-size: 27px; font-weight: 800; letter-spacing: 1px; }
+.banner .t2 { font-size: 14px; opacity: .92; margin-top: 7px; }
 
 .newbie {
   background: linear-gradient(135deg, #ff6a3d, #ff3b30);
@@ -331,6 +331,29 @@ body {
 .need-login { padding: 70px 30px; text-align: center; }
 .need-login .t { font-size: 16px; margin-top: 14px; }
 .need-login .s { color: var(--ink-3); font-size: 13px; margin-top: 8px; line-height: 1.7; }
+
+/* 首页的比价入口 */
+.cmp-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, #4a3aff, #7b3ad5);
+  color: #fff;
+}
+.cmp-entry .t { font-size: 16px; font-weight: 800; }
+.cmp-entry .s { font-size: 12px; opacity: .9; margin-top: 3px; }
+.cmp-entry .s b { opacity: 1; }
+.cmp-entry .right { display: flex; align-items: center; gap: 6px; }
+.cmp-entry .save {
+  background: rgba(255, 255, 255, .22);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
 
 /* 钱包卡片里的本月一行 */
 .wallet-month {

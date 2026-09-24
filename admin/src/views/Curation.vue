@@ -5,8 +5,13 @@
       <el-tab-pane label="选品池" name="pool">
         <el-card shadow="never">
           <div class="bar">
-            <el-select v-model="q.groupKey" placeholder="全部专题" clearable style="width:160px" @change="loadPool">
-              <el-option v-for="g in groups" :key="g.groupKey" :label="`${g.groupKey} (${g.onShelf}/${g.total})`" :value="g.groupKey" />
+            <el-select v-model="q.groupKey" placeholder="全部专题" clearable style="width:190px" @change="loadPool">
+              <el-option
+                v-for="g in groupOptions"
+                :key="g.key"
+                :label="g.label"
+                :value="g.key"
+              />
             </el-select>
             <el-select v-model="q.status" placeholder="全部状态" clearable style="width:140px" @change="loadPool">
               <el-option label="上架" :value="1" />
@@ -53,11 +58,21 @@
 
             <el-table-column label="专题" width="150">
               <template #default="{ row }">
-                <el-input
+                <el-select
                   v-model="row.groupKey"
                   size="small"
+                  filterable
+                  allow-create
+                  default-first-option
                   @change="(v) => save(row, { groupKey: v })"
-                />
+                >
+                  <el-option
+                    v-for="g in GROUPS"
+                    :key="g.key"
+                    :label="`${g.name} (${g.key})`"
+                    :value="g.key"
+                  />
+                </el-select>
               </template>
             </el-table-column>
 
@@ -131,7 +146,21 @@
 
             <el-divider direction="vertical" />
             <span class="hint">加入到</span>
-            <el-input v-model="f.groupKey" style="width:130px" placeholder="专题" />
+            <el-select
+              v-model="f.groupKey"
+              style="width:170px"
+              filterable
+              allow-create
+              default-first-option
+              placeholder="专题"
+            >
+              <el-option
+                v-for="g in GROUPS"
+                :key="g.key"
+                :label="`${g.name} (${g.key})`"
+                :value="g.key"
+              />
+            </el-select>
             <el-input-number v-model="f.sortWeight" :min="-999" :max="999" style="width:110px" />
           </div>
 
@@ -174,6 +203,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../api';
+import { GROUPS, groupName } from '../constants/groups';
 
 const tab = ref('pool');
 
@@ -188,6 +218,22 @@ const expiredCount = computed(
   () => groups.value.reduce((n, g) => n + (g.total - g.onShelf), 0),
 );
 const inPool = computed(() => new Set(pool.value.list.map((r) => r.goodsId)));
+
+/**
+ * 筛选下拉：预设专题 + 池子里实际出现过的自定义专题。
+ * 只用后者的话，刚加的新专题在没选品前选不到，是个死结。
+ */
+const groupOptions = computed(() => {
+  const stat = Object.fromEntries(groups.value.map((g) => [g.groupKey, g]));
+  const keys = [...new Set([...GROUPS.map((g) => g.key), ...groups.value.map((g) => g.groupKey)])];
+  return keys.map((key) => {
+    const s = stat[key];
+    return {
+      key,
+      label: s ? `${groupName(key)} (${s.onShelf}/${s.total})` : `${groupName(key)} (0)`,
+    };
+  });
+});
 
 const fmt = (d) => (d ? `同步于 ${new Date(d).toLocaleString('zh-CN', { hour12: false })}` : '未同步');
 

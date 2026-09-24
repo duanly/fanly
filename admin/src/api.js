@@ -56,4 +56,11 @@ export const api = {
   curationRefresh: (id) => http.post(`/api/admin/curation/${id}/refresh`),
   curationRefreshAll: () => http.post('/api/admin/curation/refresh-all'),
   curationRemove: (id) => http.delete(`/api/admin/curation/${id}`),
+
+  // 比价组
+  compareList: (params) => http.get('/api/admin/compare/list', { params }),
+  compareSave: (data) => http.post('/api/admin/compare/save', data),
+  compareAddMembers: (id, curatedIds) => http.post(`/api/admin/compare/${id}/members`, { curatedIds }),
+  compareRemoveMember: (id, curatedId) => http.delete(`/api/admin/compare/${id}/members/${curatedId}`),
+  compareRemove: (id) => http.delete(`/api/admin/compare/${id}`),
 };

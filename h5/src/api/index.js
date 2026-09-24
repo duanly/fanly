@@ -38,6 +38,10 @@ export const api = {
   // 首页流：后台选品池优先，池空时后端自动回落到平台榜单
   feed: (params) => http.get('/api/goods/feed', { params }),
   goodsGroups: () => http.get('/api/goods/groups'),
+
+  // 比价：比的是到手价（券后价 − 返利），不是券后价
+  compareList: (params) => http.get('/api/compare/list', { params }),
+  compareDetail: (id) => http.get(`/api/compare/${id}`),
   search: (params) => http.get('/api/goods/search', { params }),
   detail: (platform, goodsId) => http.get(`/api/goods/${platform}/${goodsId}`),
   convert: (platform, goodsId) => http.post('/api/link/convert', { platform, goodsId }),

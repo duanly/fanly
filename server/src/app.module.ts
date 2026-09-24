@@ -28,6 +28,8 @@ import { AdminController } from './modules/admin/admin.controller';
 import { HealthController } from './modules/admin/health.controller';
 import { AuthzService } from './modules/cps/authz.service';
 import { AuthzController } from './modules/cps/authz.controller';
+import { CompareService } from './modules/cps/compare.service';
+import { ComparePublicController, CompareAdminController } from './modules/cps/compare.controller';
 import { CurationService } from './modules/curation/curation.service';
 import { CurationController } from './modules/curation/curation.controller';
 import { JobService } from './modules/job/job.service';
@@ -79,10 +81,11 @@ const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'functi
     AuthController, GoodsController, OauthController, OrderController,
     FundController, AgentController, AdminController, HealthController,
     CurationController, AuthzController,
+    ComparePublicController, CompareAdminController,
   ],
   providers: [
     SysConfigService, AuthService, OrderService, CommissionService,
-    FundService, AgentService, CurationService, AuthzService, JobService,
+    FundService, AgentService, CurationService, AuthzService, CompareService, JobService,
     { provide: APP_GUARD, useClass: JwtGuard },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
     { provide: APP_FILTER, useClass: AllExceptionFilter },

@@ -4,6 +4,7 @@ import { OrderService } from '../order/order.service';
 import { AgentService } from '../agent/agent.service';
 import { FundService } from '../fund/fund.service';
 import { CurationService } from '../curation/curation.service';
+import { CompareService } from '../cps/compare.service';
 
 @Injectable()
 export class JobService {
@@ -14,6 +15,7 @@ export class JobService {
     private readonly agent: AgentService,
     private readonly fund: FundService,
     private readonly curation: CurationService,
+    private readonly compare: CompareService,
   ) {}
 
   /** 增量拉单，每 10 分钟 */
@@ -21,6 +23,19 @@ export class JobService {
   async syncOrders() {
     const r = await this.order.syncAll(2);
     this.logger.log(`增量拉单: ${JSON.stringify(r)}`);
+  }
+
+  /**
+   * 比价组成员刷新，每 15 分钟。
+   * 比价页摆的是「哪家最便宜」，价格一旧结论就可能是反的，
+   * 所以这批比普通选品刷得勤得多。
+   */
+  @Cron('0 */15 * * * *')
+  async refreshCompare() {
+    const rows = await this.compare.members();
+    if (!rows.length) return;
+    const r = await this.curation.refreshCompareMembers(rows);
+    this.logger.log(`比价组刷新: ${JSON.stringify(r)}`);
   }
 
   /**

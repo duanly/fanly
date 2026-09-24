@@ -44,13 +44,17 @@ export class GoodsController {
     @Query('sort') sort?: string,
     @CurrentUser('sub') userId?: number,
   ) {
-    // sort=rebate 走本地排序：多拉几页按佣金金额降序，
-    // 等价于按用户到手返利降序，比平台的「佣金比例」排序靠谱
-    const list = sort === 'rebate'
-      ? await this.cps.searchByRebate(platform, { keyword, pageSize: +pageSize })
-      : await this.cps.searchGoods(platform, {
-          keyword, page: +page, pageSize: +pageSize, sort,
-        });
+    // platform=ALL：四家并发查了合并，这是「统一货架」的搜索形态
+    // sort=rebate：多拉几页按佣金金额降序，等价于按到手返利降序，
+    //              比平台自带的「佣金比例」排序靠谱
+    const all = (platform || '').toUpperCase() === 'ALL';
+    const list = all
+      ? await this.cps.searchAll({ keyword, pageSize: +pageSize, sort })
+      : sort === 'rebate'
+        ? await this.cps.searchByRebate(platform, { keyword, pageSize: +pageSize })
+        : await this.cps.searchGoods(platform, {
+            keyword, page: +page, pageSize: +pageSize, sort,
+          });
     return { list: await this.withRebate(list, userId), page: +page };
   }
 
@@ -67,19 +71,23 @@ export class GoodsController {
   }
 
   @Public() @Get('goods/feed')
-  @ApiOperation({ summary: '首页 feed：优先选品池，池空时回落平台榜单' })
+  @ApiOperation({ summary: '首页 feed：优先选品池，池空时回落平台榜单；不传 platform 则跨平台混排' })
   async feed(
     @Query('group') group = 'default',
-    @Query('platform') platform = 'PDD',
+    @Query('platform') platform?: string,
     @Query('limit') limit = '20',
     @CurrentUser('sub') userId?: number,
   ) {
-    // 选品池是运营控的，优先；还没开始选品时也得有东西看，所以回落榜单
+    // platform 不传就是「统一货架」模式：选品池里所有平台的商品混在一起，
+    // 用户只看商品，不关心它来自哪家。传了才按平台过滤。
     const pool = await this.curation.feed(group, +limit, platform);
     if (pool.length) {
       return { source: 'curated', list: await this.withRebate(pool, userId) };
     }
-    const list = await this.cps.recommendGoods(platform, { channel: 'earn', pageSize: +limit });
+    // 池子空的时候只能回落到某一家的榜单，没有跨平台可言，默认拼多多
+    const list = await this.cps.recommendGoods(platform || 'PDD', {
+      channel: 'earn', pageSize: +limit,
+    });
     return { source: 'recommend', list: await this.withRebate(list, userId) };
   }
 
