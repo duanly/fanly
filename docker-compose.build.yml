@@ -1,15 +1,22 @@
 # 从源码本地构建，而不是拉现成镜像。
-# 用法（国内服务器）：
-#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 #
-# 镜像源通过 build args 传进去，CI 上不传就走官方源。
+# 用法：在 .env 里把它加进 COMPOSE_FILE（放最后，它要覆盖 image），然后
+#   docker compose up -d --build
+#
+# 镜像源通过 build args 传进去，都可以在 .env 里覆盖：
+#   NPM_REGISTRY=https://registry.npmjs.org/     # 境外机器走官方源更快
+#   APK_MIRROR=mirrors.tencentyun.com            # 腾讯云机器可以用内网源
+#
+# 默认给的是公网可达的源：npmmirror 和阿里云。
+# ⚠️ mirrors.tencentyun.com 是腾讯云内网域名，只在腾讯云的机器上解析得了，
+#    别的云上用会直接 DNS 解析失败。
 services:
   server:
     build:
       context: ./server
       args:
-        NPM_REGISTRY: https://registry.npmmirror.com/
-        APK_MIRROR: mirrors.tencentyun.com
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com/}
+        APK_MIRROR: ${APK_MIRROR:-mirrors.aliyun.com}
     image: fanly-server:local
 
   web:
@@ -17,5 +24,5 @@ services:
       context: .
       dockerfile: deploy/Dockerfile.web
       args:
-        NPM_REGISTRY: https://registry.npmmirror.com/
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com/}
     image: fanly-web:local
