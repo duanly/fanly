@@ -16,6 +16,7 @@ const routes = [
   { path: '/agent', component: () => import('./views/Agent.vue'), meta: { auth: true } },
   { path: '/withdraw', component: () => import('./views/Withdraw.vue'), meta: { auth: true } },
   { path: '/ledger', component: () => import('./views/Ledger.vue'), meta: { auth: true } },
+  { path: '/withdraws', component: () => import('./views/Withdraws.vue'), meta: { auth: true } },
   { path: '/login', component: () => import('./views/Login.vue') },
   { path: '/i/:code', component: () => import('./views/Invite.vue') },
 ];

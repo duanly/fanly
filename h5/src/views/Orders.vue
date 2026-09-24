@@ -13,6 +13,11 @@
       <van-tab v-for="t in tabs" :key="t.label" :title="t.label" />
     </van-tabs>
 
+    <!-- 返利什么时候到账是客服问得最多的，直接写在列表顶上 -->
+    <div class="tip-bar">
+      返利在订单<b>确认收货且平台结算</b>后入账，一般 15~30 天。退款或维权的订单会失效。
+    </div>
+
     <van-list v-if="logged" v-model:loading="loading" :finished="finished" finished-text="没有更多了" @load="load">
       <div
         v-for="o in list"
@@ -23,13 +28,20 @@
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;line-height:1.4;max-height:36px;overflow:hidden">{{ o.goodsTitle }}</div>
           <div class="muted" style="margin-top:4px">
-            {{ platformName(o.platform) }} · {{ o.platformOrderNo }}
+            {{ platformName(o.platform) }} · {{ fmt(o.orderTime) }}
           </div>
+          <div class="muted" style="font-size:11px">单号 {{ o.platformOrderNo }}</div>
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px">
             <span class="muted">实付 ¥{{ (+o.payAmount).toFixed(2) }}</span>
             <span>
-              <span class="muted" style="margin-right:4px">{{ statusText(o.orderStatus) }}</span>
-              <span class="price">¥{{ (+o.myRebate).toFixed(2) }}</span>
+              <span
+                style="margin-right:4px;font-size:12px"
+                :style="{ color: statusColor(o.orderStatus) }"
+              >{{ statusText(o.orderStatus) }}</span>
+              <span
+                class="price"
+                :style="o.orderStatus === 4 ? 'text-decoration:line-through;opacity:.45' : ''"
+              >¥{{ (+o.myRebate).toFixed(2) }}</span>
             </span>
           </div>
         </div>
@@ -63,6 +75,8 @@ const finished = ref(false);
 
 const platformName = (p) => ({ PDD: '拼多多', JD: '京东', TB: '淘宝', DY: '抖音' }[p] || p);
 const statusText = (s) => ({ 1: '待收货', 2: '已收货', 3: '已结算', 4: '已失效', 5: '已到账' }[s] || '');
+const statusColor = (s) => ({ 4: '#c8c9cc', 5: '#07c160' }[s] || '#969799');
+const fmt = (d) => (d ? new Date(d).toLocaleDateString('zh-CN') : '');
 
 function reset() {
   list.value = [];

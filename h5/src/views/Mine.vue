@@ -39,19 +39,26 @@
           <div class="sub">累计已返</div>
         </div>
       </div>
-      <van-button
-        block
-        round
-        size="small"
-        style="margin-top:14px;color:#ff3b30;font-weight:600"
-        @click="$router.push('/withdraw')"
-      >
-        提现
-      </van-button>
+      <div class="wallet-month">
+        <span>本月已到账 <b>{{ money(s?.monthEarned) }}</b></span>
+        <span>本月已提现 <b>{{ money(s?.monthWithdraw) }}</b></span>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <van-button
+          block round size="small" style="color:#ff3b30;font-weight:600"
+          @click="$router.push('/withdraw')"
+        >提现</van-button>
+        <van-button
+          block round size="small" plain style="color:#fff;border-color:rgba(255,255,255,.6)"
+          @click="$router.push('/withdraws')"
+        >提现记录</van-button>
+      </div>
     </div>
 
     <van-cell-group inset style="margin-bottom:12px">
       <van-cell title="资金明细" is-link icon="balance-list-o" to="/ledger" />
+      <van-cell title="提现记录" is-link icon="after-sale" to="/withdraws" />
       <van-cell title="我的订单" is-link icon="orders-o" to="/orders" />
       <van-cell title="我的邀请码" icon="friends-o" :value="p?.inviteCode" />
     </van-cell-group>
@@ -85,12 +92,15 @@ import NeedLogin from '../components/NeedLogin.vue';
 
 const logged = ref(!!localStorage.getItem('token'));
 const p = ref(null);
+const s = ref(null);
 const router = useRouter();
 const money = (v) => (+(v || 0)).toFixed(2);
 
 async function load() {
   if (!logged.value) return;
   p.value = await api.profile();
+  // 概览接口挂了不该让整个「我的」白屏，余额从 profile 里已经有了
+  try { s.value = await api.summary(); } catch { s.value = null; }
 }
 
 async function apply() {

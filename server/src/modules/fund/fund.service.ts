@@ -58,12 +58,87 @@ export class FundService {
     };
   }
 
-  async ledger(userId: number, page = 1, size = 20) {
+  async ledger(userId: number, page = 1, size = 20, bizType?: string) {
+    // 筛选必须在数据库做：前端过滤会让分页的 total 对不上，
+    // van-list 判断不出「到底了」，一直往下翻空页
+    const where: any = { userId };
+    if (bizType) where.bizType = bizType;
     const [list, total] = await this.ledgerRepo.findAndCount({
-      where: { userId }, order: { id: 'DESC' },
+      where, order: { id: 'DESC' },
       skip: (page - 1) * size, take: size,
     });
     return { list, total, page, size };
+  }
+
+  /**
+   * 我的提现记录。
+   * 光看资金流水只知道扣了多少钱，看不到「审核中/已打款/被驳回」，
+   * 这是用户最容易来问的东西，单独给一个列表。
+   */
+  async myWithdraws(userId: number, page = 1, size = 20) {
+    const [rows, total] = await this.wdRepo.findAndCount({
+      where: { userId }, order: { id: 'DESC' },
+      skip: (page - 1) * size, take: size,
+    });
+    return {
+      total, page, size,
+      list: rows.map((w) => ({
+        id: w.id,
+        amount: toNum(w.amount),
+        fee: toNum(w.fee),
+        // 到手 = 申请金额 - 手续费，界面上直接显示，别让用户自己算
+        received: Math.round((toNum(w.amount) - toNum(w.fee)) * 100) / 100,
+        channel: w.channel,
+        accountInfo: w.accountInfo,
+        status: w.status,
+        failReason: w.failReason,
+        channelOrderNo: w.channelOrderNo,
+        createdAt: w.createdAt,
+        auditTime: w.auditTime,
+      })),
+    };
+  }
+
+  /**
+   * 收益概览。
+   * 「我的」页顶部那几个数字，以及本月的进出。
+   * 全部从 fund_ledger 算，跟对账用的是同一个数据源，不会出现两处对不上。
+   */
+  async summary(userId: number) {
+    const u = await this.userRepo.findOneBy({ id: userId });
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const sumSince = async (types: string[], since?: Date) => {
+      const qb = this.ledgerRepo
+        .createQueryBuilder('l')
+        .select('COALESCE(SUM(l.amount), 0)', 'v')
+        .where('l.userId = :userId', { userId })
+        .andWhere('l.bizType IN (:...types)', { types });
+      if (since) qb.andWhere('l.createdAt >= :since', { since });
+      const r = await qb.getRawOne();
+      return Math.round(Number(r?.v ?? 0) * 100) / 100;
+    };
+
+    const EARN = [LedgerType.REBATE, LedgerType.AGENT_BONUS];
+    const [monthEarned, totalEarned, monthWithdraw] = await Promise.all([
+      sumSince(EARN, monthStart),
+      sumSince(EARN),
+      sumSince([LedgerType.WITHDRAW], monthStart),
+    ]);
+
+    return {
+      balance: toNum(u.balance),
+      frozen: toNum(u.frozen),
+      pending: toNum(u.pending),
+      totalRebate: toNum(u.totalRebate),
+      /** 本月已到账（返利 + 团队分成，冲销已经是负数会自动抵掉） */
+      monthEarned,
+      totalEarned,
+      /** 本月提现，流水里是负数，这里翻正方便展示 */
+      monthWithdraw: Math.abs(monthWithdraw),
+    };
   }
 
   /** 提现申请：手续费按通道实收透传，不加价 */

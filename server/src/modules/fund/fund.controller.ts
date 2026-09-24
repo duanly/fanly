@@ -25,7 +25,20 @@ export class FundController {
     @CurrentUser('sub') userId: number,
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '20',
-  ) { return this.fund.ledger(userId, +page, +pageSize); }
+    @Query('bizType') bizType?: string,
+  ) { return this.fund.ledger(userId, +page, +pageSize, bizType); }
+
+  @Get('withdraws')
+  @ApiOperation({ summary: '我的提现记录，带审核/打款状态' })
+  withdraws(
+    @CurrentUser('sub') userId: number,
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '20',
+  ) { return this.fund.myWithdraws(userId, +page, +pageSize); }
+
+  @Get('summary')
+  @ApiOperation({ summary: '收益概览：余额、本月已到账、本月提现、累计' })
+  summary(@CurrentUser('sub') userId: number) { return this.fund.summary(userId); }
 
   @Post('withdraw')
   @ApiOperation({ summary: '申请提现' })

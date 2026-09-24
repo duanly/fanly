@@ -46,6 +46,8 @@ export const api = {
   orders: (params) => http.get('/api/orders', { params }),
 
   balance: () => http.get('/api/fund/balance'),
+  summary: () => http.get('/api/fund/summary'),
+  withdraws: (params) => http.get('/api/fund/withdraws', { params }),
   ledger: (params) => http.get('/api/fund/ledger', { params }),
   withdraw: (data) => http.post('/api/fund/withdraw', data),
 
