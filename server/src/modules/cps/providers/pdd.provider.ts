@@ -181,29 +181,32 @@ export class PddProvider implements CpsProvider {
   }
 
   /**
-   * 官方榜单 / 推荐位。
+   * 官方推荐位。
    *
-   * 首页 feed 不该用关键词搜索凑——搜出来的东西质量参差。拼多多的
-   * 「实时收益榜」天然按收益排，正好是返利站要的东西。
+   * 原先走 pdd.ddk.top.goods.list.query（实时收益榜/热销榜），但那个接口
+   * 拼多多已经下线了（报 50001「当前接口已下线」），现在只剩商品推荐这一个。
    *
-   * 注意：channel_type 的取值文档里给了一串（1.9包邮/今日爆款/品牌清仓…），
-   * 这里只用默认频道；要开别的频道先用 probe-pdd.js 实测，别照抄数字。
+   * channel_type 的取值拼多多改过几次，下面这张表是按文档写的，没实测过。
+   * 用 deploy/probe-pdd.js 的第【5】步会把 0~12 全扫一遍，告诉你哪些还活着、
+   * 各自返回什么，拿实测结果回来改这张表。
    */
+  private static readonly CHANNEL_TYPE: Record<string, number> = {
+    pick: 3,   // 默认推荐
+    hot: 1,    // 今日爆款
+    earn: 6,   // 高佣榜单
+    cheap: 5,  // 9.9 特卖
+  };
+
   async recommendGoods(p: RecommendParams = {}): Promise<UnifiedGoods[]> {
     const limit = Math.min(p.pageSize ?? 20, 100);
     const offset = (Math.max(p.page ?? 1, 1) - 1) * limit;
+    const channelType = PddProvider.CHANNEL_TYPE[p.channel ?? 'earn'] ?? 3;
 
-    if (p.channel === 'pick') {
-      const data = await this.call<any>('pdd.ddk.goods.recommend.get', {
-        channel_type: 3, offset, limit, pid: this.opt.pid,
-      });
-      return (data?.list ?? data?.goods_list ?? []).map((r: any) => this.mapGoods(r));
-    }
-
-    // sort_type: 1 实时热销榜 / 2 实时收益榜
-    const data = await this.call<any>('pdd.ddk.top.goods.list.query', {
-      sort_type: p.channel === 'hot' ? 1 : 2,
-      offset, limit, p_id: this.opt.pid,
+    const data = await this.call<any>('pdd.ddk.goods.recommend.get', {
+      channel_type: channelType,
+      offset,
+      limit,
+      pid: this.opt.pid,
     });
     return (data?.list ?? data?.goods_list ?? []).map((r: any) => this.mapGoods(r));
   }
