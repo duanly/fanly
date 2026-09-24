@@ -261,6 +261,82 @@ async function call(method, bizObj, { debug = false } = {}) {
     console.log('  → 一个都调不了，多半是这个 appKey 还没绑定媒体，或者整体权限没开通');
   }
 
+  console.log('\n【7】参数试错 —— 那几个 400 到底该怎么传');
+  console.log('    每个接口挨个试入参结构，第一个通的就停，打印出正确写法');
+
+  const hourAgo = new Date(Date.now() - 3600 * 1000);
+  const hh = (d) => d.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
+    .replace('T', ' ').replace(/[-: ]/g, '').slice(0, 10);
+
+  const SHAPES = [
+    ['京粉精选', 'jd.union.open.goods.jingfen.query', [
+      ['goodsReq 数字',       { goodsReq: { eliteId: 1, pageIndex: 1, pageSize: 20 } }],
+      ['goodsReq 字符串',     { goodsReq: { eliteId: '1', pageIndex: '1', pageSize: '20' } }],
+      ['goodsReq + pid',      { goodsReq: { eliteId: 1, pageIndex: 1, pageSize: 20, pid: process.env.JD_PID || '' } }],
+      ['goodsReq + siteId',   { goodsReq: { eliteId: 1, pageIndex: 1, pageSize: 20, siteId: Number(SITE_ID) } }],
+      ['goodsReqDTO',         { goodsReqDTO: { eliteId: 1, pageIndex: 1, pageSize: 20 } }],
+      ['平铺',                { eliteId: 1, pageIndex: 1, pageSize: 20 }],
+    ]],
+    ['商品详情', 'jd.union.open.goods.bigfield.query', [
+      ['skuIds 数组',         { goodsReq: { skuIds: [100012043978] } }],
+      ['skuIds 字符串',       { goodsReq: { skuIds: '100012043978' } }],
+      ['goodsReqDTO',         { goodsReqDTO: { skuIds: [100012043978] } }],
+      ['平铺数组',            { skuIds: [100012043978] }],
+    ]],
+    ['类目', 'jd.union.open.category.goods.get', [
+      ['req',                 { req: { parentId: 0, grade: 0 } }],
+      ['平铺',                { parentId: 0, grade: 0 }],
+      ['categoryReq',         { categoryReq: { parentId: 0, grade: 0 } }],
+      ['grade1',              { req: { parentId: 0, grade: 1 } }],
+    ]],
+    ['通用转链', 'jd.union.open.promotion.common.get', [
+      ['materialId+siteId',   { promotionCodeReq: { materialId: 'https://item.jd.com/100012043978.html', siteId: Number(SITE_ID) } }],
+      ['+positionId',         { promotionCodeReq: { materialId: 'https://item.jd.com/100012043978.html', siteId: Number(SITE_ID), positionId: Number(POSITION) } }],
+      ['siteId 字符串',       { promotionCodeReq: { materialId: 'https://item.jd.com/100012043978.html', siteId: String(SITE_ID) } }],
+      ['只 materialId',       { promotionCodeReq: { materialId: 'https://item.jd.com/100012043978.html' } }],
+      ['+pid',                { promotionCodeReq: { materialId: 'https://item.jd.com/100012043978.html', pid: process.env.JD_PID || '' } }],
+    ]],
+    ['订单行', 'jd.union.open.order.row.query', [
+      ['pageNo+yyyyMMddHH',   { orderReq: { pageNo: 1, pageSize: 20, type: 1, startTime: hh(hourAgo), endTime: hh(new Date()) } }],
+      ['pageIndex 命名',      { orderReq: { pageIndex: 1, pageSize: 20, type: 1, startTime: hh(hourAgo), endTime: hh(new Date()) } }],
+      ['type 3 更新时间',     { orderReq: { pageNo: 1, pageSize: 20, type: 3, startTime: hh(hourAgo), endTime: hh(new Date()) } }],
+      ['字符串页码',          { orderReq: { pageNo: '1', pageSize: '20', type: '1', startTime: hh(hourAgo), endTime: hh(new Date()) } }],
+      ['orderReqDTO',         { orderReqDTO: { pageNo: 1, pageSize: 20, type: 1, startTime: hh(hourAgo), endTime: hh(new Date()) } }],
+    ]],
+  ];
+
+  const won = {};
+  for (const [label, method, shapes] of SHAPES) {
+    console.log(`\n  ── ${label} ${method}`);
+    let ok = false;
+    for (const [name, biz] of shapes) {
+      try {
+        const d = await call(method, biz);
+        const list = Array.isArray(d) ? d : (d?.data || []);
+        const n = Array.isArray(list) ? list.length : '对象';
+        console.log(`    ✓ ${name.padEnd(18)} → ${n} 条`);
+        console.log(`      正确入参: ${JSON.stringify(biz).slice(0, 180)}`);
+        // 头一条样本拿出来看字段，映射就是照这个写
+        const sample = Array.isArray(list) ? list[0] : d;
+        if (sample) {
+          console.log('      样本字段:');
+          Object.entries(sample).slice(0, 18).forEach(([k, v]) => {
+            const val = typeof v === 'object' ? JSON.stringify(v) : String(v);
+            console.log(`        ${k.padEnd(24)} ${val.slice(0, 64)}`);
+          });
+        }
+        won[label] = name;
+        ok = true;
+        break;
+      } catch (e) {
+        console.log(`    ✗ ${name.padEnd(18)} ${e.message.slice(0, 50)}`);
+      }
+    }
+    if (!ok) console.log('    → 这几种都不行，把上面的报错发我，我换一批再试');
+  }
+
+  console.log('\n  试通的：', Object.keys(won).length ? JSON.stringify(won) : '一个都没通');
+
   console.log('\n常见报错对照：');
   console.log('  invalid signature / 签名错误 → appSecret 填错，或时间戳不是北京时间');
   console.log('  ip 白名单              → 开放平台后台把服务器公网 IP 加进白名单');
