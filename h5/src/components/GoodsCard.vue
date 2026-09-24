@@ -2,8 +2,12 @@
   <div class="goods-card" @click="go">
     <div class="img-wrap">
       <img :src="g.image" :alt="g.title" loading="lazy" />
-      <!-- 来源只是个提示，不该跟商品抢注意力，所以放右上角、半透明 -->
-      <span class="plat-badge">{{ PLAT[g.platform]?.name || g.platform }}</span>
+      <!-- 来源只是个提示，不该跟商品抢注意力：右上角一个字，认得出就行 -->
+      <span
+        class="plat-badge"
+        :style="{ background: platColor(g.platform) }"
+        :title="platName(g.platform)"
+      >{{ platShort(g.platform) }}</span>
       <span v-if="g.orderCount" class="hot-badge">{{ g.orderCount }} 人买过</span>
     </div>
 
@@ -49,13 +53,8 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { api } from '../api';
+import { platColor, platName, platShort } from '../utils/platform';
 
-const PLAT = {
-  PDD: { name: '拼多多', bg: '#e02e24' },
-  JD: { name: '京东', bg: '#e2231a' },
-  TB: { name: '淘宝', bg: '#ff5000' },
-  DY: { name: '抖音', bg: '#161823' },
-};
 
 const props = defineProps({
   g: { type: Object, required: true },
@@ -95,13 +94,16 @@ async function doRecommend() {
 
 <style scoped>
 .img-wrap { position: relative; }
+/* 一个字的方形圆角标，压在图片右上角。
+   .88 的不透明度让它在浅色图上也压得住，又不至于抢商品的视线 */
 .plat-badge {
   position: absolute; right: 6px; top: 6px;
-  background: rgba(255, 255, 255, .88);
-  color: #646566;
-  font-size: 10px; line-height: 1;
-  padding: 3px 7px; border-radius: 999px;
-  backdrop-filter: blur(2px);
+  width: 18px; height: 18px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; opacity: .88;
+  font-size: 11px; line-height: 1; font-weight: 600;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
 }
 /* 热销角标挪到左下，别跟来源标挤一起 */
 .hot-badge {

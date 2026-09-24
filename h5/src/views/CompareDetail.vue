@@ -60,8 +60,8 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '../api';
+import { platName as platformName } from '../utils/platform';
 
-const platformName = (p) => ({ PDD: '拼多多', JD: '京东', TB: '淘宝', DY: '抖音' }[p] || p);
 const route = useRoute();
 const router = useRouter();
 const g = ref(null);

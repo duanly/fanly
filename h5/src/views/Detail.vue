@@ -88,13 +88,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { api } from '../api';
 import { cartCount, bumpCartCount } from '../utils/cart-badge';
-
-const PLAT = {
-  PDD: { name: '拼多多', short: '拼', bg: '#e02e24' },
-  JD: { name: '京东', short: '京', bg: '#e2231a' },
-  TB: { name: '淘宝', short: '淘', bg: '#ff5000' },
-  DY: { name: '抖音', short: '抖', bg: '#161823' },
-};
+import { PLAT } from '../utils/platform';
 
 const route = useRoute();
 const router = useRouter();

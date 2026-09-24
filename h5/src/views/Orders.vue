@@ -58,6 +58,7 @@
 import { ref } from 'vue';
 import { api } from '../api';
 import NeedLogin from '../components/NeedLogin.vue';
+import { platName as platformName } from '../utils/platform';
 
 const logged = ref(!!localStorage.getItem('token'));
 
@@ -74,7 +75,6 @@ const page = ref(1);
 const loading = ref(false);
 const finished = ref(false);
 
-const platformName = (p) => ({ PDD: '拼多多', JD: '京东', TB: '淘宝', DY: '抖音' }[p] || p);
 const statusText = (s) => ({ 1: '待收货', 2: '已收货', 3: '已结算', 4: '已失效', 5: '已到账' }[s] || '');
 const statusColor = (s) => ({ 4: '#c8c9cc', 5: '#07c160' }[s] || '#969799');
 const fmt = (d) => (d ? new Date(d).toLocaleDateString('zh-CN') : '');

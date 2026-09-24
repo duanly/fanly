@@ -81,20 +81,20 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showDialog, showToast } from 'vant';
 import { api } from '../api';
+import { PLATFORMS, platName } from '../utils/platform';
 import NeedLogin from '../components/NeedLogin.vue';
 
-const PLATS = [
-  { text: '拼多多', value: 'PDD' },
-  { text: '京东', value: 'JD' },
-  { text: '淘宝 / 天猫', value: 'TB' },
-  { text: '抖音', value: 'DY' },
-];
+// 选择器要的是 {text,value}，从统一配置转一下，别再抄第五份。
+// 淘宝这里特意带上「天猫」——用户手里的订单可能来自天猫，不提醒会以为没这个平台
+const PLATS = PLATFORMS.map((p) => ({
+  text: p.key === 'TB' ? '淘宝 / 天猫' : p.name,
+  value: p.key,
+}));
 const STATUS = {
   1: { text: '找寻中', color: '#ff976a' },
   2: { text: '已找回', color: '#07c160' },
   3: { text: '无法找回', color: '#969799' },
 };
-const platName = (p) => PLATS.find((x) => x.value === p)?.text || p;
 const fmt = (d) => (d ? new Date(d).toLocaleString('zh-CN', { hour12: false }) : '');
 
 const router = useRouter();

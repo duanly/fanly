@@ -127,6 +127,26 @@ export class JdProvider implements CpsProvider {
 
   // ───────────────────────── 字段映射 ─────────────────────────
 
+  /**
+   * 从一条京东商品里挖出 skuId。
+   *
+   * 不同接口的字段名不一致（京粉精选实测就取不到 skuId），
+   * 但 materialUrl 里一定带着它，所以拿它当最后的兜底。
+   * goodsId 空了转链、加购、选品池、比价组全都定位不到商品，不能含糊。
+   */
+  private pickSkuId(r: any): string {
+    const direct = r.skuId ?? r.skuid ?? r.sku_id ?? r.itemId ?? r.id;
+    if (direct !== undefined && direct !== null && String(direct) !== '') {
+      return String(direct);
+    }
+    for (const u of [r.materialUrl, r.itemUrl, r.clickURL, r.shortURL]) {
+      const m = /item\.jd\.com\/(\d+)/.exec(String(u ?? ''));
+      if (m) return m[1];
+    }
+    this.logger.warn(`京东商品取不到 skuId，字段有: ${Object.keys(r || {}).join(',')}`);
+    return '';
+  }
+
   private mapGoods(r: any): UnifiedGoods {
     const price = Number(r.priceInfo?.price ?? 0);
     const couponPrice = Number(r.priceInfo?.lowestCouponPrice ?? r.priceInfo?.lowestPrice ?? price);
@@ -135,7 +155,7 @@ export class JdProvider implements CpsProvider {
 
     return {
       platform: 'JD',
-      goodsId: String(r.skuId ?? ''),
+      goodsId: this.pickSkuId(r),
       title: r.skuName ?? '',
       image: (r.imageInfo?.imageList?.[0]?.url) ?? r.imgUrl ?? '',
       shopName: r.shopInfo?.shopName ?? '',
@@ -195,10 +215,11 @@ export class JdProvider implements CpsProvider {
       const hit = Array.isArray(list) ? list[0] : list;
       return hit ? this.mapGoods(hit) : null;
     } catch (e: any) {
-      // 详情挂了不该让整个选品流程断掉，回落到从精选池里找
-      this.logger.warn(`京东详情 ${skuId} 失败，回落精选池: ${e.message}`);
-      const pool = await this.recommendGoods({ pageSize: 100 });
-      return pool.find((g) => g.goodsId === String(skuId)) ?? null;
+      // bigfield.query 的权限跟京粉精选是分开审批的，现在还没批下来。
+      // 这里不再自己去精选池里捞（白打一次 100 条的接口还多半捞不着），
+      // 交给 CpsService 用列表快照兜底。
+      this.logger.warn(`京东详情 ${skuId} 失败: ${e.message}`);
+      return null;
     }
   }
 

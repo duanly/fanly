@@ -36,14 +36,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
 import { groupMeta } from '../constants/groups';
+import { PLATFORMS } from '../utils/platform';
 
-const platforms = [
-  { key: '', name: '全部' },
-  { key: 'PDD', name: '拼多多' },
-  { key: 'JD', name: '京东' },
-  { key: 'TB', name: '淘宝' },
-  { key: 'DY', name: '抖音' },
-];
+const platforms = [{ key: '', name: '全部' }, ...PLATFORMS];
 
 const route = useRoute();
 const router = useRouter();

@@ -140,13 +140,7 @@ import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
 import BeianFooter from '../components/BeianFooter.vue';
 import { GRID_GROUPS, groupMeta } from '../constants/groups';
-
-const PLATS = [
-  { key: 'PDD', name: '拼多多', short: '拼', bg: '#e02e24' },
-  { key: 'JD', name: '京东', short: '京', bg: '#e2231a' },
-  { key: 'TB', name: '淘宝', short: '淘', bg: '#ff5000' },
-  { key: 'DY', name: '抖音', short: '抖', bg: '#161823' },
-];
+import { PLATFORMS as PLATS } from '../utils/platform';
 
 const RANKS = [
   { type: 'hot', name: '🔥 热销榜', tip: '按最近 7 天本站下单量排，不是平台的全站销量' },

@@ -26,6 +26,20 @@ export class CpsService implements OnModuleInit {
    */
   private readonly goodsCache = new TtlCache<UnifiedGoods[]>(10 * 60 * 1000, 300);
 
+  /**
+   * 「见过的商品」快照，按 平台:商品ID 存 1 小时。
+   *
+   * 为什么要它：各平台的「商品详情」接口权限跟「搜索/榜单」是分开授权的，
+   * 京东的 bigfield.query 现在就没批下来。后台在搜索结果里点「加入选品池」，
+   * 服务端却要用详情接口再查一遍,结果查不到 → 报「商品不存在或已下架」,
+   * 可商品明明就在眼前。列表里已经拿到的字段跟详情返回的是同一套,
+   * 顺手存下来当兜底,比让运营干等平台审批实在。
+   *
+   * 不信任前端传过来的商品数据,是因为佣金率直接决定给用户看的返利金额,
+   * 那是钱,只能以平台返回的为准。
+   */
+  private readonly seenGoods = new TtlCache<UnifiedGoods>(60 * 60 * 1000, 5000);
+
   constructor(private readonly config: ConfigService) {}
 
   onModuleInit() {
@@ -95,11 +109,41 @@ export class CpsService implements OnModuleInit {
 
   all(): CpsProvider[] { return [...this.providers.values()]; }
 
-  searchGoods(platform: string, p: SearchParams): Promise<UnifiedGoods[]> {
-    return this.get(platform).searchGoods(p);
+  /** 凡是从平台捞回来的商品都记一份快照，供 getGoodsDetail 兜底 */
+  private remember(list: UnifiedGoods[]): UnifiedGoods[] {
+    for (const g of list) {
+      if (g?.goodsId) this.seenGoods.set(`${g.platform}:${g.goodsId}`, g);
+    }
+    return list;
   }
-  getGoodsDetail(platform: string, id: string): Promise<UnifiedGoods | null> {
-    return this.get(platform).getGoodsDetail(id);
+
+  async searchGoods(platform: string, p: SearchParams): Promise<UnifiedGoods[]> {
+    return this.remember(await this.get(platform).searchGoods(p));
+  }
+
+  /**
+   * 商品详情。详情接口没权限或临时抽风时，回落到刚才列表里见过的那一份——
+   * 数据略旧一点，总好过让后台加不进选品池。
+   */
+  async getGoodsDetail(platform: string, id: string): Promise<UnifiedGoods | null> {
+    if (!id) return null;
+    const key = `${platform.toUpperCase()}:${id}`;
+    try {
+      const g = await this.get(platform).getGoodsDetail(id);
+      if (g?.goodsId) {
+        this.seenGoods.set(key, g);
+        return g;
+      }
+      const cached = this.seenGoods.get(key);
+      if (cached) this.logger.warn(`${platform} 详情查不到 ${id}，用列表快照兜底`);
+      return cached ?? null;
+    } catch (e: any) {
+      const cached = this.seenGoods.get(key);
+      this.logger.warn(
+        `${platform} 详情 ${id} 失败(${e.message})，${cached ? '用列表快照兜底' : '且无快照可用'}`,
+      );
+      return cached ?? null;
+    }
   }
   convertLink(platform: string, id: string, pid: string): Promise<ConvertedLink> {
     return this.get(platform).convertLink(id, pid);
@@ -118,7 +162,7 @@ export class CpsService implements OnModuleInit {
     const provider = this.get(platform);
     const key = `rec|${platform}|${p.channel ?? 'earn'}|${p.page ?? 1}|${p.pageSize ?? 20}`;
 
-    return this.goodsCache.wrap(key, async () => {
+    return this.remember(await this.goodsCache.wrap(key, async () => {
       if (typeof provider.recommendGoods === 'function') {
         try {
           const list = await provider.recommendGoods(p);
@@ -129,7 +173,7 @@ export class CpsService implements OnModuleInit {
         }
       }
       return provider.searchGoods({ pageSize: p.pageSize ?? 20, sort: 'sales' });
-    });
+    }));
   }
 
   /**
@@ -150,7 +194,7 @@ export class CpsService implements OnModuleInit {
     const size = Math.max(params.pageSize ?? 20, 10);
     const key = `all|${targets.join(',')}|${params.keyword ?? ''}|${size}|${params.sort ?? ''}`;
 
-    return this.goodsCache.wrap(key, async () => {
+    return this.remember(await this.goodsCache.wrap(key, async () => {
       const batches = await Promise.all(targets.map((p) => {
         const task = this.get(p)
           .searchGoods({ ...params, pageSize: size })
@@ -179,7 +223,7 @@ export class CpsService implements OnModuleInit {
         })
         .sort((a, b) => b.commission - a.commission)
         .slice(0, size);
-    });
+    }));
   }
 
   /**
@@ -200,7 +244,7 @@ export class CpsService implements OnModuleInit {
     const pageSize = Math.min(params.pageSize ?? 20, 100);
     const key = `rebate|${platform}|${params.keyword ?? ''}|${pages}|${pageSize}`;
 
-    return this.goodsCache.wrap(key, async () => {
+    return this.remember(await this.goodsCache.wrap(key, async () => {
       const provider = this.get(platform);
       const batches = await Promise.all(
         Array.from({ length: pages }, (_, i) =>
@@ -223,7 +267,7 @@ export class CpsService implements OnModuleInit {
         })
         .sort((a, b) => b.commission - a.commission)
         .slice(0, pageSize);
-    });
+    }));
   }
 
   /**

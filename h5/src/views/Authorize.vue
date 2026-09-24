@@ -48,13 +48,13 @@ import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { api } from '../api';
+import { platName } from '../utils/platform';
 
-const NAMES = { PDD: '拼多多', JD: '京东', TB: '淘宝', DY: '抖音' };
 
 const route = useRoute();
 const router = useRouter();
 const platform = (route.params.platform || 'PDD').toUpperCase();
-const platformName = NAMES[platform] || platform;
+const platformName = platName(platform);
 
 const url = ref('');
 const loading = ref(true);

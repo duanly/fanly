@@ -28,13 +28,9 @@
 import { ref } from 'vue';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
+import { PLATFORMS } from '../utils/platform';
 
-const platforms = [
-  { key: 'PDD', name: '拼多多' },
-  { key: 'JD', name: '京东' },
-  { key: 'TB', name: '淘宝' },
-  { key: 'DY', name: '抖音' },
-];
+const platforms = PLATFORMS;
 const sortOptions = [
   { text: '综合排序', value: '' },
   { text: '销量优先', value: 'sales' },

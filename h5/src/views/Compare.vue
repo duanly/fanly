@@ -91,8 +91,8 @@ import { onMounted, ref } from 'vue';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
 import { CATEGORIES, categoryName } from '../constants/groups';
+import { platName as platformName } from '../utils/platform';
 
-const platformName = (p) => ({ PDD: '拼多多', JD: '京东', TB: '淘宝', DY: '抖音' }[p] || p || '');
 
 const keyword = ref('');
 const inputRef = ref(null);

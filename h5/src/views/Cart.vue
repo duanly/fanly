@@ -27,9 +27,11 @@
             <div class="t">{{ it.title }}</div>
 
             <div class="meta">
-              <span class="plat" :style="{ background: PLAT[it.platform]?.bg }">
-                {{ PLAT[it.platform]?.name || it.platform }}
-              </span>
+              <span
+                class="plat"
+                :style="{ background: platColor(it.platform) }"
+                :title="platName(it.platform)"
+              >{{ platShort(it.platform) }}</span>
               <span v-if="it.invalidReason" class="bad">{{ it.invalidReason }}</span>
               <span v-else-if="it.priceDiff < 0" class="down">
                 降了 ¥{{ Math.abs(it.priceDiff).toFixed(2) }}
@@ -92,13 +94,7 @@ import { showToast } from 'vant';
 import { api } from '../api';
 import NeedLogin from '../components/NeedLogin.vue';
 import { setCartCount } from '../utils/cart-badge';
-
-const PLAT = {
-  PDD: { name: '拼多多', bg: '#e02e24' },
-  JD: { name: '京东', bg: '#e2231a' },
-  TB: { name: '淘宝', bg: '#ff5000' },
-  DY: { name: '抖音', bg: '#161823' },
-};
+import { platColor, platName, platShort } from '../utils/platform';
 
 const router = useRouter();
 const logged = ref(!!localStorage.getItem('token'));
@@ -165,7 +161,7 @@ async function doBuy() {
   // 一件直接跳，多件先让用户选——浏览器不允许连续打开多个 App
   if (chosen.value.length === 1) return jump(chosen.value[0]);
   jumpActions.value = chosen.value.map((i) => ({
-    name: `${PLAT[i.platform]?.name || i.platform} · ¥${i.finalPrice}`,
+    name: `${platName(i.platform)} · ¥${i.finalPrice}`,
     subname: i.title.slice(0, 20),
     item: i,
   }));
@@ -216,7 +212,12 @@ onMounted(load);
   max-height: 36px; overflow: hidden;
 }
 .meta { display: flex; align-items: center; gap: 6px; margin: 6px 0 4px; }
-.plat { color: #fff; font-size: 10px; padding: 2px 5px; border-radius: 3px; }
+.plat {
+  width: 16px; height: 16px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 10px; font-weight: 600; line-height: 1;
+  border-radius: 4px;
+}
 .down { color: #07c160; font-size: 11px; }
 .up { color: #969799; font-size: 11px; }
 .bad { color: #ee0a24; font-size: 11px; }
