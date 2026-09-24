@@ -43,6 +43,11 @@ export const api = {
   convert: (platform, goodsId) => http.post('/api/link/convert', { platform, goodsId }),
   parse: (content) => http.post('/api/link/parse', { content }),
 
+  // 平台授权（拼多多的推广位备案）
+  authzStatus: (platform, force) =>
+    http.get('/api/authz/status', { params: { platform, force: force ? 1 : undefined } }),
+  authzUrl: (platform) => http.get('/api/authz/url', { params: { platform } }),
+
   orders: (params) => http.get('/api/orders', { params }),
 
   balance: () => http.get('/api/fund/balance'),

@@ -202,6 +202,37 @@ export class PddProvider implements CpsProvider {
     pick: 1,
   };
 
+  /**
+   * 查备案状态。bind=1 表示这组 pid + custom_parameters 已经授权过。
+   * 不传 customParameters 查的是「仅 pid」那一组，搜索和详情用的就是它。
+   */
+  async queryAuthority(customParameters?: string): Promise<boolean> {
+    const d = await this.call<any>('pdd.ddk.member.authority.query', {
+      pid: this.opt.pid,
+      custom_parameters: customParameters,
+    });
+    return Number(d?.bind) === 1;
+  }
+
+  /** 生成备案授权链接，用户在拼多多 APP 里打开完成授权 */
+  async genAuthUrl(customParameters?: string): Promise<{
+    shortUrl: string; schemaUrl: string; weApp: any;
+  }> {
+    const d = await this.call<any>('pdd.ddk.rp.prom.url.generate', {
+      p_id_list: [this.opt.pid],
+      channel_type: 10,          // 固定值，备案专用
+      generate_we_app: true,
+      generate_short_url: true,
+      custom_parameters: customParameters,
+    });
+    const item = (d?.url_list ?? d?.list ?? [])[0] ?? d ?? {};
+    return {
+      shortUrl: item.short_url || item.url || item.mobile_short_url || item.mobile_url || '',
+      schemaUrl: item.schema_url || item.mobile_url || '',
+      weApp: item.we_app_info ?? null,
+    };
+  }
+
   async recommendGoods(p: RecommendParams = {}): Promise<UnifiedGoods[]> {
     const limit = Math.min(p.pageSize ?? 20, 100);
     const offset = (Math.max(p.page ?? 1, 1) - 1) * limit;

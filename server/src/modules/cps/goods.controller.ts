@@ -9,6 +9,7 @@ import { Public } from '@/common/jwt.guard';
 import { CommissionService } from '../commission/commission.service';
 import { platformName } from '@/common/share-content';
 import { CurationService } from '../curation/curation.service';
+import { AuthzService } from './authz.service';
 
 @ApiTags('选品与转链')
 @Controller('api')
@@ -19,6 +20,7 @@ export class GoodsController {
     @InjectRepository(PromotionPosition) private readonly posRepo: Repository<PromotionPosition>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly curation: CurationService,
+    private readonly authz: AuthzService,
   ) {}
 
   /** 给商品挂上"预计返 ¥X" */
@@ -106,6 +108,10 @@ export class GoodsController {
     @Body() body: { platform: string; goodsId: string },
     @CurrentUser('sub') userId: number,
   ) {
+    // 没授权就先别转链——转了也认不到订单，白白浪费一次跳转
+    const gate = await this.authz.gate(userId, body.platform);
+    if (gate) return gate;
+
     const pos = await this.posRepo.findOneBy({ userId, platform: body.platform });
     if (!pos) throw new Error('推广位缺失，请重新登录');
     return this.cps.convertLink(body.platform, body.goodsId, pos.positionId);
@@ -121,6 +127,20 @@ export class GoodsController {
     }
 
     const [withRebate] = await this.withRebate([goods], userId);
+
+    // 先把商品和返利给用户看到，再谈授权——有了预期才愿意多点一步
+    const gate = await this.authz.gate(userId, goods.platform);
+    if (gate) {
+      return {
+        ok: true,
+        platform: goods.platform,
+        platformName: platformName(goods.platform),
+        goods: withRebate,
+        link: null,
+        ...gate,
+      };
+    }
+
     const pos = await this.posRepo.findOneBy({ userId, platform: goods.platform });
     const link = pos
       ? await this.cps.convertLink(goods.platform, goods.goodsId, pos.positionId)

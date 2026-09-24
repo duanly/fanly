@@ -82,11 +82,18 @@ const link = ref(null);
 const showLink = ref(false);
 const converting = ref(false);
 
+/** 后端说要先授权就把人送过去，回来还落在这个商品页 */
+function toAuth(platform) {
+  router.push({ path: `/auth/${platform}`, query: { redirect: route.fullPath } });
+}
+
 async function doConvert() {
   if (!localStorage.getItem('token')) return router.push('/login');
   converting.value = true;
   try {
-    link.value = await api.convert(route.params.platform, route.params.goodsId);
+    const r = await api.convert(route.params.platform, route.params.goodsId);
+    if (r?.needAuth) return toAuth(r.platform || route.params.platform);
+    link.value = r;
     showLink.value = true;
     try { await navigator.clipboard.writeText(link.value.password); } catch { /* 忽略 */ }
   } finally {
@@ -99,6 +106,7 @@ async function buy() {
   converting.value = true;
   try {
     const r = await api.convert(route.params.platform, route.params.goodsId);
+    if (r?.needAuth) return toAuth(r.platform || route.params.platform);
     link.value = r;
     // 真机上这一步唤起电商 App，浏览器里唤不起就展示链接
     showToast('正在打开购物 App…');

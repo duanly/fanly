@@ -138,6 +138,11 @@ async function doParse() {
     if (r?.ok) {
       result.value = r;
       pushHistory(r);
+      // 商品已经显示出来了，用户看到返利多少再去授权，比上来就拦更容易接受
+      if (r.needAuth) {
+        showToast('还差一步授权才能返利');
+        router.push({ path: `/auth/${r.platform}`, query: { redirect: '/parse' } });
+      }
     } else {
       failReason.value = r?.reason || '没认出这个商品';
     }
