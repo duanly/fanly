@@ -112,6 +112,17 @@ const yuan = v => (Math.round(Number(v || 0)) / 100).toFixed(2);
       console.log(`     goods_sign=${g.goods_sign}  goods_id=${g.goods_id}`);
     });
     goodsSign = list[0] && list[0].goods_sign;
+    if (list[0] && process.env.RAW !== '0') {
+      // 字段映射是照文档写的，拿真实数据核一遍才放心
+      console.log('\n  第 1 条的原始字段（只看非空的）：');
+      Object.entries(list[0])
+        .filter(([, v]) => v !== '' && v !== null && v !== undefined &&
+                           !(Array.isArray(v) && !v.length))
+        .forEach(([k, v]) => {
+          const s = typeof v === 'object' ? JSON.stringify(v) : String(v);
+          console.log(`    ${k.padEnd(28)} ${s.slice(0, 70)}`);
+        });
+    }
   } catch (e) { console.log('  ✗', e.message); }
 
   console.log('\n【2】商品详情 pdd.ddk.goods.detail');
