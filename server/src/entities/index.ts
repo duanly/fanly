@@ -9,3 +9,5 @@ export * from './sys-config.entity';
 export * from './admin-user.entity';
 export * from './curated-goods.entity';
 export * from './compare-group.entity';
+export * from './home-link.entity';
+export * from './cart-item.entity';

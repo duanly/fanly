@@ -3,8 +3,8 @@
     <el-card shadow="never">
       <div class="bar">
         <el-button type="primary" @click="openNew">新建比价组</el-button>
-        <el-select v-model="q.groupKey" placeholder="全部专题" clearable style="width:180px" @change="load">
-          <el-option v-for="g in GROUPS" :key="g.key" :label="`${g.name} (${g.key})`" :value="g.key" />
+        <el-select v-model="q.groupKey" placeholder="全部品类" clearable style="width:180px" @change="load">
+          <el-option v-for="c in CATEGORIES" :key="c.key" :label="`${c.name} (${c.key})`" :value="c.key" />
         </el-select>
         <span class="hint">
           只做标品。各平台没有共享商品标识，白牌非标品没有「同款」概念，硬凑会误导用户。
@@ -51,7 +51,7 @@
               <img v-if="row.cover" :src="row.cover" class="cover" />
               <div>
                 <div style="font-weight:600">{{ row.name }}</div>
-                <div class="m">{{ row.spec || '未写规格' }} · {{ groupName(row.groupKey) }}</div>
+                <div class="m">{{ row.spec || '未写规格' }} · {{ categoryName(row.groupKey) }}</div>
               </div>
             </div>
           </template>
@@ -100,10 +100,11 @@
           <el-input v-model="form.spec" placeholder="例如 单罐，不含赠品" />
           <div class="hint">套装和赠品是比价失真的头号原因，写出来让用户自己判断</div>
         </el-form-item>
-        <el-form-item label="专题">
+        <el-form-item label="品类">
           <el-select v-model="form.groupKey" filterable allow-create default-first-option>
-            <el-option v-for="g in GROUPS" :key="g.key" :label="`${g.name} (${g.key})`" :value="g.key" />
+            <el-option v-for="c in CATEGORIES" :key="c.key" :label="`${c.name} (${c.key})`" :value="c.key" />
           </el-select>
+          <div class="hint">比价页顶部按这个分栏，跟选品池的「专题」是两套东西</div>
         </el-form-item>
         <el-form-item label="权重">
           <el-input-number v-model="form.sortWeight" :min="-999" :max="999" />
@@ -155,14 +156,14 @@
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../api';
-import { GROUPS, groupName } from '../constants/groups';
+import { CATEGORIES, categoryName } from '../constants/groups';
 
 const rows = ref([]);
 const loading = ref(false);
 const q = reactive({ groupKey: '' });
 
 const formVisible = ref(false);
-const form = reactive({ id: null, name: '', spec: '', groupKey: 'default', sortWeight: 0 });
+const form = reactive({ id: null, name: '', spec: '', groupKey: 'electronics', sortWeight: 0 });
 
 const addVisible = ref(false);
 const current = ref(null);
@@ -182,7 +183,7 @@ async function load() {
 }
 
 function openNew() {
-  Object.assign(form, { id: null, name: '', spec: '', groupKey: 'default', sortWeight: 0 });
+  Object.assign(form, { id: null, name: '', spec: '', groupKey: 'electronics', sortWeight: 0 });
   formVisible.value = true;
 }
 

@@ -332,6 +332,41 @@ body {
 .need-login .t { font-size: 16px; margin-top: 14px; }
 .need-login .s { color: var(--ink-3); font-size: 13px; margin-top: 8px; line-height: 1.7; }
 
+/* 分类宫格：一页两行四列，多了横滑翻页 */
+.cat-scroll {
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.cat-scroll::-webkit-scrollbar { display: none; }
+.cat-pages { display: flex; }
+.cat-page {
+  flex: 0 0 100%;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px 0;
+  scroll-snap-align: start;
+}
+.cat-dots {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 10px;
+}
+.cat-dots i {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #e5e5e5;
+}
+.cat-dots i:first-child { background: var(--brand); width: 12px; border-radius: 3px; }
+
+/* 榜单下面那行说明 */
+.rank-tip {
+  padding: 8px 14px 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 /* 首页的比价入口 */
 .cmp-entry {
   display: flex;

@@ -63,4 +63,9 @@ export const api = {
   compareAddMembers: (id, curatedIds) => http.post(`/api/admin/compare/${id}/members`, { curatedIds }),
   compareRemoveMember: (id, curatedId) => http.delete(`/api/admin/compare/${id}/members/${curatedId}`),
   compareRemove: (id) => http.delete(`/api/admin/compare/${id}`),
+
+  // 首页运营
+  homeLinks: () => http.get('/api/admin/home/links'),
+  homeLinkSave: (data) => http.post('/api/admin/home/links', data),
+  homeLinkRemove: (id) => http.delete(`/api/admin/home/links/${id}`),
 };

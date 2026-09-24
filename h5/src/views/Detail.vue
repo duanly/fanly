@@ -36,11 +36,17 @@
       </div>
 
       <van-action-bar>
-        <van-action-bar-icon icon="share-o" text="分享" @click="doConvert" />
+        <van-action-bar-icon
+          icon="cart-o"
+          text="购物车"
+          :badge="cartCount > 0 ? String(cartCount) : ''"
+          @click="$router.push('/cart')"
+        />
         <van-action-bar-button
           type="warning"
-          text="复制口令"
-          @click="doConvert"
+          :loading="adding"
+          text="加入购物车"
+          @click="addCart"
         />
         <van-action-bar-button
           type="danger"
@@ -73,6 +79,7 @@ import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { api } from '../api';
+import { cartCount, bumpCartCount } from '../utils/cart-badge';
 
 const route = useRoute();
 const router = useRouter();
@@ -81,6 +88,20 @@ const loading = ref(true);
 const link = ref(null);
 const showLink = ref(false);
 const converting = ref(false);
+const adding = ref(false);
+
+async function addCart() {
+  if (!localStorage.getItem('token')) return router.push('/login');
+  adding.value = true;
+  try {
+    const r = await api.cartAdd(route.params.platform, route.params.goodsId);
+    if (r.already) return showToast('已经在购物车里了');
+    bumpCartCount(1);
+    showToast('已加入购物车');
+  } finally {
+    adding.value = false;
+  }
+}
 
 /** 后端说要先授权就把人送过去，回来还落在这个商品页 */
 function toAuth(platform) {

@@ -11,6 +11,7 @@ const routes = [
   { path: '/dashboard', component: () => import('./views/Dashboard.vue') },
   { path: '/curation', component: () => import('./views/Curation.vue') },
   { path: '/compare', component: () => import('./views/Compare.vue') },
+  { path: '/home-ops', component: () => import('./views/HomeOps.vue') },
   { path: '/agents', component: () => import('./views/Agents.vue') },
   { path: '/orders', component: () => import('./views/Orders.vue') },
   { path: '/withdraws', component: () => import('./views/Withdraws.vue') },

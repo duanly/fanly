@@ -14,6 +14,7 @@
         <el-menu-item index="/dashboard">仪表盘</el-menu-item>
         <el-menu-item index="/curation">选品池</el-menu-item>
         <el-menu-item index="/compare">比价组</el-menu-item>
+        <el-menu-item index="/home-ops">首页运营</el-menu-item>
         <el-menu-item index="/agents">代理管理</el-menu-item>
         <el-menu-item index="/orders">订单管理</el-menu-item>
         <el-menu-item index="/withdraws">提现审核</el-menu-item>
@@ -44,6 +45,7 @@ const TITLES = {
   '/dashboard': '仪表盘',
   '/curation': '选品池',
   '/compare': '比价组',
+  '/home-ops': '首页运营',
   '/agents': '代理管理',
   '/orders': '订单管理',
   '/withdraws': '提现审核',

@@ -15,8 +15,8 @@
     safe-area-inset-bottom
   >
     <van-tabbar-item to="/" icon="shop-o">首页</van-tabbar-item>
-    <van-tabbar-item to="/search" icon="search">选品</van-tabbar-item>
-    <van-tabbar-item to="/orders" icon="orders-o">订单</van-tabbar-item>
+    <van-tabbar-item to="/compare" icon="balance-list-o">比价</van-tabbar-item>
+    <van-tabbar-item to="/cart" icon="shopping-cart-o" :badge="cartBadge">购物车</van-tabbar-item>
     <van-tabbar-item to="/mine" icon="user-o">我的</van-tabbar-item>
   </van-tabbar>
 
@@ -25,14 +25,31 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import ClipboardWatcher from './components/ClipboardWatcher.vue';
+import { api } from './api';
+import { cartCount, setCartCount } from './utils/cart-badge';
 
 const route = useRoute();
 const active = ref(0);
 
 // 只有这几个主 Tab 显示底部栏；二级页面（详情、提现、登录等）不显示
-const TAB_PATHS = ['/', '/search', '/orders', '/mine'];
+const TAB_PATHS = ['/', '/compare', '/cart', '/mine'];
 const showTab = computed(() => TAB_PATHS.includes(route.path));
+
+const cartBadge = computed(() => (cartCount.value > 0 ? String(cartCount.value) : ''));
+
+async function syncBadge() {
+  if (!localStorage.getItem('token')) return setCartCount(0);
+  try {
+    const r = await api.cartCount();
+    setCartCount(r.count || 0);
+  } catch {
+    setCartCount(0);
+  }
+}
+
+// 切主 Tab 时对一次角标——加购发生在详情页，回来数字得是新的
+watch(showTab, (v) => { if (v) syncBadge(); }, { immediate: true });
 </script>

@@ -143,6 +143,64 @@ export class CompareService {
       .filter((g) => g.items.length >= 2);
   }
 
+  /** 前台顶部导航用：有上架比价组的品类，以及各自多少组 */
+  async categories() {
+    const rows = await this.groupRepo
+      .createQueryBuilder('g')
+      .select('g.groupKey', 'key')
+      .addSelect('COUNT(*)', 'total')
+      .where('g.status = 1')
+      .groupBy('g.groupKey')
+      .getRawMany();
+    return rows.map((r) => ({ key: r.key, total: Number(r.total) }));
+  }
+
+  /**
+   * 关键词在比价组里搜。
+   * 用户在比价页搜「奶粉」，要能搜到组名里带奶粉的组，
+   * 也要能搜到成员商品标题里带奶粉的组——他记得的往往是商品名不是组名。
+   */
+  async search(keyword: string, limit = 20) {
+    const k = (keyword || '').trim();
+    if (!k) return [];
+
+    const byName = await this.groupRepo
+      .createQueryBuilder('g')
+      .where('g.status = 1')
+      .andWhere('g.name LIKE :k', { k: `%${k}%` })
+      .take(limit)
+      .getMany();
+
+    const byMember = await this.goodsRepo
+      .createQueryBuilder('c')
+      .select('DISTINCT c.compareGroupId', 'gid')
+      .where('c.compareGroupId IS NOT NULL')
+      .andWhere('c.title LIKE :k', { k: `%${k}%` })
+      .take(limit)
+      .getRawMany();
+
+    const ids = new Set<number>([
+      ...byName.map((g) => g.id),
+      ...byMember.map((r) => Number(r.gid)).filter(Boolean),
+    ]);
+    if (!ids.size) return [];
+
+    const groups = await this.groupRepo.find({
+      where: { id: In([...ids]), status: 1 },
+      order: { sortWeight: 'DESC', id: 'DESC' },
+      take: limit,
+    });
+    const members = await this.goodsRepo.find({
+      where: { compareGroupId: In(groups.map((g) => g.id)), status: CuratedStatus.ON },
+    });
+    return groups
+      .map((g) => ({
+        id: g.id, name: g.name, spec: g.spec, groupKey: g.groupKey, cover: g.cover,
+        items: members.filter((m) => m.compareGroupId === g.id).map((m) => this.toGoods(m)),
+      }))
+      .filter((g) => g.items.length >= 2);
+  }
+
   async detail(id: number) {
     const g = await this.groupRepo.findOneBy({ id });
     if (!g) throw new NotFoundException('比价组不存在');

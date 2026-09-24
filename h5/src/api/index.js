@@ -42,6 +42,20 @@ export const api = {
   // 比价：比的是到手价（券后价 − 返利），不是券后价
   compareList: (params) => http.get('/api/compare/list', { params }),
   compareDetail: (id) => http.get(`/api/compare/${id}`),
+
+  // 首页活动位和榜单
+  homeLinks: () => http.get('/api/home/links'),
+  ranking: (type, limit) => http.get('/api/home/ranking', { params: { type, limit } }),
+
+  compareCategories: () => http.get('/api/compare/categories'),
+  compareSearch: (keyword) => http.get('/api/compare/search', { params: { keyword } }),
+
+  // 购物车：先 cart() 秒出快照，再 cartRefresh() 后台更新价格
+  cart: () => http.get('/api/cart'),
+  cartCount: () => http.get('/api/cart/count'),
+  cartRefresh: () => http.post('/api/cart/refresh'),
+  cartAdd: (platform, goodsId) => http.post('/api/cart/add', { platform, goodsId }),
+  cartRemove: (ids) => http.delete('/api/cart', { data: { ids } }),
   search: (params) => http.get('/api/goods/search', { params }),
   detail: (platform, goodsId) => http.get(`/api/goods/${platform}/${goodsId}`),
   convert: (platform, goodsId) => http.post('/api/link/convert', { platform, goodsId }),

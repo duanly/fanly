@@ -3,7 +3,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CpsService } from './cps.service';
-import { PromotionPosition, User } from '@/entities';
+import { CuratedGoods, PromotionPosition, User } from '@/entities';
 import { CurrentUser } from '@/common/decorators';
 import { Public } from '@/common/jwt.guard';
 import { CommissionService } from '../commission/commission.service';
@@ -19,9 +19,29 @@ export class GoodsController {
     private readonly commission: CommissionService,
     @InjectRepository(PromotionPosition) private readonly posRepo: Repository<PromotionPosition>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(CuratedGoods) private readonly curatedRepo: Repository<CuratedGoods>,
     private readonly curation: CurationService,
     private readonly authz: AuthzService,
   ) {}
+
+  /**
+   * 标出哪些商品进了比价组。
+   * 用户搜到一件东西，我们知道它在别家也有，这个信息不给出来就浪费了——
+   * 「还有 3 个平台可比」是让人点进去的理由。
+   */
+  private async withCompare(list: any[]) {
+    if (!list.length) return list;
+    const rows = await this.curatedRepo.find({
+      where: list.map((g) => ({ platform: g.platform, goodsId: g.goodsId })),
+    });
+    const map = new Map(
+      rows.filter((r) => r.compareGroupId).map((r) => [`${r.platform}:${r.goodsId}`, r.compareGroupId]),
+    );
+    return list.map((g) => ({
+      ...g,
+      compareGroupId: map.get(`${g.platform}:${g.goodsId}`) ?? null,
+    }));
+  }
 
   /** 给商品挂上"预计返 ¥X" */
   private async withRebate(list: any[], userId?: number) {
@@ -55,7 +75,10 @@ export class GoodsController {
         : await this.cps.searchGoods(platform, {
             keyword, page: +page, pageSize: +pageSize, sort,
           });
-    return { list: await this.withRebate(list, userId), page: +page };
+    return {
+      list: await this.withCompare(await this.withRebate(list, userId)),
+      page: +page,
+    };
   }
 
   @Public() @Get('goods/recommend')

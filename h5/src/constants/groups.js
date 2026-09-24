@@ -23,6 +23,30 @@ export const GROUPS = [
 export const groupName = (key) =>
   GROUPS.find((g) => g.key === key)?.name || key;
 
+/**
+ * 比价页顶部的大品类。
+ *
+ * 跟上面的「专题」是两套东西，别搞混：
+ *   专题（curated_goods.groupKey）是运营位，比如「旅行优惠」「加油打车」
+ *   品类（compare_group.groupKey）是商品属性，比如「服装」「电子」
+ * 比价按品类分才有意义——用户来比价时脑子里想的是「我要买个家电」。
+ */
+export const CATEGORIES = [
+  { key: 'clothing', name: '服装' },
+  { key: 'electronics', name: '电子' },
+  { key: 'appliance', name: '家电' },
+  { key: 'trendy', name: '潮玩' },
+  { key: 'toys', name: '玩具' },
+  { key: 'kids', name: '儿童' },
+  { key: 'beauty', name: '美妆' },
+  { key: 'food', name: '食品' },
+  { key: 'home', name: '家居' },
+  { key: 'sports', name: '运动' },
+];
+
+export const categoryName = (key) =>
+  CATEGORIES.find((c) => c.key === key)?.name || key;
+
 /** 首页宫格显示哪些（去掉 default，它就是首页本身） */
 export const GRID_GROUPS = GROUPS.filter((g) => g.key !== 'default');
 

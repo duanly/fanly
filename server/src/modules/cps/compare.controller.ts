@@ -46,6 +46,10 @@ export class ComparePublicController {
     return (await this.userRepo.findOneBy({ id: userId }))?.agentId ?? null;
   }
 
+  @Public() @Get('categories')
+  @ApiOperation({ summary: '有哪些品类（只给真有比价组的）' })
+  categories() { return this.compare.categories(); }
+
   @Public() @Get('list')
   @ApiOperation({ summary: '比价专区列表，每组给最低到手价和最多能省多少' })
   async list(
@@ -74,6 +78,28 @@ export class ComparePublicController {
         maxSave: best && worst
           ? Math.round((worst.finalPrice - best.finalPrice) * 100) / 100
           : 0,
+      };
+    }));
+  }
+
+  @Public() @Get('search')
+  @ApiOperation({ summary: '在比价组里搜：组名和成员标题都匹配' })
+  async search(@Query('keyword') keyword = '', @CurrentUser('sub') userId?: number) {
+    const agentId = await this.agentOf(userId);
+    const groups = await this.compare.search(keyword, 20);
+    return Promise.all(groups.map(async (g) => {
+      const items = await priceOf(this.commission, g.items, agentId);
+      const best = items[0];
+      const worst = items[items.length - 1];
+      return {
+        id: g.id, name: g.name, spec: g.spec, cover: g.cover || best?.image || '',
+        platformCount: items.length,
+        platforms: items.map((i) => i.platform),
+        best: best ? {
+          platform: best.platform, couponPrice: best.couponPrice,
+          rebate: best.rebate, finalPrice: best.finalPrice,
+        } : null,
+        maxSave: best && worst ? Math.round((worst.finalPrice - best.finalPrice) * 100) / 100 : 0,
       };
     }));
   }
