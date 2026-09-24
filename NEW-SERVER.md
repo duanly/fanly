@@ -307,3 +307,68 @@ systemctl reload caddy
 ```
 
 **用 `reload` 不要用 `restart`**——热加载不断连接，同机上别的应用全程无感。
+
+---
+
+## 附录 B · 在服务器上直接构建（不等 CI）
+
+改一行代码就要等 Actions 跑完、再从 GHCR 拉几百兆镜像，验证一次十几分钟，
+调试期间太慢。直接在服务器上从源码构建，`git pull` 只传几 KB 的 diff，快得多。
+
+镜像源已经在 `docker-compose.build.yml` 里配好了（npmmirror + 腾讯云 apk 源），
+不用额外做什么。
+
+### 一次性：把 /opt/fanly 变成 git 仓库
+
+**不要另开一个目录跑 compose。** compose 的项目名默认取目录名，
+换了目录就是另一个项目，会新建一套空的 MySQL 卷——数据全没了。
+所以就地把现有目录接上仓库：
+
+```bash
+cd /opt/fanly
+cp .env /root/fanly.env.bak          # 先备份，.env 是 gitignore 的不会被覆盖，但保险
+
+git init
+git remote add origin https://github.com/duanly/fanly.git
+git fetch origin main
+git checkout -f -b main origin/main
+
+ls .env && grep -c . .env            # 确认 .env 还在
+```
+
+### 切成本地构建
+
+```bash
+cd /opt/fanly
+sed -i 's|^COMPOSE_FILE=.*|COMPOSE_FILE=docker-compose.yml:docker-compose.hostcaddy.yml:docker-compose.build.yml|' .env
+grep COMPOSE_FILE .env
+```
+
+`docker-compose.build.yml` 必须排在最后——它把 `image` 覆盖成 `fanly-server:local`，
+排前面会被主文件的 GHCR 地址盖回去。
+
+### 以后每次改完代码
+
+```bash
+tmux new -s build                    # SSH 断了构建还在跑
+cd /opt/fanly
+git pull
+docker compose up -d --build
+docker compose logs -f server
+```
+
+**一定要在 tmux 里跑。** 构建要几分钟，SSH 一断 docker build 就被杀，前功尽弃。
+
+只改了服务端就只构建它，省一半时间：
+
+```bash
+docker compose up -d --build server
+```
+
+### 注意
+
+- **第一次构建慢**（拉 node:22-alpine + 装三个项目的依赖，几分钟），之后有层缓存，
+  只改源码不改 `package.json` 的话一分钟以内
+- **磁盘**：构建缓存会涨，`df -h` 紧张了就 `docker builder prune -f`
+- **要回到 CI 镜像**：把 `.env` 里 `COMPOSE_FILE` 末尾的 `:docker-compose.build.yml` 去掉，
+  再 `docker compose pull && docker compose up -d`
