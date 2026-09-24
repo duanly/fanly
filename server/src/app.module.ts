@@ -26,6 +26,8 @@ import { AgentController } from './modules/agent/agent.controller';
 import { SysConfigService } from './modules/admin/sys-config.service';
 import { AdminController } from './modules/admin/admin.controller';
 import { HealthController } from './modules/admin/health.controller';
+import { CurationService } from './modules/curation/curation.service';
+import { CurationController } from './modules/curation/curation.controller';
 import { JobService } from './modules/job/job.service';
 
 const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'function');
@@ -74,14 +76,15 @@ const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'functi
   controllers: [
     AuthController, GoodsController, OauthController, OrderController,
     FundController, AgentController, AdminController, HealthController,
+    CurationController,
   ],
   providers: [
     SysConfigService, AuthService, OrderService, CommissionService,
-    FundService, AgentService, JobService,
+    FundService, AgentService, CurationService, JobService,
     { provide: APP_GUARD, useClass: JwtGuard },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
     { provide: APP_FILTER, useClass: AllExceptionFilter },
   ],
-  exports: [SysConfigService, OrderService, CommissionService, FundService, AgentService, AuthService],
+  exports: [SysConfigService, OrderService, CommissionService, FundService, AgentService, AuthService, CurationService],
 })
 export class AppModule {}

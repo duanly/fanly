@@ -172,6 +172,42 @@ const yuan = v => (Math.round(Number(v || 0)) / 100).toFixed(2);
     if (!list.length) console.log('  （近 24 小时没有订单，正常）');
   } catch (e) { console.log('  ✗', e.message); }
 
+  console.log('\n【5】榜单 / 推荐位 —— 首页 feed 的数据源');
+  for (const [label, type, biz] of [
+    ['实时收益榜 top.goods.list.query sort_type=2', 'pdd.ddk.top.goods.list.query',
+      { sort_type: 2, offset: 0, limit: 5, p_id: PID }],
+    ['实时热销榜 top.goods.list.query sort_type=1', 'pdd.ddk.top.goods.list.query',
+      { sort_type: 1, offset: 0, limit: 5, p_id: PID }],
+    ['推荐位 goods.recommend.get channel_type=3', 'pdd.ddk.goods.recommend.get',
+      { channel_type: 3, offset: 0, limit: 5, pid: PID }],
+  ]) {
+    try {
+      const d = await call(type, biz);
+      const list = d.list || d.goods_list || [];
+      console.log(`  ✓ ${label} → ${list.length} 条`);
+      list.slice(0, 2).forEach((g) => {
+        const price = Number(g.min_group_price || 0) / 100;
+        const coupon = g.has_coupon ? Number(g.coupon_discount || 0) / 100 : 0;
+        const rate = Number(g.promotion_rate || 0) / 1000;
+        console.log(`     ${String(g.goods_name).slice(0, 22)} | 券后 ${(price - coupon).toFixed(2)}` +
+                    ` | 佣金 ${((price - coupon) * rate).toFixed(2)}`);
+      });
+    } catch (e) {
+      // p_id / pid 两种拼法我不确定，报参数错就把另一种也试一遍
+      console.log(`  ✗ ${label}: ${e.message}`);
+      const alt = 'p_id' in biz
+        ? { ...biz, pid: biz.p_id, p_id: undefined }
+        : { ...biz, p_id: biz.pid, pid: undefined };
+      try {
+        const d2 = await call(type, alt);
+        const n = (d2.list || d2.goods_list || []).length;
+        console.log(`     ↳ 换成 ${'p_id' in biz ? 'pid' : 'p_id'} 就通了，${n} 条 —— 记得改 pdd.provider.ts`);
+      } catch (e2) {
+        console.log(`     ↳ 换参数名也不行: ${e2.message}`);
+      }
+    }
+  }
+
   console.log('\n常见报错对照：');
   console.log('  10001 签名错误      → client_secret 填错，或参数里混了空值');
   console.log('  10002 时间戳过期    → 服务器时间不准，date 对一下');

@@ -8,6 +8,7 @@ import { CurrentUser } from '@/common/decorators';
 import { Public } from '@/common/jwt.guard';
 import { CommissionService } from '../commission/commission.service';
 import { platformName } from '@/common/share-content';
+import { CurationService } from '../curation/curation.service';
 
 @ApiTags('选品与转链')
 @Controller('api')
@@ -17,6 +18,7 @@ export class GoodsController {
     private readonly commission: CommissionService,
     @InjectRepository(PromotionPosition) private readonly posRepo: Repository<PromotionPosition>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    private readonly curation: CurationService,
   ) {}
 
   /** 给商品挂上"预计返 ¥X" */
@@ -40,17 +42,50 @@ export class GoodsController {
     @Query('sort') sort?: string,
     @CurrentUser('sub') userId?: number,
   ) {
-    const list = await this.cps.searchGoods(platform, {
-      keyword, page: +page, pageSize: +pageSize, sort,
-    });
+    // sort=rebate 走本地排序：多拉几页按佣金金额降序，
+    // 等价于按用户到手返利降序，比平台的「佣金比例」排序靠谱
+    const list = sort === 'rebate'
+      ? await this.cps.searchByRebate(platform, { keyword, pageSize: +pageSize })
+      : await this.cps.searchGoods(platform, {
+          keyword, page: +page, pageSize: +pageSize, sort,
+        });
     return { list: await this.withRebate(list, userId), page: +page };
   }
 
   @Public() @Get('goods/recommend')
-  @ApiOperation({ summary: '首页榜单' })
-  async recommend(@Query('platform') platform = 'PDD', @CurrentUser('sub') userId?: number) {
-    const list = await this.cps.searchGoods(platform, { pageSize: 12, sort: 'sales' });
+  @ApiOperation({ summary: '平台榜单（实时收益榜）' })
+  async recommend(
+    @Query('platform') platform = 'PDD',
+    @Query('channel') channel = 'earn',
+    @Query('pageSize') pageSize = '12',
+    @CurrentUser('sub') userId?: number,
+  ) {
+    const list = await this.cps.recommendGoods(platform, { channel, pageSize: +pageSize });
     return { list: await this.withRebate(list, userId) };
+  }
+
+  @Public() @Get('goods/feed')
+  @ApiOperation({ summary: '首页 feed：优先选品池，池空时回落平台榜单' })
+  async feed(
+    @Query('group') group = 'default',
+    @Query('platform') platform = 'PDD',
+    @Query('limit') limit = '20',
+    @CurrentUser('sub') userId?: number,
+  ) {
+    // 选品池是运营控的，优先；还没开始选品时也得有东西看，所以回落榜单
+    const pool = await this.curation.feed(group, +limit, platform);
+    if (pool.length) {
+      return { source: 'curated', list: await this.withRebate(pool, userId) };
+    }
+    const list = await this.cps.recommendGoods(platform, { channel: 'earn', pageSize: +limit });
+    return { source: 'recommend', list: await this.withRebate(list, userId) };
+  }
+
+  @Public() @Get('goods/groups')
+  @ApiOperation({ summary: '有哪些专题（只给在架的）' })
+  async publicGroups() {
+    const all = await this.curation.groups();
+    return all.filter((g) => g.onShelf > 0);
   }
 
   @Public() @Get('goods/:platform/:goodsId')

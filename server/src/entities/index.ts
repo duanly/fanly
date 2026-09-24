@@ -7,3 +7,4 @@ export * from './fund-ledger.entity';
 export * from './withdraw.entity';
 export * from './sys-config.entity';
 export * from './admin-user.entity';
+export * from './curated-goods.entity';

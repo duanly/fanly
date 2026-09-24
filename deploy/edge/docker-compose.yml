@@ -12,7 +12,9 @@ services:
     container_name: edge-caddy
     restart: always
     environment:
-      ACME_EMAIL: ${ACME_EMAIL}
+      # :? 是故意的——没填就让 compose 当场报错退出，
+      # 而不是把空值塞进 Caddyfile 变成 `email`（语法错误，容器会无限重启）
+      ACME_EMAIL: ${ACME_EMAIL:?没填邮箱：先 cp .env.example .env 再填 ACME_EMAIL}
       TZ: Asia/Shanghai
     ports:
       - "80:80"

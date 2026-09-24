@@ -9,6 +9,7 @@ const routes = [
   { path: '/login', component: () => import('./views/Login.vue'), meta: { plain: true } },
   { path: '/', redirect: '/dashboard' },
   { path: '/dashboard', component: () => import('./views/Dashboard.vue') },
+  { path: '/curation', component: () => import('./views/Curation.vue') },
   { path: '/agents', component: () => import('./views/Agents.vue') },
   { path: '/orders', component: () => import('./views/Orders.vue') },
   { path: '/withdraws', component: () => import('./views/Withdraws.vue') },

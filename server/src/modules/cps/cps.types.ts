@@ -53,6 +53,14 @@ export interface UnifiedOrder {
   raw?: any;
 }
 
+/** 官方推荐位 / 榜单的入参 */
+export interface RecommendParams {
+  /** earn=实时收益榜（默认） hot=实时热销榜 pick=平台推荐位 */
+  channel?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 export interface SearchParams {
   keyword?: string;
   page?: number;
@@ -74,4 +82,9 @@ export interface CpsProvider {
   parseContent(text: string): Promise<UnifiedGoods | null>;
   /** 拉取区间内有变更的订单 */
   fetchOrders(start: Date, end: Date, page?: number): Promise<UnifiedOrder[]>;
+  /**
+   * 官方推荐位 / 榜单。可选——没实现的渠道由 CpsService 回落到 searchGoods，
+   * 所以加新渠道时不用被迫实现它。
+   */
+  recommendGoods?(params: RecommendParams): Promise<UnifiedGoods[]>;
 }

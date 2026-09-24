@@ -1,0 +1,26 @@
+# 宿主机上已经有一个 systemd 管的 Caddy 占着 80/443 时用这个。
+#
+# 跟 docker-compose.edge.yml 的区别：那个是把自己挂进 docker 的 edge 网络，
+# 由容器化的入口反代；这个是只在回环口开一个端口，由宿主机上的 Caddy 反代。
+# 宿主机进程解析不了 docker 的容器名，所以必须走端口，不能走容器名。
+#
+# 启用（在 .env 里加两行，之后照常 docker compose up -d）：
+#   echo 'COMPOSE_FILE=docker-compose.yml:docker-compose.hostcaddy.yml' >> .env
+#   echo 'HOST_PORT=8081' >> .env
+#
+# 然后在宿主机 Caddy 里加一段：
+#   你的域名 {
+#       encode zstd gzip
+#       reverse_proxy 127.0.0.1:8081
+#   }
+#   systemctl reload caddy
+
+services:
+  web:
+    container_name: fanly-caddy
+    # 只绑 127.0.0.1，公网打不到这个端口，只有宿主机 Caddy 能进
+    ports: !override
+      - "127.0.0.1:${HOST_PORT:-8081}:80"
+    # 证书归宿主机 Caddy 管，这边用不签证书的那份配置
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile.edge", "--adapter", "caddyfile"]
+    volumes: !override []

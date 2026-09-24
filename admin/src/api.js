@@ -45,4 +45,15 @@ export const api = {
     http.post(`/api/admin/withdraws/${id}/finish`, { success, channelOrderNo, failReason }),
 
   reconcile: () => http.get('/api/admin/reconcile'),
+
+  // 选品池
+  curationSearch: (params) => http.get('/api/admin/curation/search', { params }),
+  curationRecommend: (params) => http.get('/api/admin/curation/recommend', { params }),
+  curationList: (params) => http.get('/api/admin/curation/list', { params }),
+  curationGroups: () => http.get('/api/admin/curation/groups'),
+  curationAdd: (data) => http.post('/api/admin/curation/add', data),
+  curationUpdate: (id, data) => http.post(`/api/admin/curation/${id}`, data),
+  curationRefresh: (id) => http.post(`/api/admin/curation/${id}/refresh`),
+  curationRefreshAll: () => http.post('/api/admin/curation/refresh-all'),
+  curationRemove: (id) => http.delete(`/api/admin/curation/${id}`),
 };

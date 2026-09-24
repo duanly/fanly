@@ -12,6 +12,7 @@
         active-text-color="#fff"
       >
         <el-menu-item index="/dashboard">仪表盘</el-menu-item>
+        <el-menu-item index="/curation">选品池</el-menu-item>
         <el-menu-item index="/agents">代理管理</el-menu-item>
         <el-menu-item index="/orders">订单管理</el-menu-item>
         <el-menu-item index="/withdraws">提现审核</el-menu-item>
@@ -40,6 +41,7 @@ const router = useRouter();
 const plain = computed(() => route.meta.plain);
 const TITLES = {
   '/dashboard': '仪表盘',
+  '/curation': '选品池',
   '/agents': '代理管理',
   '/orders': '订单管理',
   '/withdraws': '提现审核',

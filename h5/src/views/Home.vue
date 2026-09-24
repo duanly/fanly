@@ -44,7 +44,18 @@
           {{ p.name }}
         </div>
         <div class="chip" @click="toast('签到还没做')">签到领福利 ›</div>
-        <div class="chip" @click="toast('榜单还没做')">高佣榜 ›</div>
+      </div>
+
+      <div v-if="groups.length > 1" class="chip-row">
+        <div
+          v-for="g in groups"
+          :key="g.groupKey"
+          class="chip"
+          :class="{ active: groupKey === g.groupKey }"
+          @click="switchGroup(g.groupKey)"
+        >
+          {{ groupLabel(g.groupKey) }}
+        </div>
       </div>
 
       <!-- 轮播 -->
@@ -101,7 +112,7 @@
 
     <!-- 商品流 -->
     <div class="section-title">
-      🔥 今日爆款
+      {{ source === 'curated' ? '⭐️ 精选好货' : '🔥 实时收益榜' }}
       <span class="muted" style="font-weight:400">· {{ platforms[platformIdx].name }}</span>
     </div>
 
@@ -156,6 +167,10 @@ const acts = [
 ];
 
 const platformIdx = ref(0);
+const groups = ref([]);
+const groupKey = ref('default');
+/** curated=读的选品池，recommend=池子空回落到了平台榜单 */
+const source = ref('');
 const list = ref([]);
 const newbie = ref([]);
 const loading = ref(true);
@@ -168,6 +183,13 @@ function switchPlatform(i) {
   platformIdx.value = i;
   load();
 }
+
+function switchGroup(k) {
+  groupKey.value = k;
+  load();
+}
+
+const groupLabel = (k) => (k === 'default' ? '精选' : k);
 
 function onEntry(e) {
   if (e.p !== undefined) switchPlatform(e.p);
@@ -185,13 +207,30 @@ function goParse() {
 async function load() {
   loading.value = true;
   try {
-    const r = await api.recommend(platforms[platformIdx.value].key);
+    const r = await api.feed({
+      group: groupKey.value,
+      platform: platforms[platformIdx.value].key,
+      limit: 20,
+    });
     list.value = r.list || [];
+    source.value = r.source;
     newbie.value = (r.list || []).slice(0, 3);
   } finally {
     loading.value = false;
   }
 }
 
-onMounted(load);
+/** 专题是后台配出来的，没配就不显示这一行，首页保持干净 */
+async function loadGroups() {
+  try {
+    groups.value = await api.goodsGroups();
+  } catch {
+    groups.value = [];
+  }
+}
+
+onMounted(() => {
+  load();
+  loadGroups();
+});
 </script>

@@ -3,7 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { AggregatorProvider } from './providers/aggregator.provider';
 import { MockProvider } from './providers/mock.provider';
 import { PddProvider } from './providers/pdd.provider';
-import { ConvertedLink, CpsProvider, SearchParams, UnifiedGoods, UnifiedOrder } from './cps.types';
+import { ConvertedLink, CpsProvider, RecommendParams, SearchParams, UnifiedGoods, UnifiedOrder } from './cps.types';
+import { TtlCache } from '@/common/ttl-cache';
 import { explainParseFailure, parseShareContent } from '@/common/share-content';
 
 export const PLATFORMS = ['PDD', 'JD', 'TB', 'DY'] as const;
@@ -16,6 +17,13 @@ export const PLATFORMS = ['PDD', 'JD', 'TB', 'DY'] as const;
 export class CpsService implements OnModuleInit {
   private readonly logger = new Logger(CpsService.name);
   private providers = new Map<string, CpsProvider>();
+
+  /**
+   * 选品结果缓存 10 分钟。
+   * 首页和榜单是读多写少的东西，没必要每次打开都打平台接口——
+   * 各家都有 QPS 限制，被限流了连用户的实时搜索一起挂。
+   */
+  private readonly goodsCache = new TtlCache<UnifiedGoods[]>(10 * 60 * 1000, 300);
 
   constructor(private readonly config: ConfigService) {}
 
@@ -81,6 +89,74 @@ export class CpsService implements OnModuleInit {
   }
   fetchOrders(platform: string, s: Date, e: Date): Promise<UnifiedOrder[]> {
     return this.get(platform).fetchOrders(s, e);
+  }
+
+  /** 后台改了选品或分成比例之后叫一下，让下一次请求拿到新数据 */
+  clearGoodsCache() {
+    this.goodsCache.clear();
+  }
+
+  /** 官方榜单；渠道没实现或返回空就回落到销量搜索，首页不能开天窗 */
+  async recommendGoods(platform: string, p: RecommendParams = {}): Promise<UnifiedGoods[]> {
+    const provider = this.get(platform);
+    const key = `rec|${platform}|${p.channel ?? 'earn'}|${p.page ?? 1}|${p.pageSize ?? 20}`;
+
+    return this.goodsCache.wrap(key, async () => {
+      if (typeof provider.recommendGoods === 'function') {
+        try {
+          const list = await provider.recommendGoods(p);
+          if (list.length) return list;
+          this.logger.warn(`${platform} 榜单返回空，回落到搜索`);
+        } catch (e: any) {
+          this.logger.warn(`${platform} 榜单失败，回落到搜索: ${e.message}`);
+        }
+      }
+      return provider.searchGoods({ pageSize: p.pageSize ?? 20, sort: 'sales' });
+    });
+  }
+
+  /**
+   * 按「到手返利」排序。
+   *
+   * 返利 = 佣金金额 × 用户分成比例，而分成比例对每件商品都一样，
+   * 所以按佣金金额降序就等于按返利降序，不用把比例传进来。
+   *
+   * 为什么不用平台自带的排序：拼多多能按「佣金比例」排，但那个指标是反的——
+   * 9.9 元 20% 只返 1 块，200 元 5% 返 5 块，用户要的显然是后者。
+   * 多拉几页回来自己算，顺便把各平台的排序口径统一了。
+   */
+  async searchByRebate(
+    platform: string,
+    params: SearchParams,
+    pages = 3,
+  ): Promise<UnifiedGoods[]> {
+    const pageSize = Math.min(params.pageSize ?? 20, 100);
+    const key = `rebate|${platform}|${params.keyword ?? ''}|${pages}|${pageSize}`;
+
+    return this.goodsCache.wrap(key, async () => {
+      const provider = this.get(platform);
+      const batches = await Promise.all(
+        Array.from({ length: pages }, (_, i) =>
+          provider
+            .searchGoods({ ...params, page: i + 1, pageSize: 100 })
+            .catch((e: any) => {
+              this.logger.warn(`${platform} 第 ${i + 1} 页拉取失败: ${e.message}`);
+              return [] as UnifiedGoods[];
+            }),
+        ),
+      );
+
+      const seen = new Set<string>();
+      return batches
+        .flat()
+        .filter((g) => {
+          if (!(g.commission > 0) || seen.has(g.goodsId)) return false;
+          seen.add(g.goodsId);
+          return true;
+        })
+        .sort((a, b) => b.commission - a.commission)
+        .slice(0, pageSize);
+    });
   }
 
   /**

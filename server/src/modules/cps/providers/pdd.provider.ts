@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import {
-  ConvertedLink, CpsProvider, SearchParams, UnifiedGoods, UnifiedOrder,
+  ConvertedLink, CpsProvider, RecommendParams, SearchParams, UnifiedGoods, UnifiedOrder,
 } from '../cps.types';
 
 export interface PddOptions {
@@ -113,7 +113,7 @@ export class PddProvider implements CpsProvider {
       goodsId: String(r.goods_sign ?? r.goods_id ?? ''),
       title: r.goods_name ?? '',
       image: r.goods_thumbnail_url || r.goods_image_url || '',
-      shopName: r.mall_name ?? '',
+      shopName: r.mall_name || r.merchant_name || r.mall_name_v2 || '',
       price,
       couponPrice,
       couponAmount: coupon,
@@ -178,6 +178,34 @@ export class PddProvider implements CpsProvider {
       pid: this.opt.pid,
     });
     return (data?.goods_list ?? []).map((r: any) => this.mapGoods(r));
+  }
+
+  /**
+   * 官方榜单 / 推荐位。
+   *
+   * 首页 feed 不该用关键词搜索凑——搜出来的东西质量参差。拼多多的
+   * 「实时收益榜」天然按收益排，正好是返利站要的东西。
+   *
+   * 注意：channel_type 的取值文档里给了一串（1.9包邮/今日爆款/品牌清仓…），
+   * 这里只用默认频道；要开别的频道先用 probe-pdd.js 实测，别照抄数字。
+   */
+  async recommendGoods(p: RecommendParams = {}): Promise<UnifiedGoods[]> {
+    const limit = Math.min(p.pageSize ?? 20, 100);
+    const offset = (Math.max(p.page ?? 1, 1) - 1) * limit;
+
+    if (p.channel === 'pick') {
+      const data = await this.call<any>('pdd.ddk.goods.recommend.get', {
+        channel_type: 3, offset, limit, pid: this.opt.pid,
+      });
+      return (data?.list ?? data?.goods_list ?? []).map((r: any) => this.mapGoods(r));
+    }
+
+    // sort_type: 1 实时热销榜 / 2 实时收益榜
+    const data = await this.call<any>('pdd.ddk.top.goods.list.query', {
+      sort_type: p.channel === 'hot' ? 1 : 2,
+      offset, limit, p_id: this.opt.pid,
+    });
+    return (data?.list ?? data?.goods_list ?? []).map((r: any) => this.mapGoods(r));
   }
 
   async getGoodsDetail(goodsSign: string): Promise<UnifiedGoods | null> {

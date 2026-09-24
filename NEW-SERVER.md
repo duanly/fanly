@@ -55,7 +55,21 @@ docker pull caddy:2-alpine    # 预期几十秒拉完
 
 ---
 
-## 2 · 起共享入口
+## 2 · 先看宿主机上有没有 Caddy
+
+```bash
+ss -tnlp | grep -E ':(80|443)'
+systemctl status caddy --no-pager 2>/dev/null | head -3
+```
+
+**已经有一个 systemd 管的 Caddy 在占 80/443**（多半是别的应用在用）→ 别再起容器化入口，
+让它当入口就行，跳过本节和第 3 节里的 edge 部分，改用 **附录 A · 接宿主机 Caddy**。
+
+**80/443 是空的** → 按下面起容器化入口。
+
+---
+
+## 2b · 起共享入口（容器化）
 
 ```bash
 git clone https://github.com/duanly/fanly.git /opt/src-fanly
@@ -238,3 +252,58 @@ curl -s https://你的域名/api/admin/reconcile -H "Authorization: Bearer <管�
 | fanly 起来后入口 502 变 404 | 两边都在抢 80，`COMPOSE_FILE` 那行没加 | `grep COMPOSE_FILE /opt/fanly/.env` |
 
 **证书卷别删** —— 在 `/opt/edge` 的 `caddy-data` 里，删了重签会撞 Let's Encrypt 频率限制（同域名每周 5 次）。
+
+---
+
+## 附录 A · 接宿主机已有的 Caddy
+
+宿主机上已经有 systemd 管的 Caddy 时用这条路。它已经在服务别的域名、证书也都在，
+不要动它——让 fanly 挂在它后面。
+
+跟容器化入口的唯一区别：**宿主机进程解析不了 docker 的容器名**，
+所以 fanly 不走 `edge` 网络，而是在回环口开一个端口给它反代。
+
+`/opt/fanly/` 里放 `docker-compose.hostcaddy.yml`（仓库里有），然后：
+
+```bash
+cd /opt/fanly
+sed -i 's/^COMPOSE_FILE=.*/COMPOSE_FILE=docker-compose.yml:docker-compose.hostcaddy.yml/' .env
+grep -q '^HOST_PORT=' .env || echo 'HOST_PORT=8081' >> .env
+docker compose up -d
+
+curl -I http://127.0.0.1:8081/       # 预期 200，这步不通就别往下走
+```
+
+端口别和别的应用撞，`ss -tnlp | grep 8081` 确认一下。
+
+宿主机 Caddy 那边加路由。先看它的结构：
+
+```bash
+cat /etc/caddy/Caddyfile
+```
+
+有 `import /etc/caddy/conf.d/*.caddy` 就往那个目录放文件，没有就追加到 Caddyfile 末尾：
+
+```bash
+cat > /etc/caddy/conf.d/fanly.caddy <<'CADDY'
+你的域名 {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8081
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    @hashed path_regexp \.(js|css|woff2?|png|jpg|svg)$
+    header @hashed Cache-Control "public, max-age=31536000, immutable"
+}
+CADDY
+
+caddy validate --config /etc/caddy/Caddyfile
+systemctl reload caddy
+```
+
+**用 `reload` 不要用 `restart`**——热加载不断连接，同机上别的应用全程无感。

@@ -35,6 +35,9 @@ export const api = {
   profile: () => http.get('/api/auth/profile'),
 
   recommend: (platform) => http.get('/api/goods/recommend', { params: { platform } }),
+  // 首页流：后台选品池优先，池空时后端自动回落到平台榜单
+  feed: (params) => http.get('/api/goods/feed', { params }),
+  goodsGroups: () => http.get('/api/goods/groups'),
   search: (params) => http.get('/api/goods/search', { params }),
   detail: (platform, goodsId) => http.get(`/api/goods/${platform}/${goodsId}`),
   convert: (platform, goodsId) => http.post('/api/link/convert', { platform, goodsId }),
