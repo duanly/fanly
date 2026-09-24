@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "CPS 返利导购平台服务端",
   "scripts": {
-    "build": "nest build && tsc-alias",
+    "build": "nest build -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "start": "nest start",
     "dev": "nest start --watch",
     "seed": "ts-node -r tsconfig-paths/register src/seed.ts",

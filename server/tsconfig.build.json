@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // 不写死 rootDir 的话，tsc 会按「所有输入文件的公共根目录」推断。
+    // test/ 一进来公共根就从 src/ 抬到了项目根，产物变成 dist/src/main.js，
+    // 镜像里 node dist/main.js 就找不到入口了。
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts", "**/*.test.ts"]
+}
