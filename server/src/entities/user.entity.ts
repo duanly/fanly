@@ -33,6 +33,9 @@ export class User {
   /** 累计已返 */
   @Column({ type: 'decimal', precision: 12, scale: 4, default: 0 }) totalRebate: string;
 
+  /** 金币，跟余额是两套账：金币是平台自己贴的营销成本，不进资金流水 */
+  @Column({ type: 'int', default: 0 }) coins: number;
+
   /** 风控用设备指纹 */
   @Column({ length: 64, default: '' }) deviceId: string;
 

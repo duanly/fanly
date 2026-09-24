@@ -11,3 +11,6 @@ export * from './curated-goods.entity';
 export * from './compare-group.entity';
 export * from './home-link.entity';
 export * from './cart-item.entity';
+export * from './order-claim.entity';
+export * from './coin-ledger.entity';
+export * from './checkin.entity';

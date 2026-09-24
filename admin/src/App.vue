@@ -17,6 +17,7 @@
         <el-menu-item index="/home-ops">首页运营</el-menu-item>
         <el-menu-item index="/agents">代理管理</el-menu-item>
         <el-menu-item index="/orders">订单管理</el-menu-item>
+        <el-menu-item index="/claims">订单找回</el-menu-item>
         <el-menu-item index="/withdraws">提现审核</el-menu-item>
         <el-menu-item index="/config">系统参数</el-menu-item>
       </el-menu>
@@ -48,6 +49,7 @@ const TITLES = {
   '/home-ops': '首页运营',
   '/agents': '代理管理',
   '/orders': '订单管理',
+  '/claims': '订单找回',
   '/withdraws': '提现审核',
   '/config': '系统参数',
 };

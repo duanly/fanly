@@ -1,6 +1,11 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, Unique } from 'typeorm';
 
-export enum Beneficiary { USER = 1, AGENT = 2, PLATFORM = 3 }
+export enum Beneficiary {
+  USER = 1,
+  AGENT = 2,      // 直属上级（一级）
+  PLATFORM = 3,
+  AGENT_L2 = 4,   // 上级的上级（二级）
+}
 export enum CommissionStatus { PENDING = 1, CREDITED = 2, REVERSED = 3 }
 
 /** 一笔订单拆成用户返利 / 代理分成 / 平台利润三条明细 */

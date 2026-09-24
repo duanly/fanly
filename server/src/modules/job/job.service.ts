@@ -5,6 +5,7 @@ import { AgentService } from '../agent/agent.service';
 import { FundService } from '../fund/fund.service';
 import { CurationService } from '../curation/curation.service';
 import { CompareService } from '../cps/compare.service';
+import { OrderClaimService } from '../order/order-claim.service';
 
 @Injectable()
 export class JobService {
@@ -16,6 +17,7 @@ export class JobService {
     private readonly fund: FundService,
     private readonly curation: CurationService,
     private readonly compare: CompareService,
+    private readonly claim: OrderClaimService,
   ) {}
 
   /** 增量拉单，每 10 分钟 */
@@ -23,6 +25,18 @@ export class JobService {
   async syncOrders() {
     const r = await this.order.syncAll(2);
     this.logger.log(`增量拉单: ${JSON.stringify(r)}`);
+  }
+
+  /**
+   * 订单找回重试，每 10 分钟，紧跟在拉单后面。
+   * 用户提交时订单往往还没同步回来，拉完单立刻再匹配一次，
+   * 大部分找回就能变成全自动，不用惊动客服。
+   */
+  @Cron('0 2-59/10 * * * *')
+  async retryClaims() {
+    const r = await this.claim.retryPending();
+    if (!r.total) return;
+    this.logger.log(`订单找回重试: ${JSON.stringify(r)}`);
   }
 
   /**

@@ -59,7 +59,15 @@
     <van-cell-group inset style="margin-bottom:12px">
       <van-cell title="资金明细" is-link icon="balance-list-o" to="/ledger" />
       <van-cell title="提现记录" is-link icon="after-sale" to="/withdraws" />
+      <van-cell title="订单找回" is-link icon="search" to="/claim">
+        <template #value><span class="muted">没返利？点这里</span></template>
+      </van-cell>
       <van-cell title="我的订单" is-link icon="orders-o" to="/orders" />
+      <van-cell title="签到领金币" is-link icon="gift-o" to="/checkin">
+        <template #value>
+          <span style="color:#ff4b3a;font-weight:600">{{ p?.coins ?? 0 }} 金币</span>
+        </template>
+      </van-cell>
       <van-cell title="我的邀请码" icon="friends-o" :value="p?.inviteCode" />
     </van-cell-group>
 
@@ -79,6 +87,8 @@
     <div style="padding:24px 16px">
       <van-button block round plain @click="logout">退出登录</van-button>
     </div>
+
+    <BeianFooter />
     </template>
   </div>
 </template>
@@ -89,6 +99,7 @@ import { useRouter } from 'vue-router';
 import { showConfirmDialog, showToast } from 'vant';
 import { api } from '../api';
 import NeedLogin from '../components/NeedLogin.vue';
+import BeianFooter from '../components/BeianFooter.vue';
 
 const logged = ref(!!localStorage.getItem('token'));
 const p = ref(null);

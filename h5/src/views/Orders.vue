@@ -16,6 +16,7 @@
     <!-- 返利什么时候到账是客服问得最多的，直接写在列表顶上 -->
     <div class="tip-bar">
       返利在订单<b>确认收货且平台结算</b>后入账，一般 15~30 天。退款或维权的订单会失效。
+      <span class="claim-link" @click="$router.push('/claim')">买了没看到订单？去找回 ›</span>
     </div>
 
     <van-list v-if="logged" v-model:loading="loading" :finished="finished" finished-text="没有更多了" @load="load">

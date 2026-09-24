@@ -98,6 +98,8 @@
     </div>
 
     <van-empty v-if="!loading && !list.length" :description="emptyText" />
+
+    <BeianFooter />
   </div>
 </template>
 
@@ -107,6 +109,7 @@ import { useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
+import BeianFooter from '../components/BeianFooter.vue';
 import { GRID_GROUPS, groupMeta } from '../constants/groups';
 
 const RANKS = [

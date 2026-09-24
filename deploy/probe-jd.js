@@ -317,6 +317,8 @@ async function call(method, bizObj, { debug = false, mode } = {}) {
   console.log('\n【7】参数试错 —— 那几个 400 到底该怎么传');
   console.log('    每个接口挨个试入参结构，第一个通的就停，打印出正确写法');
 
+  // 转链素材优先用前面扫到的真实商品，写死的 skuId 可能早下架了
+  const MATERIAL = materialUrl || 'https://item.jd.com/100012043978.html';
   const hourAgo = new Date(Date.now() - 3600 * 1000);
   const hh = (d) => d.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
     .replace('T', ' ').replace(/[-: ]/g, '').slice(0, 10);
@@ -331,10 +333,12 @@ async function call(method, bizObj, { debug = false, mode } = {}) {
       ['平铺',                { eliteId: 1, pageIndex: 1, pageSize: 20 }],
     ]],
     ['商品详情', 'jd.union.open.goods.bigfield.query', [
-      ['skuIds 数组',         { goodsReq: { skuIds: [100012043978] } }],
-      ['skuIds 字符串',       { goodsReq: { skuIds: '100012043978' } }],
-      ['goodsReqDTO',         { goodsReqDTO: { skuIds: [100012043978] } }],
-      ['平铺数组',            { skuIds: [100012043978] }],
+      // 441 说缺 sceneId，它是「商品场景」：1 常规商品，2 秒杀等
+      ['sceneId=1',           { goodsReq: { skuIds: [100012043978], sceneId: 1 } }],
+      ['sceneId=2',           { goodsReq: { skuIds: [100012043978], sceneId: 2 } }],
+      ['sceneId=1 字符串',    { goodsReq: { skuIds: ['100012043978'], sceneId: 1 } }],
+      ['sceneId 平级',        { goodsReq: { skuIds: [100012043978] }, sceneId: 1 }],
+      ['无 sceneId',          { goodsReq: { skuIds: [100012043978] } }],
     ]],
     ['类目', 'jd.union.open.category.goods.get', [
       ['req',                 { req: { parentId: 0, grade: 0 } }],
@@ -342,18 +346,24 @@ async function call(method, bizObj, { debug = false, mode } = {}) {
       ['categoryReq',         { categoryReq: { parentId: 0, grade: 0 } }],
       ['grade1',              { req: { parentId: 0, grade: 1 } }],
     ]],
+    // 2001701 说「不支持 siteId 用于此种方式推广，只支持网站/APP」——
+    // 我们的媒体是「导购媒体」类型。先试不带 siteId 的几种写法，
+    // 都不行就只能去联盟后台建一个「网站」类型的媒体。
     ['通用转链', 'jd.union.open.promotion.common.get', [
-      ['materialId+siteId',   { promotionCodeReq: { materialId: 'https://item.jd.com/100012043978.html', siteId: Number(SITE_ID) } }],
-      ['+positionId',         { promotionCodeReq: { materialId: 'https://item.jd.com/100012043978.html', siteId: Number(SITE_ID), positionId: Number(POSITION) } }],
-      ['siteId 字符串',       { promotionCodeReq: { materialId: 'https://item.jd.com/100012043978.html', siteId: String(SITE_ID) } }],
-      ['只 materialId',       { promotionCodeReq: { materialId: 'https://item.jd.com/100012043978.html' } }],
-      ['+pid',                { promotionCodeReq: { materialId: 'https://item.jd.com/100012043978.html', pid: process.env.JD_PID || '' } }],
+      ['只 positionId',       { promotionCodeReq: { materialId: MATERIAL, positionId: Number(POSITION) } }],
+      ['只 pid',              { promotionCodeReq: { materialId: MATERIAL, pid: process.env.JD_PID || '' } }],
+      ['只 materialId',       { promotionCodeReq: { materialId: MATERIAL } }],
+      ['pid+positionId',      { promotionCodeReq: { materialId: MATERIAL, pid: process.env.JD_PID || '', positionId: Number(POSITION) } }],
+      ['+channelId',          { promotionCodeReq: { materialId: MATERIAL, positionId: Number(POSITION), channelId: 1 } }],
+      ['siteId（对照组）',    { promotionCodeReq: { materialId: MATERIAL, siteId: Number(SITE_ID) } }],
     ]],
     ['订单行', 'jd.union.open.order.row.query', [
       ['pageNo+yyyyMMddHH',   { orderReq: { pageNo: 1, pageSize: 20, type: 1, startTime: hh(hourAgo), endTime: hh(new Date()) } }],
-      ['pageIndex 命名',      { orderReq: { pageIndex: 1, pageSize: 20, type: 1, startTime: hh(hourAgo), endTime: hh(new Date()) } }],
-      ['type 3 更新时间',     { orderReq: { pageNo: 1, pageSize: 20, type: 3, startTime: hh(hourAgo), endTime: hh(new Date()) } }],
+      ['只 type+时间',        { orderReq: { type: 1, startTime: hh(hourAgo), endTime: hh(new Date()) } }],
+      ['同一小时',            { orderReq: { pageNo: 1, pageSize: 20, type: 1, startTime: hh(new Date()), endTime: hh(new Date()) } }],
+      ['key 空串',            { orderReq: { pageNo: 1, pageSize: 20, type: 1, key: '', startTime: hh(hourAgo), endTime: hh(new Date()) } }],
       ['字符串页码',          { orderReq: { pageNo: '1', pageSize: '20', type: '1', startTime: hh(hourAgo), endTime: hh(new Date()) } }],
+      ['type 3 更新时间',     { orderReq: { pageNo: 1, pageSize: 20, type: 3, startTime: hh(hourAgo), endTime: hh(new Date()) } }],
       ['orderReqDTO',         { orderReqDTO: { pageNo: 1, pageSize: 20, type: 1, startTime: hh(hourAgo), endTime: hh(new Date()) } }],
     ]],
   ];
@@ -389,6 +399,7 @@ async function call(method, bizObj, { debug = false, mode } = {}) {
   }
 
   console.log('\n  试通的：', Object.keys(won).length ? JSON.stringify(won) : '一个都没通');
+  console.log(`  业务参数字段名：${PARAM_MODE}   ← 写 JdProvider 时要用这个`);
 
   console.log('\n常见报错对照：');
   console.log('  invalid signature / 签名错误 → appSecret 填错，或时间戳不是北京时间');

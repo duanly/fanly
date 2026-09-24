@@ -413,3 +413,9 @@ body {
   line-height: 1.6;
 }
 .tip-bar b { color: #ff4b3a; }
+.tip-bar .claim-link {
+  display: inline-block;
+  margin-top: 4px;
+  color: #ff4b3a;
+  font-weight: 600;
+}

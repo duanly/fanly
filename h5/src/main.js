@@ -16,6 +16,8 @@ const routes = [
   { path: '/goods/:platform/:goodsId', component: () => import('./views/Detail.vue') },
   // 订单和我的不再强制跳登录，页面内给登录入口，底部导航栏才不会消失
   { path: '/orders', component: () => import('./views/Orders.vue') },
+  { path: '/claim', component: () => import('./views/Claim.vue') },
+  { path: '/checkin', component: () => import('./views/Checkin.vue'), meta: { auth: true } },
   { path: '/mine', component: () => import('./views/Mine.vue') },
   { path: '/agent', component: () => import('./views/Agent.vue'), meta: { auth: true } },
   { path: '/withdraw', component: () => import('./views/Withdraw.vue'), meta: { auth: true } },

@@ -36,6 +36,20 @@ export class CommissionService {
     return this.cfg.num(`rebate.agent_rate.${agent.level}`, 0.1);
   }
 
+  /**
+   * 二级分成：直属代理的上级也能分一笔。
+   * 县城熟人社会靠转介绍扩散，只给一级的话，介绍人没动力再去发展下线。
+   * 比例单独配，且一般明显低于一级。
+   */
+  private async agentL2(agentId: number | null): Promise<{ id: number | null; rate: number }> {
+    if (!agentId) return { id: null, rate: 0 };
+    const l1 = await this.agentRepo.findOneBy({ id: agentId });
+    if (!l1?.parentAgentId) return { id: null, rate: 0 };
+    const l2 = await this.agentRepo.findOneBy({ id: l1.parentAgentId });
+    if (!l2 || l2.status !== 1) return { id: null, rate: 0 };
+    return { id: l2.id, rate: this.cfg.num('rebate.agent_rate_l2', 0.05) };
+  }
+
   /** 试算：给前端展示"预计返 ¥X"，不落库 */
   async preview(estCommission: number, agentId: number | null = null) {
     const userRate = this.cfg.num('rebate.user_rate', 0.5);
@@ -64,9 +78,13 @@ export class CommissionService {
 
     const userRate = this.cfg.num('rebate.user_rate', 0.5);
     const aRate = await this.agentRate(order.agentId);
+    const l2 = await this.agentL2(order.agentId);
     const userRebate = mul(base, userRate);
     const agentBonus = order.agentId ? mul(base, aRate) : '0.0000';
-    const platformProfit = sub(sub(base, userRebate), agentBonus);
+    const agentBonusL2 = l2.id ? mul(base, l2.rate) : '0.0000';
+    // 平台拿剩下的。三方比例之和超过 1 的话这里会变负数，
+    // 那是后台参数配错了，宁可让它显式为负被看见，也别偷偷吞掉
+    const platformProfit = sub(sub(sub(base, userRebate), agentBonus), agentBonusL2);
 
     await this.ds.transaction(async (m) => {
       const rows: Partial<CommissionDetail>[] = [
@@ -85,6 +103,13 @@ export class CommissionService {
         rows.splice(1, 0, {
           orderId: order.id, beneficiaryType: Beneficiary.AGENT, beneficiaryId: order.agentId,
           baseAmount: String(base), rate: String(aRate), amount: agentBonus,
+          status: CommissionStatus.CREDITED,
+        });
+      }
+      if (l2.id && toNum(agentBonusL2) > 0) {
+        rows.splice(2, 0, {
+          orderId: order.id, beneficiaryType: Beneficiary.AGENT_L2, beneficiaryId: l2.id,
+          baseAmount: String(base), rate: String(l2.rate), amount: agentBonusL2,
           status: CommissionStatus.CREDITED,
         });
       }
@@ -110,13 +135,25 @@ export class CommissionService {
           );
         }
       }
+      // 二级分成入账。冲销那边不用改——它按「非平台」统一反查 agent.userId，
+      // AGENT_L2 存的也是 agentId，天然走得通
+      if (l2.id && toNum(agentBonusL2) > 0) {
+        const agent2 = await m.findOneBy(Agent, { id: l2.id });
+        if (agent2) {
+          await this.fund.changeBalance(
+            agent2.userId, agentBonusL2, LedgerType.AGENT_BONUS, order.id,
+            `二级团队订单 ${order.platformOrderNo} 分成`, m,
+          );
+        }
+      }
 
       order.orderStatus = OrderStatus.CREDITED;
       await m.save(CpsOrder, order);
     });
 
     this.logger.log(
-      `订单 ${order.platformOrderNo} 结算: 基数 ${base} → 用户 ${userRebate} / 代理 ${agentBonus} / 平台 ${platformProfit}`,
+      `订单 ${order.platformOrderNo} 结算: 基数 ${base} → 用户 ${userRebate}`
+      + ` / 一级 ${agentBonus} / 二级 ${agentBonusL2} / 平台 ${platformProfit}`,
     );
     return true;
   }

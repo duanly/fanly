@@ -32,9 +32,24 @@
       </div>
 
       <div class="stat-row">
-        <div><div class="n">{{ s.teamSize }}</div><div class="l">团队人数</div></div>
+        <div><div class="n">{{ s.teamSize }}</div><div class="l">直属用户</div></div>
         <div><div class="n">{{ s.orderCount }}</div><div class="l">有效订单</div></div>
         <div><div class="n">{{ money(s.gmv) }}</div><div class="l">团队 GMV</div></div>
+      </div>
+
+      <!-- 二级团队：让推广员看见「发展下线也有钱赚」，这是裂变的发动机 -->
+      <div class="l2-card">
+        <div class="l2-head">
+          <span class="t">二级团队</span>
+          <span class="r">分成 {{ (s.rateL2 * 100).toFixed(0) }}%</span>
+        </div>
+        <div class="l2-nums">
+          <div><b>{{ s.subAgentCount ?? 0 }}</b><span>我发展的推广员</span></div>
+          <div><b>{{ s.teamSizeL2 ?? 0 }}</b><span>他们带来的用户</span></div>
+        </div>
+        <div class="l2-tip">
+          你拉的人自己也成了推广员，他团队的订单你同样能分一笔。
+        </div>
       </div>
 
       <div class="stat-row">
@@ -159,3 +174,18 @@ async function load() {
 
 onMounted(load);
 </script>
+
+<style scoped>
+.l2-card {
+  background: linear-gradient(135deg, #4a3aff, #7b3ad5);
+  color: #fff; margin: 12px; border-radius: 12px; padding: 14px 16px;
+}
+.l2-head { display: flex; justify-content: space-between; align-items: baseline; }
+.l2-head .t { font-size: 15px; font-weight: 700; }
+.l2-head .r { font-size: 12px; background: rgba(255,255,255,.22); border-radius: 999px; padding: 2px 10px; }
+.l2-nums { display: flex; margin-top: 12px; }
+.l2-nums > div { flex: 1; }
+.l2-nums b { font-size: 22px; font-weight: 800; display: block; }
+.l2-nums span { font-size: 11px; opacity: .88; }
+.l2-tip { font-size: 11px; opacity: .85; margin-top: 10px; line-height: 1.6; }
+</style>

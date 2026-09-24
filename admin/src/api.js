@@ -68,4 +68,9 @@ export const api = {
   homeLinks: () => http.get('/api/admin/home/links'),
   homeLinkSave: (data) => http.post('/api/admin/home/links', data),
   homeLinkRemove: (id) => http.delete(`/api/admin/home/links/${id}`),
+
+  // 订单找回
+  claimList: (params) => http.get('/api/admin/claim', { params }),
+  claimAudit: (id, pass, reason) => http.post(`/api/admin/claim/${id}/audit`, { pass, reason }),
+  claimRetry: () => http.post('/api/admin/claim/retry'),
 };

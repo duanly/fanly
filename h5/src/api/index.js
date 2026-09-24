@@ -68,6 +68,16 @@ export const api = {
 
   orders: (params) => http.get('/api/orders', { params }),
 
+  // 订单找回：下了单没返利的补救入口
+  claimApply: (data) => http.post('/api/claim', data),
+  claimList: (params) => http.get('/api/claim', { params }),
+
+  // 签到与金币
+  coinStatus: () => http.get('/api/coin/status'),
+  checkin: () => http.post('/api/coin/checkin'),
+  coinExchange: (coins) => http.post('/api/coin/exchange', { coins }),
+  coinLedger: (params) => http.get('/api/coin/ledger', { params }),
+
   balance: () => http.get('/api/fund/balance'),
   summary: () => http.get('/api/fund/summary'),
   withdraws: (params) => http.get('/api/fund/withdraws', { params }),

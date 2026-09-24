@@ -31,10 +31,17 @@ export class AgentService {
   async apply(userId: number, realName = '') {
     const exist = await this.agentRepo.findOneBy({ userId });
     if (exist) return exist;
+
+    // 谁把他拉进来的，谁就是他的上级——二级分销的链条在这里成形。
+    // 用注册时绑定的 agentId，之后再改绑不影响已有的上下级关系
+    const me = await this.userRepo.findOneBy({ id: userId });
+    const parentAgentId = me?.agentId ?? null;
+
     return this.agentRepo.save(this.agentRepo.create({
       userId,
       agentCode: await this.uniqueCode(),
       realName,
+      parentAgentId,
       status: AgentStatus.PENDING,
     }));
   }
@@ -80,6 +87,11 @@ export class AgentService {
     const agent = await this.agentRepo.findOneBy({ userId });
     if (!agent) throw new BadRequestException('你还不是代理');
     const teamSize = await this.userRepo.countBy({ agentId: agent.id });
+    // 二级团队：我发展的代理，他们各自带的人
+    const subAgents = await this.agentRepo.findBy({ parentAgentId: agent.id });
+    const teamSizeL2 = subAgents.length
+      ? await this.userRepo.count({ where: subAgents.map((a) => ({ agentId: a.id })) })
+      : 0;
     const s = await this.commission.agentStats(
       agent.id,
       start ? new Date(start) : undefined,
@@ -91,6 +103,9 @@ export class AgentService {
       levelName: ['', '普通代理', '高级代理', '合伙人'][agent.level],
       rate: agent.agentRate ?? String(this.cfg.num(`rebate.agent_rate.${agent.level}`, 0.1)),
       teamSize,
+      subAgentCount: subAgents.length,
+      teamSizeL2,
+      rateL2: String(this.cfg.num('rebate.agent_rate_l2', 0.05)),
       ...s,
     };
   }

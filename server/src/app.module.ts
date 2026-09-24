@@ -30,6 +30,10 @@ import { AuthzService } from './modules/cps/authz.service';
 import { AuthzController } from './modules/cps/authz.controller';
 import { CompareService } from './modules/cps/compare.service';
 import { ComparePublicController, CompareAdminController } from './modules/cps/compare.controller';
+import { CoinService } from './modules/coin/coin.service';
+import { CoinController } from './modules/coin/coin.controller';
+import { OrderClaimService } from './modules/order/order-claim.service';
+import { OrderClaimController, OrderClaimAdminController } from './modules/order/order-claim.controller';
 import { CartService } from './modules/cart/cart.service';
 import { CartController } from './modules/cart/cart.controller';
 import { HomeLinkService } from './modules/curation/home.service';
@@ -88,11 +92,12 @@ const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'functi
     CurationController, AuthzController,
     ComparePublicController, CompareAdminController,
     HomeController, HomeAdminController, CartController,
+    OrderClaimController, OrderClaimAdminController, CoinController,
   ],
   providers: [
     SysConfigService, AuthService, OrderService, CommissionService,
     FundService, AgentService, CurationService, AuthzService, CompareService,
-    HomeLinkService, RankingService, CartService, JobService,
+    HomeLinkService, RankingService, CartService, OrderClaimService, CoinService, JobService,
     { provide: APP_GUARD, useClass: JwtGuard },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
     { provide: APP_FILTER, useClass: AllExceptionFilter },
