@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CuratedGoods, CuratedStatus } from '@/entities';
+import { CuratedGoods, CuratedStatus, GoodsTopic } from '@/entities';
 import { CpsService } from '../cps/cps.service';
 import { UnifiedGoods } from '../cps/cps.types';
 
@@ -14,6 +14,7 @@ export class CurationService {
 
   constructor(
     @InjectRepository(CuratedGoods) private readonly repo: Repository<CuratedGoods>,
+    @InjectRepository(GoodsTopic) private readonly relRepo: Repository<GoodsTopic>,
     private readonly cps: CpsService,
   ) {}
 
@@ -148,6 +149,8 @@ export class CurationService {
   }
 
   async remove(id: number) {
+    // 先清标签关联，不然商品没了关联还挂着，专题页会查出一堆空洞
+    await this.relRepo.delete({ curatedId: id });
     const r = await this.repo.delete({ id });
     return { deleted: r.affected ?? 0 };
   }

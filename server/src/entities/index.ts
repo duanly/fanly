@@ -15,3 +15,5 @@ export * from './order-claim.entity';
 export * from './coin-ledger.entity';
 export * from './checkin.entity';
 export * from './goods-recommend.entity';
+export * from './topic.entity';
+export * from './goods-topic.entity';

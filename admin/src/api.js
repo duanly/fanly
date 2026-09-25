@@ -57,6 +57,19 @@ export const api = {
   curationRefreshAll: () => http.post('/api/admin/curation/refresh-all'),
   curationRemove: (id) => http.delete(`/api/admin/curation/${id}`),
 
+  // 专题（= 标签 = 页面 = 首页入口）
+  // 列表走后台接口（含下架的、带商品数），专题内商品直接用公开接口，不用另开一个
+  topics: () => http.get('/api/admin/topics'),
+  topicCreate: (data) => http.post('/api/admin/topics', data),
+  topicUpdate: (id, data) => http.put(`/api/admin/topics/${id}`, data),
+  topicRemove: (id) => http.delete(`/api/admin/topics/${id}`),
+  topicGoods: (slug, params) => http.get(`/api/topics/${slug}/goods`, { params }),
+  topicTagMany: (id, curatedIds) => http.post(`/api/admin/topics/${id}/tag-many`, { curatedIds }),
+  topicUntagMany: (id, curatedIds) => http.post(`/api/admin/topics/${id}/untag-many`, { curatedIds }),
+  goodsTopics: (curatedId) => http.get(`/api/admin/topics/of-goods/${curatedId}`),
+  setGoodsTopics: (curatedId, topicIds) =>
+    http.post(`/api/admin/topics/of-goods/${curatedId}`, { topicIds }),
+
   // 比价组
   compareList: (params) => http.get('/api/admin/compare/list', { params }),
   compareSave: (data) => http.post('/api/admin/compare/save', data),

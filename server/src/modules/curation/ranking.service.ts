@@ -37,13 +37,53 @@ export class RankingService {
   }
 
   /**
-   * 热销榜：近 N 天我们平台下单最多的商品。
+   * 热销榜：近 N 天我们平台下单最多的商品，不够数就用选品池补齐。
+   *
+   * 为什么要补：冷启动阶段一单都没有，榜单空着是首页最难看的状态——
+   * 用户第一次打开看到「暂无数据」，基本不会有第二次。
+   *
+   * 补位的规矩（很重要）：**补进来的商品不带 orderCount**。
+   * 卡片上那个「N 人买过」只给真有订单的商品显示。让一件零销量的商品
+   * 顶着「128 人买过」出现在首页，跟虚标价格是同一类事——一旦被发现，
+   * 之后我们说什么用户都不信了。宁可少个角标，不能造个数。
+   */
+  async hot(days = 7, limit = 10) {
+    const real = await this.hotFromOrders(days, limit);
+    if (real.length >= limit) return real;
+
+    // 已经上榜的不要重复出现
+    const taken = new Set(real.map((g) => `${g.platform}:${g.goodsId}`));
+    const need = limit - real.length;
+
+    // 补位按平台销量降序：它至少代表「这东西在市面上卖得动」，
+    // 比按佣金排靠谱——按佣金排会把高佣低销的冷门货堆到首页。
+    const pool = await this.goodsRepo.find({
+      where: { status: CuratedStatus.ON },
+      order: { salesVolume: 'DESC', commission: 'DESC', id: 'DESC' },
+      take: need + taken.size + 20,
+    });
+
+    const filler = [];
+    for (const p of pool) {
+      if (filler.length >= need) break;
+      if (taken.has(`${p.platform}:${p.goodsId}`)) continue;
+      filler.push(this.toGoods(p));   // 注意：不给 orderCount
+    }
+
+    if (filler.length) {
+      this.logger.debug(`热销榜真实数据 ${real.length} 条，用选品池补 ${filler.length} 条`);
+    }
+    return [...real, ...filler];
+  }
+
+  /**
+   * 榜单说明文案里那句「数据还少时用平台销量补齐」对应的就是上面那段。
    *
    * 订单表里只有下单时的快照（标题、图、实付），没有券后价和佣金，
    * 所以能在选品池里找到的就用池子里的新数据，找不到的用快照兜底——
    * 用户买过但我们没选进池的商品，同样值得展示。
    */
-  async hot(days = 7, limit = 10) {
+  private async hotFromOrders(days: number, limit: number) {
     const since = new Date(Date.now() - days * 24 * 3600 * 1000);
     const rows = await this.orderRepo
       .createQueryBuilder('o')

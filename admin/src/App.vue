@@ -13,6 +13,7 @@
       >
         <el-menu-item index="/dashboard">仪表盘</el-menu-item>
         <el-menu-item index="/curation">选品池</el-menu-item>
+        <el-menu-item index="/topics">专题管理</el-menu-item>
         <el-menu-item index="/compare">比价组</el-menu-item>
         <el-menu-item index="/home-ops">首页运营</el-menu-item>
         <el-menu-item index="/agents">代理管理</el-menu-item>
@@ -45,6 +46,7 @@ const plain = computed(() => route.meta.plain);
 const TITLES = {
   '/dashboard': '仪表盘',
   '/curation': '选品池',
+  '/topics': '专题管理',
   '/compare': '比价组',
   '/home-ops': '首页运营',
   '/agents': '代理管理',

@@ -10,6 +10,7 @@ const routes = [
   { path: '/', redirect: '/dashboard' },
   { path: '/dashboard', component: () => import('./views/Dashboard.vue') },
   { path: '/curation', component: () => import('./views/Curation.vue') },
+  { path: '/topics', component: () => import('./views/Topics.vue') },
   { path: '/compare', component: () => import('./views/Compare.vue') },
   { path: '/home-ops', component: () => import('./views/HomeOps.vue') },
   { path: '/agents', component: () => import('./views/Agents.vue') },

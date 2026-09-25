@@ -80,6 +80,14 @@
       </div>
     </div>
 
+    <div v-if="acts.length" class="act-row">
+      <div v-for="a in acts" :key="a.key" class="act-card" @click="openLink(a)">
+        <div class="t">{{ a.title }}</div>
+        <div class="s">{{ a.subtitle }}</div>
+        <span class="emoji">{{ a.icon }}</span>
+      </div>
+    </div>
+
     <div class="grid-card">
       <div class="cat-scroll">
         <div class="cat-pages">
@@ -98,14 +106,6 @@
       </div>
       <div v-if="catPages.length > 1" class="cat-dots">
         <i v-for="(p, i) in catPages" :key="i" />
-      </div>
-    </div>
-
-    <div v-if="links.length" class="act-row">
-      <div v-for="a in links" :key="a.id" class="act-card" @click="openLink(a)">
-        <div class="t">{{ a.title }}</div>
-        <div class="s">{{ a.subtitle }}</div>
-        <span class="emoji">{{ a.icon }}</span>
       </div>
     </div>
 
@@ -143,7 +143,7 @@ import { GRID_GROUPS, groupMeta } from '../constants/groups';
 import { PLATFORMS as PLATS } from '../utils/platform';
 
 const RANKS = [
-  { type: 'hot', name: '🔥 热销榜', tip: '按最近 7 天本站下单量排，不是平台的全站销量' },
+  { type: 'hot', name: '🔥 热销榜', tip: '按最近 7 天本站下单量排；数据还少的时候用平台销量补齐' },
   { type: 'rebate', name: '💰 返利榜', tip: '按买了能返多少排，返得最多的在前面' },
   { type: 'pick', name: '⭐️ 推荐榜', tip: '大家推荐次数最多的，你也可以给喜欢的商品点推荐' },
 ];
@@ -160,6 +160,7 @@ const keyword = ref('');
 const groups = ref([]);
 const cats = ref([]);
 const links = ref([]);
+const topics = ref([]);
 const banners = ref(FALLBACK_BANNERS);
 const compare = ref([]);
 const list = ref([]);
@@ -186,20 +187,73 @@ const bannerStyle = (b) => ({
 });
 
 /** 分区优先用后台配的；没配就退回「池子里真有货的专题」；再没有才用预设 */
+/**
+ * 活动位 = slot=activity 的专题 + home_link 里的外链。
+ * 专题走站内 /topic/xxx，真外链（比如跳京东的活动页）还得靠 home_link。
+ */
+const acts = computed(() => [
+  ...topics.value.filter((t) => t.slot === 'activity').map((t) => ({
+    key: `t-${t.slug}`,
+    title: t.name,
+    subtitle: t.intro || '',
+    icon: t.icon || '🎁',
+    url: `/topic/${t.slug}`,
+    internal: true,
+  })),
+  ...links.value.map((l) => ({ ...l, key: `l-${l.id}` })),
+]);
+
+/**
+ * 宫格来源四级：slot=grid 的专题 → 后台配的 category 链接 →
+ * 池子里真有货的老 groupKey → 预设补齐到 8 个。
+ *
+ * 为什么一定要补满 8 个：宫格靠整齐吃饭，缺一格整行都塌，看着像没做完。
+ * 预设专题点进去就算暂时没货也有空态兜着，比留个窟窿好。
+ */
 const catGroups = computed(() => {
-  if (cats.value.length) {
-    return cats.value.map((c, i) => ({
-      key: c.url || '',
+  const out = [];
+  const has = (url) => out.some((o) => o.url === url);
+
+  topics.value
+    .filter((t) => t.slot === 'grid')
+    .forEach((t, i) => out.push({
+      key: `topic-${t.slug}`,
+      name: t.name,
+      icon: t.icon || '📦',
+      bg: t.bg || groupMeta(t.slug, i).bg,
+      url: `/topic/${t.slug}`,
+      internal: true,
+    }));
+
+  cats.value.forEach((c, i) => {
+    const url = c.url || '';
+    if (!url || has(url)) return;
+    out.push({
+      key: `cat-${c.id ?? i}`,
       name: c.title,
       icon: c.icon || '📦',
-      bg: c.image || groupMeta(String(c.url || '').replace('/group/', ''), i).bg,
-      url: c.url,
+      bg: c.image || groupMeta(url.replace(/^\/(group|topic)\//, ''), i).bg,
+      url,
       internal: c.internal,
-    }));
+    });
+  });
+
+  groups.value
+    .filter((g) => g.groupKey !== 'default' && g.onShelf > 0)
+    .forEach((g, i) => {
+      const url = `/group/${g.groupKey}`;
+      if (has(url)) return;
+      out.push({ ...groupMeta(g.groupKey, i), key: `grp-${g.groupKey}`, url, internal: true });
+    });
+
+  for (const g of GRID_GROUPS) {
+    if (out.length >= 8) break;
+    const url = `/group/${g.key}`;
+    if (has(url)) continue;
+    out.push({ ...g, key: `pre-${g.key}`, url, internal: true });
   }
-  const real = groups.value.filter((g) => g.groupKey !== 'default' && g.onShelf > 0);
-  const src = real.length ? real.map((g, i) => groupMeta(g.groupKey, i)) : GRID_GROUPS.slice(0, 8);
-  return src.map((g) => ({ ...g, url: `/group/${g.key}`, internal: true }));
+
+  return out;
 });
 
 const catPages = computed(() => {
@@ -259,6 +313,7 @@ async function loadSide() {
   };
   await Promise.all([
     safe(() => api.goodsGroups(), groups),
+    safe(() => api.topics(), topics),
     safe(() => api.homeLinks('entry'), links),
     safe(() => api.homeLinks('category'), cats),
     safe(() => api.homeLinks('banner'), banners, (v) => (v?.length ? v : FALLBACK_BANNERS)),
