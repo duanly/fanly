@@ -243,6 +243,71 @@ const yuan = v => (Math.round(Number(v || 0)) / 100).toFixed(2);
   console.log('\n  授权完再跑一次本脚本：第【6】步的 bind 从 0 变 1 就是备案成功，');
   console.log('  然后看【1】和【3】通不通。');
 
+  // ── 【7】goods_sign 稳不稳 ────────────────────────────
+  // 选品池里出现过「同一件商品三行」，唯一键是 (platform, goodsId) 且确实生效，
+  // 所以只能是三次拿到了不同的 goods_sign。这一步就是验证它：
+  // 同一个关键词连搜两次，按 goods_id 对齐，看 sign 变没变。
+  console.log('\n【7】goods_sign 稳不稳 —— 同一商品两次搜索拿到的 sign 是否一致');
+  try {
+    const grab = async (tag) => {
+      const d = await call('pdd.ddk.goods.search', {
+        keyword: KEYWORD, page: 1, page_size: 20,
+      });
+      const list = d?.goods_list ?? d?.goods_search_response?.goods_list ?? [];
+      console.log(`  第 ${tag} 次：${list.length} 条`);
+      return list;
+    };
+
+    const a = await grab(1);
+    await new Promise((r) => setTimeout(r, 3000));   // 隔几秒，模拟真实选品节奏
+    const b = await grab(2);
+
+    const byId = new Map();
+    for (const g of a) if (g.goods_id) byId.set(String(g.goods_id), g);
+
+    let same = 0, diff = 0, noId = 0;
+    const samples = [];
+    for (const g of b) {
+      if (!g.goods_id) { noId++; continue; }
+      const prev = byId.get(String(g.goods_id));
+      if (!prev) continue;
+      if (String(prev.goods_sign) === String(g.goods_sign)) same++;
+      else {
+        diff++;
+        if (samples.length < 3) samples.push({
+          goods_id: g.goods_id,
+          name: String(g.goods_name || '').slice(0, 24),
+          sign1: String(prev.goods_sign).slice(0, 20) + '…',
+          sign2: String(g.goods_sign).slice(0, 20) + '…',
+        });
+      }
+    }
+
+    console.log(`\n  按 goods_id 对齐后：sign 相同 ${same} 件，sign 变了 ${diff} 件`);
+    if (noId) console.log(`  （另有 ${noId} 件连 goods_id 都没返回）`);
+    for (const s of samples) {
+      console.log(`    ✗ ${s.goods_id} ${s.name}`);
+      console.log(`       第1次 ${s.sign1}`);
+      console.log(`       第2次 ${s.sign2}`);
+    }
+
+    console.log('\n  怎么读：');
+    if (diff > 0) {
+      console.log('   → sign 会变，实锤。goods_sign 不能当唯一键，');
+      console.log('     得另存 goods_id 做去重，sign 只当转链参数。');
+    } else if (same > 0) {
+      console.log('   → 这一轮 sign 都没变。可能是间隔太短，或者换了推广位/时段才会变；');
+      console.log('     隔几小时再跑一次，或者直接上 goods_id 去重（反正它只会更准）。');
+    } else {
+      console.log('   → 两次结果对不上（搜索结果本身在变），换个冷门点的关键词再试：');
+      console.log('     KEYWORD=骆驼运动鞋 node deploy/probe-pdd.js');
+    }
+    console.log(`\n  顺带：本次返回里带 goods_id 的有 ${byId.size}/${a.length} 件`);
+    console.log('   （这个数要是远小于总数，说明 goods_id 靠不住，得换别的去重依据）');
+  } catch (e) {
+    console.log('  ✗', e.message);
+  }
+
   console.log('\n常见报错对照：');
   console.log('  10001 签名错误      → client_secret 填错，或参数里混了空值');
   console.log('  10002 时间戳过期    → 服务器时间不准，date 对一下');
