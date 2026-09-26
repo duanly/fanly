@@ -132,12 +132,13 @@
             </el-select>
             <el-input
               v-model="f.keyword"
-              placeholder="关键词，留空则看平台榜单"
+              placeholder="关键词，留空看全品类/榜单"
               style="width:240px"
               clearable
               @keyup.enter="find"
             />
             <el-select v-model="f.channel" style="width:150px">
+              <el-option label="全品类" value="all" />
               <el-option label="实时收益榜" value="earn" />
               <el-option label="实时热销榜" value="hot" />
               <el-option label="平台推荐位" value="pick" />
@@ -165,7 +166,7 @@
           </div>
 
           <p class="hint" style="margin:0 0 10px">
-            有关键词时按<b>到手返利</b>排序（佣金金额，不是佣金比例）；留空则拉平台榜单。
+            有关键词时按<b>到手返利</b>排序（佣金金额，不是佣金比例）；留空选「全品类」按<b>销量</b>浏览平台全部商品，选榜单则拉对应榜单。
           </p>
 
           <div v-loading="finding" class="cards">
@@ -290,7 +291,7 @@ const finding = ref(false);
 const f = reactive({
   platform: 'PDD',
   keyword: '',
-  channel: 'earn',
+  channel: 'all',
   groupKey: 'default',
   sortWeight: 0,
 });
@@ -300,7 +301,9 @@ async function find() {
   try {
     const r = f.keyword
       ? await api.curationSearch({ platform: f.platform, keyword: f.keyword, pageSize: 40 })
-      : await api.curationRecommend({ platform: f.platform, channel: f.channel, pageSize: 40 });
+      : f.channel === 'all'
+        ? await api.curationSearch({ platform: f.platform, pageSize: 40, sort: 'sales' })
+        : await api.curationRecommend({ platform: f.platform, channel: f.channel, pageSize: 40 });
     found.value = r.list || [];
     if (!found.value.length) ElMessage.warning('没查到商品，换个关键词或榜单试试');
   } finally {
