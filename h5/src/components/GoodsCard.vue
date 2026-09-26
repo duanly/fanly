@@ -105,16 +105,15 @@ async function doRecommend() {
 
 <style scoped>
 .img-wrap { position: relative; }
-/* 一个字的方形圆角标，压在图片右上角。
-   .88 的不透明度让它在浅色图上也压得住，又不至于抢商品的视线 */
+/* 一个字的圆形小标，压在图片右上角，只做提示不抢商品视线 */
 .plat-badge {
-  position: absolute; right: 6px; top: 6px;
-  width: 18px; height: 18px;
+  position: absolute; right: 3px; top: 3px;
+  width: 8px; height: 8px;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; opacity: .88;
-  font-size: 11px; line-height: 1; font-weight: 600;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
+  color: #fff; opacity: .65;
+  font-size: 6px; line-height: 1; font-weight: 600;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
 }
 /* 热销角标挪到左下，别跟来源标挤一起 */
 .hot-badge {
