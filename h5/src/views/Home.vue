@@ -80,36 +80,46 @@
       </div>
     </div>
 
-    <div v-if="acts.length" class="act-row">
-      <div v-for="a in acts" :key="a.key" class="act-card" @click="openLink(a)">
-        <div class="t">{{ a.title }}</div>
-        <div class="s">{{ a.subtitle }}</div>
-        <span class="emoji">{{ a.icon }}</span>
+    <div v-if="marqueeActs.length" class="act-marquee">
+      <div class="am-track">
+        <div
+          v-for="(a, i) in marqueeActs"
+          :key="a.key + '-' + i"
+          class="act-card"
+          @click="openLink(a)"
+        >
+          <div class="t">{{ a.title }}</div>
+          <div class="s">{{ a.subtitle }}</div>
+          <span class="emoji">{{ a.icon }}</span>
+        </div>
       </div>
     </div>
 
-    <div class="grid-card">
-      <div class="cat-scroll">
-        <div class="cat-pages">
-          <div v-for="(pageItems, pi) in catPages" :key="pi" class="cat-page">
-            <div
-              v-for="e in pageItems"
-              :key="e.key"
-              class="plat-item"
-              @click="openCat(e)"
-            >
-              <div class="plat-icon" :style="{ background: e.bg }">{{ e.icon }}</div>
-              <div class="l">{{ e.name }}</div>
+    <div class="theme-section">
+      <div class="theme-head">主题分区</div>
+      <div class="grid-card">
+        <div class="cat-scroll">
+          <div class="cat-pages">
+            <div v-for="(pageItems, pi) in catPages" :key="pi" class="cat-page">
+              <div
+                v-for="e in pageItems"
+                :key="e.key"
+                class="plat-item"
+                @click="openCat(e)"
+              >
+                <div class="plat-icon" :style="{ background: e.bg }">{{ e.icon }}</div>
+                <div class="l">{{ e.name }}</div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div v-if="catPages.length > 1" class="cat-dots">
-        <i v-for="(p, i) in catPages" :key="i" />
+        <div v-if="catPages.length > 1" class="cat-dots">
+          <i v-for="(p, i) in catPages" :key="i" />
+        </div>
       </div>
     </div>
 
-    <van-tabs v-model:active="rankIdx" color="#ff4b3a" line-width="20" @change="loadRank">
+    <van-tabs class="rank-tabs" v-model:active="rankIdx" color="#ff4b3a" line-width="20" @change="loadRank">
       <van-tab v-for="r in RANKS" :key="r.type" :title="r.name" />
     </van-tabs>
 
@@ -202,6 +212,19 @@ const acts = computed(() => [
   })),
   ...links.value.map((l) => ({ ...l, key: `l-${l.id}` })),
 ]);
+
+/**
+ * 活动位跑马灯内容：复制多份实现无缝循环。
+ * 份数必须是偶数，translateX(-50%) 才会落在整份边界上，不闪跳。
+ */
+const marqueeActs = computed(() => {
+  const arr = acts.value;
+  if (!arr.length) return [];
+  let reps = Math.ceil(6 / arr.length);
+  if (reps < 2) reps = 2;
+  if (reps % 2) reps += 1;
+  return Array.from({ length: reps }, () => arr).flat();
+});
 
 /**
  * 宫格来源四级：slot=grid 的专题 → 后台配的 category 链接 →

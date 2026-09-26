@@ -34,9 +34,15 @@ import { cartCount, setCartCount } from './utils/cart-badge';
 const route = useRoute();
 const active = ref(0);
 
-// 只有这几个主 Tab 显示底部栏；二级页面（详情、提现、登录等）不显示
-const TAB_PATHS = ['/', '/compare', '/cart', '/mine'];
-const showTab = computed(() => TAB_PATHS.includes(route.path));
+// 底部导航栏常驻：除登录、平台授权、邀请落地页这几个流程页外，所有页面都显示。
+// 这样从详情、提现、订单等子页面能一键切回主 Tab，不用层层返回。
+const showTab = computed(() => {
+  const p = route.path;
+  if (p === '/login') return false;
+  if (p.startsWith('/auth/')) return false;
+  if (p.startsWith('/i/')) return false;
+  return true;
+});
 
 const cartBadge = computed(() => (cartCount.value > 0 ? String(cartCount.value) : ''));
 

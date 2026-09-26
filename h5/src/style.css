@@ -188,11 +188,43 @@ body {
 
 .newbie-card .p { color: var(--brand); font-weight: 800; font-size: 15px; padding: 2px 6px 0; }
 
-.grid-card {
-  background: #fff;
+/* 八大分区：上边框与头部标题共用同一段渐变（左红→右橙），看着是一个整体 */
+.theme-section {
+  border: 2px solid var(--brand);
+  border-top: none;
   border-radius: var(--radius-lg);
   margin: 14px 12px 0;
-  padding: 16px 4px 12px;
+  padding-top: 12px;
+  background-color: #fafcff;
+  background-image: linear-gradient(90deg, var(--brand), #ff8a3d);
+  background-size: 100% 12px;
+  background-position: top;
+  background-repeat: no-repeat;
+  overflow: hidden;
+}
+.theme-head {
+  width: fit-content;
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  padding: 6px 28px 6px 14px;
+  background: linear-gradient(90deg, var(--brand), #ff8a3d);
+  border-radius: 0 0 100px 0;
+}
+.grid-card {
+  background: #fafcff;
+  border-radius: 0;
+  margin: 0;
+  padding: 14px 14px 12px;
+}
+
+/* 榜单抬头（热销榜/返利榜/推荐榜）加边距 + 圆角 */
+.rank-tabs {
+  margin: 12px;
+}
+.rank-tabs .van-tabs__nav {
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 .plat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px 0; }
@@ -209,27 +241,37 @@ body {
 
 .plat-item .l { font-size: 12px; color: var(--ink); }
 
-.act-row {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 12px;
-  scrollbar-width: none;
+/* 活动位跑马灯：连续横向滚动，悬停/按住暂停 */
+.act-marquee {
+  margin: 12px;
+  overflow: hidden;
 }
-.act-row::-webkit-scrollbar { display: none; }
+.am-track {
+  display: flex;
+  width: max-content;
+  animation: am-scroll 22s linear infinite;
+}
+.act-marquee:hover .am-track,
+.act-marquee:active .am-track { animation-play-state: paused; }
 
 .act-card {
-  flex: 0 0 auto;
+  flex: none;
   width: 98px;
   background: #fff;
   border-radius: 12px;
   padding: 10px 8px 12px;
   text-align: center;
+  /* 间距用 margin 而不是 track 的 gap，保证每份等宽、translateX(-50%) 无缝 */
+  margin-right: 8px;
 }
 
 .act-card .t { font-size: 13px; font-weight: 700; }
 .act-card .s { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
 .act-card .emoji { font-size: 26px; margin-top: 6px; display: block; }
+@keyframes am-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
 
 .section-title {
   display: flex;
