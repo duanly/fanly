@@ -1,0 +1,9 @@
+node_modules
+dist
+data
+.env
+*.log
+_to_delete
+Claude outputs/
+.git
+*.tsbuildinfo
