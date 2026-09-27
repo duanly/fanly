@@ -22,6 +22,9 @@
             <el-button type="warning" :loading="refreshing" @click="refreshAll">
               全池刷新价格佣金
             </el-button>
+            <el-button type="danger" :loading="removingOff" @click="removeOffShelf">
+              一键移除已下架
+            </el-button>
             <span class="hint">定时任务每小时自动刷一次，这里是手动催一次</span>
           </div>
 
@@ -227,6 +230,7 @@ const pool = ref({ list: [], total: 0 });
 const groups = ref([]);
 const loading = ref(false);
 const refreshing = ref(false);
+const removingOff = ref(false);
 const q = reactive({ groupKey: '', status: '', page: 1, pageSize: 20 });
 
 const expiredCount = computed(
@@ -297,6 +301,22 @@ async function remove(row) {
   await api.curationRemove(row.curatedId);
   ElMessage.success('已移除');
   loadPool();
+}
+
+async function removeOffShelf() {
+  await ElMessageBox.confirm(
+    '移除所有已下架商品（含人工下架和自动下架），连同专题关联一起清掉，不可恢复。确认？',
+    '一键移除已下架',
+    { type: 'warning', confirmButtonText: '移除', confirmButtonClass: 'el-button--danger' },
+  );
+  removingOff.value = true;
+  try {
+    const r = await api.curationRemoveOffShelf();
+    ElMessage.success(r.removed ? `已移除 ${r.removed} 件下架商品` : '没有下架商品');
+    loadPool();
+  } finally {
+    removingOff.value = false;
+  }
 }
 
 // ── 找商品 ──

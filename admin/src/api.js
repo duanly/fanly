@@ -56,6 +56,7 @@ export const api = {
   curationUpdate: (id, data) => http.post(`/api/admin/curation/${id}`, data),
   curationRefresh: (id) => http.post(`/api/admin/curation/${id}/refresh`),
   curationRefreshAll: () => http.post('/api/admin/curation/refresh-all'),
+  curationRemoveOffShelf: () => http.post('/api/admin/curation/remove-off-shelf'),
   curationRemove: (id) => http.delete(`/api/admin/curation/${id}`),
 
   // 专题（= 标签 = 页面 = 首页入口）

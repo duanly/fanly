@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { CuratedGoods, CuratedStatus, GoodsTopic } from '@/entities';
 import { CpsService } from '../cps/cps.service';
 import { UnifiedGoods } from '../cps/cps.types';
@@ -241,6 +241,20 @@ export class CurationService {
     await this.relRepo.delete({ curatedId: id });
     const r = await this.repo.delete({ id });
     return { deleted: r.affected ?? 0 };
+  }
+
+  /** 一键移除所有已下架商品（人工下架 0 + 自动下架 2），连带清掉专题关联 */
+  async removeOffShelf(): Promise<{ removed: number }> {
+    const rows = await this.repo.find({
+      where: { status: In([CuratedStatus.OFF, CuratedStatus.EXPIRED]) },
+      select: ['id'],
+    });
+    const ids = rows.map((r) => r.id);
+    if (!ids.length) return { removed: 0 };
+    await this.relRepo.delete({ curatedId: In(ids) });
+    const r = await this.repo.delete({ id: In(ids) });
+    this.logger.log(`一键移除下架商品 ${r.affected ?? 0} 件`);
+    return { removed: r.affected ?? 0 };
   }
 
   /** 刷单件：查不到或佣金归零就自动下架 */

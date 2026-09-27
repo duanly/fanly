@@ -100,6 +100,12 @@ export class CurationController {
     return this.curation.refreshAll();
   }
 
+  @Post('remove-off-shelf')
+  @ApiOperation({ summary: '一键移除所有已下架商品（人工下架 + 自动下架）' })
+  removeOffShelf() {
+    return this.curation.removeOffShelf();
+  }
+
   @Post(':id')
   @ApiOperation({ summary: '改专题 / 权重 / 上下架' })
   update(
