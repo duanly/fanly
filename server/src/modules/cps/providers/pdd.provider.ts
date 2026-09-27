@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import {
-  ConvertedLink, CpsProvider, RecommendParams, SearchParams, UnifiedGoods, UnifiedOrder,
+  ConvertedLink, CpsProvider, GoodsPage, RecommendParams, SearchParams, UnifiedGoods, UnifiedOrder,
 } from '../cps.types';
 
 export interface PddOptions {
@@ -178,16 +178,24 @@ export class PddProvider implements CpsProvider {
   // ───────────────────────── CpsProvider ─────────────────────────
 
   async searchGoods(p: SearchParams): Promise<UnifiedGoods[]> {
+    return (await this.searchGoodsPage(p)).list;
+  }
+
+  async searchGoodsPage(p: SearchParams): Promise<GoodsPage> {
     const sortMap: Record<string, number> = { sales: 6, commission: 14, price: 10 };
+    const page = Math.max(p.page ?? 1, 1);
+    // 实测：拼多多搜索的 page_size 必须落在 10~100，传 5 会直接报参数校验失败
+    const pageSize = Math.min(Math.max(p.pageSize ?? 20, 10), 100);
     const data = await this.call<any>('pdd.ddk.goods.search', {
       keyword: p.keyword,
-      page: p.page ?? 1,
-      // 实测：拼多多搜索的 page_size 必须落在 10~100，传 5 会直接报参数校验失败
-      page_size: Math.min(Math.max(p.pageSize ?? 20, 10), 100),
+      page,
+      page_size: pageSize,
       sort_type: sortMap[p.sort ?? ''] ?? 0,
       pid: this.opt.pid,
     });
-    return (data?.goods_list ?? []).map((r: any) => this.mapGoods(r));
+    const list = (data?.goods_list ?? []).map((r: any) => this.mapGoods(r));
+    const total = Number(data?.total_count ?? 0);
+    return { list, total, page, hasMore: page * pageSize < total };
   }
 
   /**
@@ -243,8 +251,13 @@ export class PddProvider implements CpsProvider {
   }
 
   async recommendGoods(p: RecommendParams = {}): Promise<UnifiedGoods[]> {
+    return (await this.recommendGoodsPage(p)).list;
+  }
+
+  async recommendGoodsPage(p: RecommendParams = {}): Promise<GoodsPage> {
+    const page = Math.max(p.page ?? 1, 1);
     const limit = Math.min(p.pageSize ?? 20, 100);
-    const offset = (Math.max(p.page ?? 1, 1) - 1) * limit;
+    const offset = (page - 1) * limit;
     const channelType = PddProvider.CHANNEL_TYPE[p.channel ?? 'earn'] ?? 3;
 
     const data = await this.call<any>('pdd.ddk.goods.recommend.get', {
@@ -253,7 +266,11 @@ export class PddProvider implements CpsProvider {
       limit,
       pid: this.opt.pid,
     });
-    return (data?.list ?? data?.goods_list ?? []).map((r: any) => this.mapGoods(r));
+    const list = (data?.list ?? data?.goods_list ?? []).map((r: any) => this.mapGoods(r));
+    // recommend 接口不一定回 total；回了就信它，没回就靠「这一页是不是满的」判断
+    const total = Number(data?.total ?? 0);
+    const hasMore = total ? offset + list.length < total : list.length === limit;
+    return { list, total, page, hasMore };
   }
 
   async getGoodsDetail(goodsSign: string): Promise<UnifiedGoods | null> {

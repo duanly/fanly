@@ -4,7 +4,7 @@ import { AggregatorProvider } from './providers/aggregator.provider';
 import { MockProvider } from './providers/mock.provider';
 import { PddProvider } from './providers/pdd.provider';
 import { JdProvider } from './providers/jd.provider';
-import { ConvertedLink, CpsProvider, RecommendParams, SearchParams, UnifiedGoods, UnifiedOrder } from './cps.types';
+import { ConvertedLink, CpsProvider, GoodsPage, RecommendParams, SearchParams, UnifiedGoods, UnifiedOrder } from './cps.types';
 import { TtlCache } from '@/common/ttl-cache';
 import { explainParseFailure, parseShareContent } from '@/common/share-content';
 
@@ -119,6 +119,30 @@ export class CpsService implements OnModuleInit {
 
   async searchGoods(platform: string, p: SearchParams): Promise<UnifiedGoods[]> {
     return this.remember(await this.get(platform).searchGoods(p));
+  }
+
+  /** 带分页信息的搜索。渠道没实现 page 方法时，用 searchGoods 包一层（total=本页条数） */
+  async searchGoodsPage(platform: string, p: SearchParams): Promise<GoodsPage> {
+    const provider = this.get(platform);
+    if (provider.searchGoodsPage) {
+      const page = await provider.searchGoodsPage(p);
+      return { ...page, list: this.remember(page.list) };
+    }
+    const list = this.remember(await provider.searchGoods(p));
+    return { list, total: list.length, page: p.page ?? 1, hasMore: false };
+  }
+
+  /** 带分页信息的榜单。渠道没实现就回落到 recommendGoods / searchGoods */
+  async recommendGoodsPage(platform: string, p: RecommendParams = {}): Promise<GoodsPage> {
+    const provider = this.get(platform);
+    if (provider.recommendGoodsPage) {
+      const page = await provider.recommendGoodsPage(p);
+      return { ...page, list: this.remember(page.list) };
+    }
+    const list = this.remember(await provider.recommendGoods?.(p) ?? await provider.searchGoods({
+      pageSize: p.pageSize ?? 20, sort: 'sales',
+    }));
+    return { list, total: list.length, page: p.page ?? 1, hasMore: false };
   }
 
   /**

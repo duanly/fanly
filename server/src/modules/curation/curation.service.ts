@@ -63,13 +63,21 @@ export class CurationService {
     if (!(g.commission > 0)) {
       throw new BadRequestException('这个商品没有佣金，加进来用户点了也没返利');
     }
+    return this.upsert(g, groupKey, sortWeight);
+  }
 
-    const exist = await this.repo.findOneBy({ platform, goodsId });
+  /**
+   * 把一件已经拿到的商品写进池子（已存在则刷新快照并重新上架）。
+   * add() 走它、批量导入也走它——批量导入手里已经有完整商品对象，
+   * 没理由再为每一件多打一次详情接口。
+   */
+  private async upsert(g: UnifiedGoods, groupKey: string, sortWeight: number) {
+    const exist = await this.repo.findOneBy({ platform: g.platform, goodsId: g.goodsId });
     const row = this.repo.create({
       ...(exist ?? {}),
       ...this.snapshot(g),
-      platform,
-      goodsId,
+      platform: g.platform,
+      goodsId: g.goodsId,
       groupKey,
       sortWeight,
       status: CuratedStatus.ON,
@@ -77,8 +85,88 @@ export class CurationService {
       lastSyncAt: new Date(),
     });
     const saved = await this.repo.save(row);
-    this.logger.log(`选品池 ${exist ? '更新' : '新增'}: ${platform}/${goodsId} ${g.title.slice(0, 20)}`);
+    this.logger.log(
+      `选品池 ${exist ? '更新' : '新增'}: ${g.platform}/${g.goodsId} ${g.title.slice(0, 20)}`,
+    );
     return this.toGoods(saved);
+  }
+
+  /**
+   * 一键批量导入：把平台榜单/搜索多页商品拉下来、去重、有佣金的直接进池。
+   *
+   * 这是「上架到自己的平台」的主入口——之前后台只能一页一页挑（拼多多只给 40 条），
+   * 现在一次能翻多页、多频道，凑够 count 为止。有佣金才算数，0 佣金的跳过（跳过的
+   * 数要报给运营，让他知道平台里还有多少是没返利的）。
+   */
+  async importBatch(opts: {
+    platform?: string;
+    channel?: string;
+    keyword?: string;
+    count?: number;
+    groupKey?: string;
+    sortWeight?: number;
+  }): Promise<{ fetched: number; added: number; skipped: number; errors: number }> {
+    const platform = (opts.platform || 'PDD').toUpperCase();
+    const target = Math.min(Math.max(opts.count ?? 100, 1), 500);
+    const groupKey = opts.groupKey || 'default';
+    const sortWeight = opts.sortWeight ?? 0;
+    const MAX_PAGES = 10;
+
+    const seen = new Set<string>();
+    const candidates: UnifiedGoods[] = [];
+    const collect = (list: UnifiedGoods[]) => {
+      for (const g of list) {
+        if (!g?.goodsId || seen.has(g.goodsId)) continue;
+        seen.add(g.goodsId);
+        candidates.push(g);
+        if (candidates.length >= target) return true;
+      }
+      return false;
+    };
+
+    if (opts.keyword) {
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const r = await this.cps.searchGoodsPage(platform, {
+          keyword: opts.keyword, page, pageSize: 100, sort: 'sales',
+        });
+        if (!r.list.length || collect(r.list) || !r.hasMore) break;
+      }
+    } else {
+      // 榜单：多频道轮着翻。earn/hot/cheap 对应三个真正有区分的池子，
+      // 每个池子翻到空或凑够为止。
+      const channels = opts.channel ? [opts.channel] : ['earn', 'hot', 'cheap'];
+      for (const ch of channels) {
+        for (let page = 1; page <= MAX_PAGES; page++) {
+          const r = await this.cps.recommendGoodsPage(platform, { channel: ch, page, pageSize: 100 });
+          if (!r.list.length || collect(r.list) || !r.hasMore) break;
+        }
+        if (candidates.length >= target) break;
+      }
+      // 榜单凑不够，用销量搜索兜底（跟后台「全品类」一条路）
+      if (candidates.length < target && !opts.channel) {
+        try {
+          for (let page = 1; page <= MAX_PAGES; page++) {
+            const r = await this.cps.searchGoodsPage(platform, { page, pageSize: 100, sort: 'sales' });
+            if (!r.list.length || collect(r.list) || !r.hasMore) break;
+          }
+        } catch (e: any) {
+          this.logger.warn(`批量导入搜索兜底失败，只保留榜单结果: ${e.message}`);
+        }
+      }
+    }
+
+    let added = 0, skipped = 0, errors = 0;
+    for (const g of candidates) {
+      if (!(g.commission > 0)) { skipped++; continue; }
+      try {
+        await this.upsert(g, groupKey, sortWeight);
+        added++;
+      } catch (e: any) {
+        errors++;
+        this.logger.warn(`批量导入 ${g.platform}/${g.goodsId} 失败: ${e.message}`);
+      }
+    }
+    return { fetched: candidates.length, added, skipped, errors };
   }
 
   /** 后台列表：不过滤状态，下架的也要看得见 */

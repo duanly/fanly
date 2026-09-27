@@ -308,6 +308,48 @@ const yuan = v => (Math.round(Number(v || 0)) / 100).toFixed(2);
     console.log('  ✗', e.message);
   }
 
+  // ── 【8】翻页深度：到底能拉多少件 ────────────────────
+  // 后台「找商品」以前只拿一页（40 件），现在改成多页/多频道了。
+  // 这一步验证：recommend 和 search 两个接口各能翻出多少不重复的商品，
+  // 直接决定批量导入能凑到多少。
+  console.log('\n【8】翻页深度 —— recommend 各频道翻页 + search 翻页能拿多少');
+  try {
+    const uniq = new Set();
+    const one = async (type, biz) => call(type, { ...biz, pid: PID });
+    for (const ch of [6, 1, 0]) {
+      const channelUniq = new Set();
+      for (let offset = 0; offset <= 400; offset += 100) {
+        const d = await one('pdd.ddk.goods.recommend.get', {
+          channel_type: ch, offset, limit: 100,
+        });
+        const list = d.list || d.goods_list || [];
+        for (const g of list) {
+          const id = String(g.goods_sign || g.goods_id);
+          channelUniq.add(id); uniq.add(id);
+        }
+        console.log(`  channel_type=${ch} offset=${offset} → 本页 ${list.length} 条，累计去重 ${channelUniq.size} 条`);
+        if (list.length < 100) break;   // 翻到空页就停
+      }
+    }
+    console.log(`  recommend 三个频道合计去重 ${uniq.size} 件`);
+
+    let sTotal = null;
+    const sUniq = new Set();
+    for (let page = 1; page <= 5; page++) {
+      const d = await one('pdd.ddk.goods.search', {
+        keyword: KEYWORD, page, page_size: 100, sort_type: 0,
+      });
+      const list = d.goods_list || [];
+      for (const g of list) sUniq.add(String(g.goods_sign || g.goods_id));
+      if (sTotal === null) sTotal = Number(d.total_count ?? 0);
+      console.log(`  search page=${page} → 本页 ${list.length} 条（total_count=${sTotal}）`);
+      if (!list.length || page * 100 >= (sTotal || 0)) break;
+    }
+    console.log(`  search「${KEYWORD}」5 页内去重 ${sUniq.size} 件`);
+  } catch (e) {
+    console.log('  ✗', e.message);
+  }
+
   console.log('\n常见报错对照：');
   console.log('  10001 签名错误      → client_secret 填错，或参数里混了空值');
   console.log('  10002 时间戳过期    → 服务器时间不准，date 对一下');

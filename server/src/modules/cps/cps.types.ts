@@ -70,6 +70,17 @@ export interface SearchParams {
 }
 
 /**
+ * 带分页信息的一页商品，后台「找商品」翻页和「批量导入」都要用。
+ * total 是平台报的总数（拼多多有上限，只能当参考），hasMore 才是能不能继续翻的准。
+ */
+export interface GoodsPage {
+  list: UnifiedGoods[];
+  total: number;
+  page: number;
+  hasMore: boolean;
+}
+
+/**
  * 所有 CPS 渠道必须实现的统一接口。
  * 业务层永远只依赖这四个方法，换服务商 / 换直连只换实现。
  */
@@ -87,4 +98,8 @@ export interface CpsProvider {
    * 所以加新渠道时不用被迫实现它。
    */
   recommendGoods?(params: RecommendParams): Promise<UnifiedGoods[]>;
+  /** 带分页信息的搜索。可选，没实现时 CpsService 用 searchGoods 包一层 */
+  searchGoodsPage?(params: SearchParams): Promise<GoodsPage>;
+  /** 带分页信息的榜单。可选，没实现时 CpsService 用 recommendGoods 包一层 */
+  recommendGoodsPage?(params: RecommendParams): Promise<GoodsPage>;
 }

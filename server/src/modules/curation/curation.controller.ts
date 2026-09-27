@@ -21,17 +21,21 @@ export class CurationController {
   async search(
     @Query('platform') platform = 'PDD',
     @Query('keyword') keyword?: string,
+    @Query('page') page = '1',
     @Query('pageSize') pageSize = '30',
     @Query('sort') sort = 'rebate',
   ) {
     // 全平台搜是比价组的前提——要把同款从各家找出来才能放进一组
     if ((platform || '').toUpperCase() === 'ALL') {
-      return { list: await this.cps.searchAll({ keyword, pageSize: +pageSize, sort }) };
+      const list = await this.cps.searchAll({ keyword, pageSize: +pageSize, sort });
+      return { list, total: list.length, page: +page, hasMore: false };
     }
-    const list = sort === 'rebate'
-      ? await this.cps.searchByRebate(platform, { keyword, pageSize: +pageSize })
-      : await this.cps.searchGoods(platform, { keyword, pageSize: +pageSize, sort });
-    return { list };
+    // rebate 是「全量拉回来按佣金排前 N」，没有翻页概念；其余排序走真分页
+    if (sort === 'rebate') {
+      const list = await this.cps.searchByRebate(platform, { keyword, pageSize: +pageSize });
+      return { list, total: list.length, page: +page, hasMore: false };
+    }
+    return this.cps.searchGoodsPage(platform, { keyword, page: +page, pageSize: +pageSize, sort });
   }
 
   @Get('recommend')
@@ -39,10 +43,10 @@ export class CurationController {
   recommend(
     @Query('platform') platform = 'PDD',
     @Query('channel') channel = 'earn',
+    @Query('page') page = '1',
     @Query('pageSize') pageSize = '30',
   ) {
-    return this.cps.recommendGoods(platform, { channel, pageSize: +pageSize })
-      .then((list) => ({ list }));
+    return this.cps.recommendGoodsPage(platform, { channel, page: +page, pageSize: +pageSize });
   }
 
   @Get('list')
@@ -76,6 +80,17 @@ export class CurationController {
       body.groupKey || 'default',
       body.sortWeight ?? 0,
     );
+  }
+
+  @Post('import')
+  @ApiOperation({ summary: '一键批量导入：多页/多频道拉取有佣金的商品直接进池' })
+  importBatch(
+    @Body() body: {
+      platform?: string; channel?: string; keyword?: string;
+      count?: number; groupKey?: string; sortWeight?: number;
+    },
+  ) {
+    return this.curation.importBatch(body);
   }
 
   // 静态路由必须排在 @Post(':id') 前面，否则 /refresh-all 会被当成 id

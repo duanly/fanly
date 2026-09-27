@@ -146,6 +146,14 @@
             <el-button type="primary" :loading="finding" @click="find">查找</el-button>
 
             <el-divider direction="vertical" />
+            <span class="hint">批量导入</span>
+            <el-input-number v-model="f.importCount" :min="20" :max="500" :step="20" style="width:110px" />
+            <span class="hint">件</span>
+            <el-button type="success" :loading="importing" @click="importBatch">
+              一键批量导入进池
+            </el-button>
+
+            <el-divider direction="vertical" />
             <span class="hint">加入到</span>
             <el-select
               v-model="f.groupKey"
@@ -191,6 +199,12 @@
                 {{ inPool.has(g.goodsId) ? '已在池中' : '加入选品池' }}
               </el-button>
             </div>
+          </div>
+
+          <div v-if="f.hasMore" class="more">
+            <el-button :loading="finding" @click="more">
+              加载更多（已显示 {{ found.length }} 件）
+            </el-button>
           </div>
 
           <el-empty v-if="!finding && !found.length" description="还没有结果，先查找" />
@@ -288,26 +302,65 @@ async function remove(row) {
 // ── 找商品 ──
 const found = ref([]);
 const finding = ref(false);
+const importing = ref(false);
 const f = reactive({
   platform: 'PDD',
   keyword: '',
   channel: 'all',
   groupKey: 'default',
   sortWeight: 0,
+  page: 1,
+  hasMore: false,
+  importCount: 100,
 });
 
-async function find() {
+async function load(append = false) {
   finding.value = true;
   try {
+    const base = { platform: f.platform, page: f.page, pageSize: 40 };
     const r = f.keyword
-      ? await api.curationSearch({ platform: f.platform, keyword: f.keyword, pageSize: 40 })
+      ? await api.curationSearch({ ...base, keyword: f.keyword })
       : f.channel === 'all'
-        ? await api.curationSearch({ platform: f.platform, pageSize: 40, sort: 'sales' })
-        : await api.curationRecommend({ platform: f.platform, channel: f.channel, pageSize: 40 });
-    found.value = r.list || [];
-    if (!found.value.length) ElMessage.warning('没查到商品，换个关键词或榜单试试');
+        ? await api.curationSearch({ ...base, sort: 'sales' })
+        : await api.curationRecommend({ ...base, channel: f.channel });
+    const list = r.list || [];
+    found.value = append ? found.value.concat(list) : list;
+    f.hasMore = !!r.hasMore;
+    if (!list.length && !append) ElMessage.warning('没查到商品，换个关键词或榜单试试');
   } finally {
     finding.value = false;
+  }
+}
+
+function find() {
+  f.page = 1;
+  found.value = [];
+  load(false);
+}
+
+function more() {
+  f.page += 1;
+  load(true);
+}
+
+async function importBatch() {
+  importing.value = true;
+  try {
+    const r = await api.curationImport({
+      platform: f.platform,
+      keyword: f.keyword || undefined,
+      channel: f.channel === 'all' ? undefined : f.channel,
+      count: f.importCount,
+      groupKey: f.groupKey || 'default',
+      sortWeight: f.sortWeight || 0,
+    });
+    ElMessage.success(
+      `导入完成：拉到 ${r.fetched} 件，入池 ${r.added}，无佣金跳过 ${r.skipped}` +
+        `${r.errors ? `，失败 ${r.errors}` : ''}`,
+    );
+    loadPool();
+  } finally {
+    importing.value = false;
   }
 }
 
@@ -336,6 +389,7 @@ onMounted(loadPool);
 .goods .t { font-size: 13px; line-height: 1.4; max-height: 36px; overflow: hidden; }
 
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.more { margin-top: 14px; text-align: center; }
 .card { border: 1px solid #ebeef5; border-radius: 8px; padding: 10px; }
 .card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; }
 .card .t { font-size: 13px; line-height: 1.4; height: 36px; overflow: hidden; margin: 8px 0 6px; }
