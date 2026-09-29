@@ -41,6 +41,9 @@ const showTab = computed(() => {
   if (p === '/login') return false;
   if (p.startsWith('/auth/')) return false;
   if (p.startsWith('/i/')) return false;
+  // 商品详情页底部是「加入购物车 / 领券购买」条，被常驻 tabbar 盖住会点不到。
+  // 这里是下单的临门一脚，只留购买条；要回首页走左上角返回。
+  if (p.startsWith('/goods/')) return false;
   return true;
 });
 

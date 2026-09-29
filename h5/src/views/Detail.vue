@@ -1,5 +1,5 @@
 <template>
-  <div class="page" style="padding-bottom:64px">
+  <div class="page">
     <van-nav-bar title="商品详情" left-arrow fixed placeholder @click-left="$router.back()" />
 
     <van-loading v-if="loading" style="padding:60px;text-align:center" />
@@ -55,27 +55,27 @@
         <div class="muted" style="padding:0 16px">返利于订单确认收货、联盟结算后到账，退款则不返</div>
       </div>
 
-      <van-action-bar>
-        <van-action-bar-icon
-          icon="cart-o"
-          text="购物车"
-          :badge="cartCount > 0 ? String(cartCount) : ''"
-          @click="$router.push('/cart')"
-        />
-        <van-action-bar-button
+      <div class="buy-bar">
+        <div class="buy-cart" @click="$router.push('/cart')">
+          <van-badge :content="cartCount > 0 ? cartCount : ''">
+            <van-icon name="cart-o" size="24" />
+          </van-badge>
+          <span>购物车</span>
+        </div>
+        <van-button
           type="warning"
+          class="buy-btn"
           :loading="adding"
-          text="加入购物车"
           @click="addCart"
-        />
-        <van-action-bar-button
+        >加入购物车</van-button>
+        <van-button
           type="danger"
           color="#ff4b3a"
-          :text="`领券购买 返¥${g.rebate}`"
+          class="buy-btn"
           :loading="converting"
           @click="buy"
-        />
-      </van-action-bar>
+        >领券购买 返¥{{ g.rebate }}</van-button>
+      </div>
     </template>
 
     <van-empty v-else description="商品不存在" />
@@ -173,3 +173,36 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+/* 购买条放在内容末尾、随页面滚动出现，不再是钉在底部的固定栏 */
+.buy-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  padding: 10px 12px;
+  margin-top: 12px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
+}
+
+.buy-cart {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: #646566;
+  padding: 0 6px;
+  cursor: pointer;
+}
+
+.buy-btn {
+  flex: 1;
+  height: 44px;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: 999px;
+}
+</style>
