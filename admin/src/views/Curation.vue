@@ -325,19 +325,28 @@
                 <span class="m">{{ (g.commissionRate * 100).toFixed(1) }}% · 售 {{ g.salesVolume }}</span>
               </div>
               <div class="card-status">
-                <el-tag v-if="foundStatus[statusKey(g)] === 1" type="success" size="small" effect="light">已上架</el-tag>
-                <el-tag v-else-if="foundStatus[statusKey(g)] === 3" type="warning" size="small" effect="light">待上架</el-tag>
-                <el-tag v-else-if="foundStatus[statusKey(g)] === 0" type="info" size="small" effect="light">已下架</el-tag>
-                <el-tag v-else-if="foundStatus[statusKey(g)] === 2" type="danger" size="small" effect="light">已过期</el-tag>
+                <el-tag v-if="foundStatus[statusKey(g)]?.status === 1" type="success" size="small" effect="light">已上架</el-tag>
+                <el-tag v-else-if="foundStatus[statusKey(g)]?.status === 3" type="warning" size="small" effect="light">待上架</el-tag>
+                <el-tag v-else-if="foundStatus[statusKey(g)]?.status === 0" type="info" size="small" effect="light">已下架</el-tag>
+                <el-tag v-else-if="foundStatus[statusKey(g)]?.status === 2" type="danger" size="small" effect="light">已过期</el-tag>
               </div>
               <el-button
                 v-if="!foundStatus[statusKey(g)]"
                 size="small"
                 type="primary"
                 style="width:100%"
-                @click="add(g)"
+                @click="openAddWithTags(g)"
               >
-                加入待上架
+                上架
+              </el-button>
+              <el-button
+                v-else-if="foundStatus[statusKey(g)]?.status === 3"
+                size="small"
+                type="success"
+                style="width:100%"
+                @click="openAddWithTags(g, true)"
+              >
+                上架并打标签
               </el-button>
               <el-button
                 v-else
@@ -361,6 +370,33 @@
         </el-card>
       </el-tab-pane>
     
+    <!-- 找商品：单个上架+打标签弹框 -->
+    <el-dialog v-model="addDlg" title="上架商品" width="480px">
+      <el-form label-width="80px">
+        <el-form-item label="商品">
+          <span>{{ addDlgGoods?.g?.title?.slice(0, 40) }}</span>
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-select v-model="addDlgTags" multiple placeholder="选择标签（可选，不选就是进全品类）" style="width:100%">
+            <el-option
+              v-for="t in allTopics"
+              :key="t.id"
+              :label="t.name"
+              :value="t.id"
+              :disabled="t.status !== 1"
+            />
+          </el-select>
+          <div style="color:#909399;font-size:12px;margin-top:4px">
+            不打标签也会进入前台「全部商品」页
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="addDlg = false">取消</el-button>
+        <el-button type="primary" :loading="addDlgLoading" @click="confirmAddWithTags">确认上架</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 批量打标签弹框 -->
     <el-dialog v-model="batchTagOpen" title="批量打标签" width="480px">
       <el-select v-model="batchTagIds" multiple placeholder="选择要打的标签" style="width:100%">
@@ -783,7 +819,7 @@ function statusKey(g) {
   return (f.platform || 'PDD').toUpperCase() + '::' + g.goodsId;
 }
 
-const foundStatus = ref({}); // { "PDD::xxx": 1, "PDD::yyy": 3, ... }
+const foundStatus = ref({}); // { "PDD::xxx": { id, status }, ... }
 
 async function refreshFoundStatus(g) {
   const m = await api.curationExistsBatch([{ platform: f.platform, goodsId: g.goodsId }]);
@@ -825,17 +861,56 @@ async function importBatch() {
   }
 }
 
-async function add(g) {
-  await api.curationAdd({
-    platform: f.platform,
-    goodsId: g.goodsId,
-    groupKey: f.groupKey || 'default',
-    sortWeight: f.sortWeight || 0,
-  });
-  ElMessage.success('已加入待上架');
-  foundStatus.value = { ...foundStatus.value, [statusKey(g)]: 3 };
-  loadPending();
-  loadPool();
+// 找商品：单个上架+打标签
+const addDlg = ref(false);
+const addDlgGoods = ref(null); // { g, alreadyPending }
+const addDlgTags = ref([]);
+const addDlgLoading = ref(false);
+
+function openAddWithTags(g, alreadyPending = false) {
+  addDlgGoods.value = { g, alreadyPending };
+  addDlgTags.value = [];
+  addDlg.value = true;
+}
+
+async function confirmAddWithTags() {
+  if (!addDlgGoods.value) return;
+  const { g, alreadyPending } = addDlgGoods.value;
+  addDlgLoading.value = true;
+  try {
+    if (!alreadyPending) {
+      // 还不在库里，先加进待上架
+      await api.curationAdd({
+        platform: f.platform,
+        goodsId: g.goodsId,
+        groupKey: f.groupKey || 'default',
+        sortWeight: f.sortWeight || 0,
+      });
+    }
+    // 查询完整信息（拿到 curatedId）
+    const m = await api.curationExistsBatch([{ platform: f.platform, goodsId: g.goodsId }]);
+    const key = statusKey(g);
+    const info = m[key];
+    const curatedId = info?.id;
+
+    // 打标签（如果选了）
+    if (addDlgTags.value.length && curatedId) {
+      await api.setGoodsTopics(curatedId, addDlgTags.value);
+    }
+
+    // 上架
+    if (curatedId) {
+      await api.curationUpdate(curatedId, { status: 1 });
+    }
+
+    ElMessage.success('已上架' + (addDlgTags.value.length ? '并打标签' : ''));
+    foundStatus.value = { ...foundStatus.value, [key]: { id: curatedId, status: 1 } };
+    addDlg.value = false;
+    loadPending();
+    loadPool();
+  } finally {
+    addDlgLoading.value = false;
+  }
 }
 
 onMounted(async () => {

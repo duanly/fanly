@@ -187,12 +187,12 @@ export class CurationService {
 
   /**
    * 批量查询商品是否已在货架里（任何状态都算）。
-   * 返回 map: "platform::goodsId" → status
+   * 返回 map: "platform::goodsId" → { id, status }
    * 用于搜索结果页打「已上架」「待上架」等标记。
    */
-  async existsBatch(items: Array<{ platform: string; goodsId: string }>): Promise<Record<string, number>> {
+  async existsBatch(items: Array<{ platform: string; goodsId: string }>): Promise<Record<string, { id: number; status: number }>> {
     if (!items?.length) return {};
-    const result: Record<string, number> = {};
+    const result: Record<string, { id: number; status: number }> = {};
     // 分批查，避免 IN 太长
     const BATCH = 100;
     for (let i = 0; i < items.length; i += BATCH) {
@@ -202,10 +202,10 @@ export class CurationService {
           `CONCAT(c.platform, '::', c.goodsId) IN (:...keys)`,
           { keys: chunk.map((x) => `${x.platform.toUpperCase()}::${x.goodsId}`) },
         )
-        .select(['c.platform', 'c.goodsId', 'c.status']);
+        .select(['c.id', 'c.platform', 'c.goodsId', 'c.status']);
       const rows = await qb.getMany();
       for (const r of rows) {
-        result[`${r.platform}::${r.goodsId}`] = r.status;
+        result[`${r.platform}::${r.goodsId}`] = { id: r.id, status: r.status };
       }
     }
     return result;
