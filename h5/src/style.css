@@ -22,7 +22,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-#app { max-width: 640px; margin: 0 auto; min-height: 100vh; }
+#app { max-width: 640px; margin: 0 auto; min-height: 100vh; overflow-x: hidden; }
 
 .page { padding-bottom: 8px; }
 .pad { padding: 12px; }

@@ -17,7 +17,6 @@
           <span class="ra-symbol">¥</span>
           <span class="ra-num">{{ rebate }}</span>
         </span>
-        <span class="rebate-label">买了就返</span>
       </div>
 
       <!-- 价格（参考价，缩小） -->
