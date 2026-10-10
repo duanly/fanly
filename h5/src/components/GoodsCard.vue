@@ -2,32 +2,34 @@
   <div class="goods-card-v2" @click="go">
     <div class="img-wrap">
       <img :src="g.image" :alt="g.title" loading="lazy" />
-      <!-- 券标 -->
-      <span v-if="g.couponAmount > 0" class="coupon-tag">
-        <span class="ct-yen">¥</span>
-        <span class="ct-amt">{{ g.couponAmount }}</span>
-        <span class="ct-label">券</span>
-      </span>
-      <!-- 热销标 -->
+      <!-- 热销标（保留在图上，不挡主体） -->
       <span v-if="showHot && g.salesVolume > 1000" class="hot-tag">🔥 热销</span>
     </div>
 
     <div class="body">
       <div class="title">{{ g.title }}</div>
 
-      <!-- 返利 -->
-      <div v-if="rebate > 0" class="rebate-row">
-        <span class="rebate-tag" :style="{ background: platColor(g.platform) }">{{ platShort(g.platform) }}返</span>
-        <span class="rebate-amt">¥{{ rebate }}</span>
+      <!-- 返利（核心卖点，放大突出） -->
+      <div class="rebate-block">
+        <span class="plat-tag" :style="{ background: platColor(g.platform) }">{{ platShort(g.platform) }}</span>
+        <span class="rebate-text">返</span>
+        <span class="rebate-amt">
+          <span class="ra-symbol">¥</span>
+          <span class="ra-num">{{ rebate }}</span>
+        </span>
         <span class="rebate-label">买了就返</span>
       </div>
 
-      <!-- 价格行 -->
-      <div class="price-row">
-        <span class="price-symbol">¥</span>
-        <span class="price-amt">{{ g.couponPrice }}</span>
+      <!-- 价格（参考价，缩小） -->
+      <div class="price-block">
+        <span v-if="g.couponAmount > 0" class="coupon-chip">
+          券 <b>¥{{ g.couponAmount }}</b>
+        </span>
+        <span class="ref-label">参考价</span>
+        <span class="ref-price">¥{{ g.couponPrice }}</span>
         <span v-if="g.price && g.price > g.couponPrice" class="price-old">¥{{ g.price }}</span>
       </div>
+      <div v-if="g.couponAmount > 0" class="price-tip">实际价格以平台结算为准</div>
 
       <div class="foot">
         <span class="sales">已售 {{ formatSales(g.salesVolume) }}</span>
@@ -115,70 +117,12 @@ async function doRecommend() {
   width: 100%;
   aspect-ratio: 1;
   overflow: hidden;
-  background: #f5f6f8;
+  background: #f7f8fa;
 }
 .img-wrap img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-/* 返利行 */
-.rebate-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-}
-.rebate-tag {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px 6px;
-  height: 16px;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: 4px;
-  line-height: 1;
-  white-space: nowrap;
-}
-.coupon-tag {
-  position: absolute;
-  right: 0;
-  top: 8px;
-  display: flex;
-  align-items: center;
-  padding: 2px 6px 2px 4px;
-  background: linear-gradient(135deg, #ff6b35, #ff4b3a);
-  color: #fff;
-  border-radius: 4px 0 0 4px;
-  box-shadow: -2px 2px 6px rgba(255, 75, 58, 0.3);
-}
-.coupon-tag::before {
-  content: '';
-  position: absolute;
-  left: -3px;
-  top: 0;
-  width: 3px;
-  height: 100%;
-  background: radial-gradient(circle at 1.5px 3px, #ff4b3a 1.5px, transparent 1.5px);
-  background-size: 100% 6px;
-}
-.ct-yen {
-  font-size: 9px;
-  opacity: 0.9;
-  margin-right: 1px;
-}
-.ct-amt {
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
-}
-.ct-label {
-  font-size: 9px;
-  margin-left: 2px;
-  opacity: 0.9;
 }
 
 /* 热销标 */
@@ -187,7 +131,7 @@ async function doRecommend() {
   left: 6px;
   bottom: 6px;
   padding: 2px 6px;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.55);
   color: #fff;
   font-size: 10px;
   border-radius: 999px;
@@ -209,59 +153,96 @@ async function doRecommend() {
   overflow: hidden;
 }
 
-/* 返利行 */
-.rebate-row {
+/* ===== 返利区（核心卖点，放大突出） ===== */
+.rebate-block {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 6px;
+  gap: 5px;
+  margin-top: 8px;
+  flex-wrap: wrap;
 }
-.rebate-tag {
+.plat-tag {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  background: linear-gradient(135deg, #ff9a56, #ff6b35);
+  width: 18px;
+  height: 18px;
   color: #fff;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
+  line-height: 1;
   border-radius: 4px;
+  flex-shrink: 0;
 }
-.rebate-amt {
-  font-size: 14px;
+.rebate-text {
+  font-size: 13px;
   font-weight: 700;
   color: #ff4b3a;
+}
+.rebate-amt {
+  display: inline-flex;
+  align-items: baseline;
+  color: #ff4b3a;
+  font-weight: 700;
   line-height: 1;
+}
+.ra-symbol {
+  font-size: 13px;
+  margin-right: 1px;
+}
+.ra-num {
+  font-size: 20px;
+  letter-spacing: -0.5px;
 }
 .rebate-label {
   font-size: 10px;
   color: #ff8a66;
+  margin-left: 2px;
 }
 
-/* 价格行 */
-.price-row {
+/* ===== 价格区（参考价，做小做淡） ===== */
+.price-block {
   display: flex;
-  align-items: baseline;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
   margin-top: 6px;
+  flex-wrap: wrap;
 }
-.price-symbol {
-  font-size: 12px;
-  font-weight: 600;
+.coupon-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 1px 6px;
+  background: #fff0ec;
   color: #ff4b3a;
+  font-size: 10px;
+  border-radius: 4px;
+  border: 1px solid #ffd9d3;
 }
-.price-amt {
-  font-size: 18px;
+.coupon-chip b {
   font-weight: 700;
-  color: #ff4b3a;
+  font-size: 11px;
+}
+.ref-label {
+  font-size: 10px;
+  color: #999;
+}
+.ref-price {
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
   line-height: 1;
 }
 .price-old {
-  margin-left: 4px;
-  font-size: 11px;
+  font-size: 10px;
   color: #bbb;
   text-decoration: line-through;
+}
+.price-tip {
+  margin-top: 3px;
+  font-size: 9px;
+  color: #c0c4cc;
+  line-height: 1.2;
 }
 
 /* 底部 */
@@ -270,6 +251,8 @@ async function doRecommend() {
   align-items: center;
   justify-content: space-between;
   margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f5f6f8;
 }
 .sales {
   font-size: 11px;

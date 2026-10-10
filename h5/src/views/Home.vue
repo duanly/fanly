@@ -36,6 +36,24 @@
         </div>
       </div>
 
+      <!-- 平台授权快捷入口 -->
+      <div v-if="!allAuth" class="auth-quick">
+        <span class="aq-label">🔒 开启返利</span>
+        <div class="aq-dots">
+          <span
+            v-for="p in PLATS"
+            :key="p.key"
+            class="aq-dot"
+            :class="{ done: auth[p.key] === true }"
+            :style="{ background: auth[p.key] === true ? p.bg : '#fff' }"
+            @click.stop="goAuth(p)"
+          >
+            <span :style="{ color: auth[p.key] === true ? '#fff' : p.bg }">{{ p.short }}</span>
+          </span>
+        </div>
+        <span class="aq-link" @click.stop="goFirstUnAuth">去开启 ›</span>
+      </div>
+
       <!-- Banner 轮播 -->
       <van-swipe class="banner-swipe" :autoplay="banners.length > 1 ? 4000 : 0" indicator-color="rgba(255,255,255,0.5)">
         <van-swipe-item v-for="b in banners" :key="b.id || b.title" @click="openLink(b)">
@@ -51,27 +69,6 @@
           </div>
         </van-swipe-item>
       </van-swipe>
-    </div>
-
-    <!-- 平台授权 -->
-    <div v-if="!allAuth" class="auth-card">
-      <div class="ac-head">
-        <span class="ac-title">💰 开启四平台返利</span>
-        <span class="ac-sub">授权后订单自动追踪</span>
-      </div>
-      <div class="ac-list">
-        <div
-          v-for="p in PLATS"
-          :key="p.key"
-          class="ac-item"
-          :class="{ done: auth[p.key] === true }"
-          @click="goAuth(p)"
-        >
-          <span class="ac-dot" :style="{ background: p.bg }">{{ p.short }}</span>
-          <span class="ac-name">{{ p.name }}</span>
-          <span class="ac-st">{{ auth[p.key] === true ? '✓ 已开启' : '去开启' }}</span>
-        </div>
-      </div>
     </div>
 
     <!-- 全网比价入口 -->
@@ -200,7 +197,14 @@ const RANKS = [
   { type: 'pick', name: '推荐榜', tip: '用户一人一票投出来的，再加运营手动权重' },
 ];
 
-const banners = ref([]);
+/** 后台没配 banner 时的兜底，不让首页开天窗 */
+const FALLBACK_BANNERS = [
+  { id: 'fb-1', title: '天天签到领金币', subtitle: '攒够就能换钱', image: 'linear-gradient(135deg,#ff8a3d,#ff3b30)', url: '/checkin', internal: true },
+  { id: 'fb-2', title: '全网比价', subtitle: '同款哪家最便宜，一眼看清', image: 'linear-gradient(135deg,#4a3aff,#7b3ad5)', url: '/compare', internal: true },
+  { id: 'fb-3', title: '邀请好友赚钱', subtitle: '他买东西，你拿分成', image: 'linear-gradient(135deg,#ff6a9a,#ff3b6b)', url: '/agent', internal: true },
+];
+
+const banners = ref(FALLBACK_BANNERS);
 const topics = ref([]);
 const links = ref([]);
 const cats = ref([]);
@@ -321,6 +325,11 @@ function goAuth(p) {
   router.push({ path: `/auth/${p.key}`, query: { redirect: '/' } });
 }
 
+function goFirstUnAuth() {
+  const first = PLATS.find((p) => auth[p.key] !== true);
+  if (first) goAuth(first);
+}
+
 function openLink(a) {
   if (a.internal) {
     router.push(a.url);
@@ -390,7 +399,7 @@ async function loadSide() {
   await Promise.all([
     safe(() => api.goodsGroups(), groups),
     safe(() => api.topics(), topics),
-    safe(() => api.homeLinks('banner'), banners),
+    safe(() => api.homeLinks('banner'), banners, (v) => (v?.length ? v : FALLBACK_BANNERS)),
     safe(() => api.homeLinks('entry'), links),
     safe(() => api.homeLinks('category'), cats),
     safe(() => api.compareGroups(), compare, (v) => v.list || v || []),
@@ -430,7 +439,7 @@ onMounted(() => {
 .top-bg {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 280px;
+  height: 320px;
   background: linear-gradient(180deg, #fff0ed 0%, #fff7f5 55%, #f7f8fa 100%);
   z-index: 0;
 }
@@ -587,81 +596,81 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin: -4px -2px 12px;
 }
 .sec-title {
-  font-size: 16px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 12px 0 10px;
+  font-size: 15px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: #fff;
+  background: linear-gradient(135deg, #ff6b35 0%, #ff4b3a 100%);
+  border-radius: 4px 13px 13px 4px;
+  box-shadow: 0 2px 6px rgba(255, 75, 58, 0.25);
+}
+.sec-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  background: rgba(255,255,255,0.4);
+  border-radius: 4px 0 0 4px;
 }
 .sec-more {
   font-size: 12px;
   color: #999;
 }
 
-/* ========== 授权卡片 ========== */
-.auth-card {
-  margin: 12px 12px 0;
-  padding: 14px;
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-}
-.ac-head {
+/* 授权快捷入口（顶部渐变区内） */
+.auth-quick {
+  position: relative;
+  z-index: 1;
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.ac-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #1a1a1a;
-}
-.ac-sub {
-  font-size: 12px;
-  color: #999;
-}
-.ac-list {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
-.ac-item {
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 10px 0;
-  border-radius: 10px;
-  background: #f7f8fa;
-  transition: transform 0.15s;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 14px;
+  margin: 8px 0 10px;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(10px);
+  border-radius: 18px;
+  box-shadow: 0 2px 8px rgba(255, 75, 58, 0.08);
 }
-.ac-item:active { transform: scale(0.95); }
-.ac-item.done {
-  background: #fff5f3;
+.aq-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
 }
-.ac-dot {
-  width: 28px;
-  height: 28px;
+.aq-dots {
+  display: flex;
+  gap: 6px;
+}
+.aq-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-}
-.ac-name {
-  font-size: 12px;
-  color: #333;
-}
-.ac-st {
   font-size: 10px;
-  color: #999;
+  font-weight: 700;
+  border: 1.5px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: transform 0.15s;
 }
-.ac-item.done .ac-st {
+.aq-dot:active { transform: scale(0.9); }
+.aq-dot.done {
+  border-color: transparent;
+}
+.aq-link {
+  font-size: 12px;
   color: #ff4b3a;
+  font-weight: 600;
 }
 
 /* ========== 比价卡片 ========== */
@@ -797,6 +806,11 @@ onMounted(() => {
   background: #fff;
   border-radius: 12px;
   padding: 12px 0 8px;
+  border-top: 6px solid #ff6b35;
+  border-left: 2px solid #ff6b35;
+  border-right: 2px solid #ff6b35;
+  border-bottom: 2px solid #ff6b35;
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.15);
 }
 .cat-swipe {
   min-height: 150px;
