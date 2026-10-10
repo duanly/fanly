@@ -47,43 +47,48 @@ export class RankingService {
    * 顶着「128 人买过」出现在首页，跟虚标价格是同一类事——一旦被发现，
    * 之后我们说什么用户都不信了。宁可少个角标，不能造个数。
    */
-  async hot(days = 7, limit = 10) {
-    const real = await this.hotFromOrders(days, limit);
-    if (real.length >= limit) return real;
+  async hot(days = 7, page = 1, pageSize = 20) {
+    const skip = (page - 1) * pageSize;
 
-    // 已经上榜的不要重复出现
-    const taken = new Set(real.map((g) => `${g.platform}:${g.goodsId}`));
-    const need = limit - real.length;
+    // 热销榜总量 = 真有订单的 + 选品池补位的，总数就是选品池上架数（上不封顶）
+    const [, total] = await this.goodsRepo.findAndCount({ where: { status: CuratedStatus.ON } });
 
-    // 补位按平台销量降序：它至少代表「这东西在市面上卖得动」，
-    // 比按佣金排靠谱——按佣金排会把高佣低销的冷门货堆到首页。
+    // 真有订单的商品先全量取出来（一般不会很多，冷启动更少）
+    const realRows = await this.hotFromOrdersAll(days);
+    const realMap = new Map(realRows.map((r) => [`${r.platform}:${r.goodsId}`, r]));
+
+    // 补位按平台销量降序
     const pool = await this.goodsRepo.find({
       where: { status: CuratedStatus.ON },
       order: { salesVolume: 'DESC', commission: 'DESC', id: 'DESC' },
-      take: need + taken.size + 20,
+      take: pageSize + skip + 50, // 多取一点，防止前面全是真订单导致补位不够
     });
 
-    const filler = [];
+    // 合并：真订单的在前（按订单数降序），补位在后（按销量降序）
+    const ordered: any[] = [...realRows];
+    const seen = new Set(realRows.map((r) => `${r.platform}:${r.goodsId}`));
     for (const p of pool) {
-      if (filler.length >= need) break;
-      if (taken.has(`${p.platform}:${p.goodsId}`)) continue;
-      filler.push(this.toGoods(p));   // 注意：不给 orderCount
+      const key = `${p.platform}:${p.goodsId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ordered.push(this.toGoods(p)); // 注意：不给 orderCount
     }
 
-    if (filler.length) {
-      this.logger.debug(`热销榜真实数据 ${real.length} 条，用选品池补 ${filler.length} 条`);
+    const list = ordered.slice(skip, skip + pageSize);
+    if (list.length < ordered.length) {
+      this.logger.debug(`热销榜第 ${page} 页：真实 ${realRows.length} 条，补位 ${ordered.length - realRows.length} 条`);
     }
-    return [...real, ...filler];
+    return {
+      list,
+      total,
+      page,
+      pageSize,
+      hasMore: skip + list.length < total,
+    };
   }
 
-  /**
-   * 榜单说明文案里那句「数据还少时用平台销量补齐」对应的就是上面那段。
-   *
-   * 订单表里只有下单时的快照（标题、图、实付），没有券后价和佣金，
-   * 所以能在选品池里找到的就用池子里的新数据，找不到的用快照兜底——
-   * 用户买过但我们没选进池的商品，同样值得展示。
-   */
-  private async hotFromOrders(days: number, limit: number) {
+  /** 近 N 天所有有订单的商品（全量，不做分页——一般没多少） */
+  private async hotFromOrdersAll(days: number) {
     const since = new Date(Date.now() - days * 24 * 3600 * 1000);
     const rows = await this.orderRepo
       .createQueryBuilder('o')
@@ -95,12 +100,10 @@ export class RankingService {
       .addSelect('AVG(o.payAmount)', 'avgPay')
       .where('o.orderTime >= :since', { since })
       .andWhere("o.goodsId <> ''")
-      // 失效的订单不该把商品顶上榜
       .andWhere('o.orderStatus <> 4')
       .groupBy('o.platform')
       .addGroupBy('o.goodsId')
       .orderBy('orders', 'DESC')
-      .limit(limit)
       .getRawMany();
 
     if (!rows.length) return [];
@@ -130,13 +133,21 @@ export class RankingService {
   }
 
   /** 返利榜：选品池里到手返利最高的（按佣金金额降序，等价于按返利降序） */
-  async rebate(limit = 10) {
-    const rows = await this.goodsRepo.find({
+  async rebate(page = 1, pageSize = 20) {
+    const skip = (page - 1) * pageSize;
+    const [rows, total] = await this.goodsRepo.findAndCount({
       where: { status: CuratedStatus.ON },
       order: { commission: 'DESC', id: 'DESC' },
-      take: limit,
+      skip,
+      take: pageSize,
     });
-    return rows.map((r) => this.toGoods(r));
+    return {
+      list: rows.map((r) => this.toGoods(r)),
+      total,
+      page,
+      pageSize,
+      hasMore: skip + rows.length < total,
+    };
   }
 
   /**
@@ -146,12 +157,20 @@ export class RankingService {
    * 权重排在推荐后面，意味着运营想压一件商品上榜得给足权重，
    * 不能轻易盖掉真实的用户偏好。
    */
-  async pick(limit = 10) {
-    const rows = await this.goodsRepo.find({
+  async pick(page = 1, pageSize = 20) {
+    const skip = (page - 1) * pageSize;
+    const [rows, total] = await this.goodsRepo.findAndCount({
       where: { status: CuratedStatus.ON },
       order: { recommendScore: 'DESC', sortWeight: 'DESC', id: 'DESC' },
-      take: limit,
+      skip,
+      take: pageSize,
     });
-    return rows.map((r) => ({ ...this.toGoods(r), recommendScore: r.recommendScore }));
+    return {
+      list: rows.map((r) => ({ ...this.toGoods(r), recommendScore: r.recommendScore })),
+      total,
+      page,
+      pageSize,
+      hasMore: skip + rows.length < total,
+    };
   }
 }

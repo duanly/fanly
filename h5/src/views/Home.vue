@@ -119,24 +119,30 @@
       </div>
     </div>
 
-    <van-tabs class="rank-tabs" v-model:active="rankIdx" color="#ff4b3a" line-width="20" @change="loadRank">
+    <van-tabs class="rank-tabs" v-model:active="rankIdx" color="#ff4b3a" line-width="20" @change="resetRank">
       <van-tab v-for="r in RANKS" :key="r.type" :title="r.name" />
     </van-tabs>
 
     <div v-if="rankTip" class="rank-tip muted">{{ rankTip }}</div>
 
-    <van-loading v-if="loading" style="padding:40px;text-align:center" />
-    <div v-else class="goods-grid">
-      <GoodsCard
-        v-for="g in list"
-        :key="g.platform + g.goodsId"
-        :g="g"
-        show-recommend
-        @recommended="onRecommended"
-      />
-    </div>
+    <van-list
+      v-model:loading="rankLoading"
+      :finished="rankFinished"
+      finished-text="没有更多了"
+      @load="loadRank"
+    >
+      <div class="goods-grid">
+        <GoodsCard
+          v-for="g in list"
+          :key="g.platform + g.goodsId"
+          :g="g"
+          show-recommend
+          @recommended="onRecommended"
+        />
+      </div>
+    </van-list>
 
-    <van-empty v-if="!loading && !list.length" :description="emptyText" />
+    <van-empty v-if="!rankLoading && !list.length" :description="emptyText" />
 
     <BeianFooter />
   </div>
@@ -174,8 +180,10 @@ const topics = ref([]);
 const banners = ref(FALLBACK_BANNERS);
 const compare = ref([]);
 const list = ref([]);
-const loading = ref(true);
 const rankIdx = ref(0);
+const rankPage = ref(1);
+const rankLoading = ref(false);
+const rankFinished = ref(false);
 const auth = reactive({});
 
 const rankTip = computed(() => RANKS[rankIdx.value]?.tip || '');
@@ -311,18 +319,33 @@ const openCat = (e) => openLink(e);
 
 function onRecommended(g) {
   // 推荐榜当前页要立刻看到名次变化，其他榜不用动
-  if (RANKS[rankIdx.value].type === 'pick') loadRank();
+  if (RANKS[rankIdx.value].type === 'pick') {
+    resetRank();
+  }
+}
+
+function resetRank() {
+  list.value = [];
+  rankPage.value = 1;
+  rankFinished.value = false;
+  rankLoading.value = true;
+  loadRank();
 }
 
 async function loadRank() {
-  loading.value = true;
   try {
-    const r = await api.ranking(RANKS[rankIdx.value].type, 20);
-    list.value = r.list || [];
+    const r = await api.ranking(RANKS[rankIdx.value].type, {
+      page: rankPage.value,
+      pageSize: 20,
+    });
+    const rows = r.list || [];
+    list.value.push(...rows);
+    rankPage.value += 1;
+    if (r.hasMore === false || rows.length < 20) rankFinished.value = true;
   } catch {
-    list.value = [];
+    rankFinished.value = true;
   } finally {
-    loading.value = false;
+    rankLoading.value = false;
   }
 }
 
@@ -357,6 +380,7 @@ async function loadAuth() {
 }
 
 onMounted(() => {
+  rankLoading.value = true;
   loadRank();
   loadSide();
   loadAuth();

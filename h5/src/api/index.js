@@ -47,7 +47,11 @@ export const api = {
 
   // 首页活动位和榜单
   homeLinks: (slot) => http.get('/api/home/links', { params: { slot } }),
-  ranking: (type, limit) => http.get('/api/home/ranking', { params: { type, limit } }),
+  ranking: (type, params) => http.get('/api/home/ranking', {
+    params: typeof params === 'object'
+      ? { type, ...params }
+      : { type, limit: params },  // 兼容旧调用：ranking(type, limit)
+  }),
 
   compareCategories: () => http.get('/api/compare/categories'),
   compareSearch: (keyword) => http.get('/api/compare/search', { params: { keyword } }),

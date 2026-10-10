@@ -197,14 +197,35 @@ export class CurationService {
 
   /** 前台 feed：只给上架的。传了 platform 就按平台过滤，首页的平台切换靠它 */
   async feed(groupKey = 'default', limit = 20, platform?: string) {
+    const rows = await this.feedPage({ groupKey, platform, page: 1, pageSize: limit });
+    return rows.list;
+  }
+
+  /** 带分页的前台 feed，供 Group 页等需要滚动加载的场景用 */
+  async feedPage(opts: {
+    groupKey?: string;
+    platform?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const { groupKey = 'default', platform, page = 1, pageSize = 20 } = opts;
     const where: any = { groupKey, status: CuratedStatus.ON };
     if (platform) where.platform = platform;
-    const rows = await this.repo.find({
+    const skip = (page - 1) * pageSize;
+    const take = Math.min(pageSize, 100);
+    const [rows, total] = await this.repo.findAndCount({
       where,
       order: { sortWeight: 'DESC', commission: 'DESC', id: 'DESC' },
-      take: Math.min(limit, 100),
+      skip,
+      take,
     });
-    return rows.map((r) => this.toGoods(r));
+    return {
+      list: rows.map((r) => this.toGoods(r)),
+      total,
+      page,
+      pageSize: take,
+      hasMore: skip + rows.length < total,
+    };
   }
 
   /** 后台有哪些专题，顺带给出每个专题在架多少件 */

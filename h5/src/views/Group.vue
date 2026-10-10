@@ -14,19 +14,22 @@
       </div>
     </div>
 
-    <van-loading v-if="loading" style="padding:50px;text-align:center" />
-
-    <template v-else>
+    <van-list
+      v-model:loading="loading"
+      :finished="finished"
+      finished-text="没有更多了"
+      @load="load"
+    >
       <div class="goods-grid">
-        <GoodsCard v-for="g in list" :key="g.goodsId" :g="g" />
+        <GoodsCard v-for="g in list" :key="g.platform + g.goodsId" :g="g" />
       </div>
+    </van-list>
 
-      <van-empty v-if="!list.length" description="这个专题还没选品">
-        <div class="muted" style="font-size:12px;padding:0 30px;line-height:1.6">
-          去后台「选品池」搜商品，加入时把专题填成 {{ key }} 就会显示在这里
-        </div>
-      </van-empty>
-    </template>
+    <van-empty v-if="!loading && !list.length" description="这个专题还没选品">
+      <div class="muted" style="font-size:12px;padding:0 30px;line-height:1.6">
+        去后台「选品池」搜商品，加入时把专题填成 {{ key }} 就会显示在这里
+      </div>
+    </van-empty>
   </div>
 </template>
 
@@ -46,7 +49,9 @@ const key = ref(String(route.params.key || 'default'));
 const title = ref(groupMeta(key.value).name);
 const platformIdx = ref(0);
 const list = ref([]);
-const loading = ref(true);
+const page = ref(1);
+const loading = ref(false);
+const finished = ref(false);
 
 function back() {
   if (window.history.length > 1) router.back();
@@ -55,18 +60,31 @@ function back() {
 
 function switchPlatform(i) {
   platformIdx.value = i;
+  reset();
+}
+
+function reset() {
+  list.value = [];
+  page.value = 1;
+  finished.value = false;
+  loading.value = true;
   load();
 }
 
 async function load() {
-  loading.value = true;
   try {
     const r = await api.feed({
       group: key.value,
       platform: platforms[platformIdx.value].key || undefined,
-      limit: 30,
+      page: page.value,
+      pageSize: 20,
     });
-    list.value = r.list || [];
+    const rows = r.list || [];
+    list.value.push(...rows);
+    page.value += 1;
+    if (r.hasMore === false || rows.length < 20) finished.value = true;
+  } catch {
+    finished.value = true;
   } finally {
     loading.value = false;
   }
@@ -76,8 +94,11 @@ async function load() {
 watch(() => route.params.key, (v) => {
   key.value = String(v || 'default');
   title.value = groupMeta(key.value).name;
-  load();
+  reset();
 });
 
-onMounted(load);
+onMounted(() => {
+  loading.value = true;
+  load();
+});
 </script>

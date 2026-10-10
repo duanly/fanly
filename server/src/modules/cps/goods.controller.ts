@@ -98,20 +98,45 @@ export class GoodsController {
   async feed(
     @Query('group') group = 'default',
     @Query('platform') platform?: string,
-    @Query('limit') limit = '20',
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '20',
+    @Query('limit') limit?: string,
     @CurrentUser('sub') userId?: number,
   ) {
+    // 兼容老参数 limit
+    const size = Math.min(Math.max(+pageSize || +limit || 20, 5), 100);
+    const p = Math.max(+page || 1, 1);
+
     // platform 不传就是「统一货架」模式：选品池里所有平台的商品混在一起，
     // 用户只看商品，不关心它来自哪家。传了才按平台过滤。
-    const pool = await this.curation.feed(group, +limit, platform);
-    if (pool.length) {
-      return { source: 'curated', list: await this.withRebate(pool, userId) };
+    const pageData = await this.curation.feedPage({
+      groupKey: group,
+      platform,
+      page: p,
+      pageSize: size,
+    });
+    if (pageData.list.length) {
+      return {
+        source: 'curated',
+        total: pageData.total,
+        page: pageData.page,
+        pageSize: pageData.pageSize,
+        hasMore: pageData.hasMore,
+        list: await this.withRebate(pageData.list, userId),
+      };
     }
     // 池子空的时候只能回落到某一家的榜单，没有跨平台可言，默认拼多多
     const list = await this.cps.recommendGoods(platform || 'PDD', {
-      channel: 'earn', pageSize: +limit,
+      channel: 'earn', pageSize: size,
     });
-    return { source: 'recommend', list: await this.withRebate(list, userId) };
+    return {
+      source: 'recommend',
+      total: list.length,
+      page: 1,
+      pageSize: size,
+      hasMore: false,
+      list: await this.withRebate(list, userId),
+    };
   }
 
   @Public() @Get('goods/groups')

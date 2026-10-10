@@ -29,32 +29,38 @@ export class HomeController {
   @ApiOperation({ summary: '榜单：hot 热销 / rebate 返利 / pick 主编推荐' })
   async rank(
     @Query('type') type = 'hot',
-    @Query('limit') limit = '10',
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '20',
     @CurrentUser('sub') userId?: number,
   ) {
-    const n = Math.min(+limit || 10, 50);
-    const list = type === 'rebate' ? await this.ranking.rebate(n)
-      : type === 'pick' ? await this.ranking.pick(n)
-      : await this.ranking.hot(7, n);
+    const p = Math.max(+page || 1, 1);
+    const size = Math.min(Math.max(+pageSize || 20, 5), 50);
+    const result = type === 'rebate' ? await this.ranking.rebate(p, size)
+      : type === 'pick' ? await this.ranking.pick(p, size)
+      : await this.ranking.hot(7, p, size);
 
     const agentId = userId
       ? (await this.userRepo.findOneBy({ id: userId }))?.agentId ?? null
       : null;
-    const withRebate = await Promise.all(list.map(async (g: any) => ({
+    const listWithRebate = await Promise.all(result.list.map(async (g: any) => ({
       ...g,
       rebate: (await this.commission.preview(g.commission, agentId)).userRebate,
     })));
 
     // 顺手带上「我推过几次」，前端才画得出已推状态，省一次请求
     const mine = userId
-      ? await this.recommend.mine(userId, withRebate.map((g: any) => ({
+      ? await this.recommend.mine(userId, listWithRebate.map((g: any) => ({
           platform: g.platform, goodsId: g.goodsId,
         })))
       : {};
 
     return {
       type,
-      list: withRebate.map((g: any) => ({
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      hasMore: result.hasMore,
+      list: listWithRebate.map((g: any) => ({
         ...g,
         myRecommend: mine[`${g.platform}:${g.goodsId}`] ?? 0,
       })),
