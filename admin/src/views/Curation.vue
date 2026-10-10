@@ -213,26 +213,31 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="标签" width="180">
+            <el-table-column label="标签" width="220">
               <template #default="{ row }">
-                <div class="tag-list">
-                  <el-tag
-                    v-for="t in (goodsTags[row.curatedId] || []).slice(0, 3)"
-                    :key="t"
-                    size="small"
-                    type="info"
-                    effect="plain"
-                  >{{ topicNameMap[t] || t }}</el-tag>
-                  <span v-if="(goodsTags[row.curatedId] || []).length > 3" class="m more-tag">
-                    +{{ (goodsTags[row.curatedId] || []).length - 3 }}
-                  </span>
-                </div>
+                <el-select
+                  v-model="goodsTags[row.curatedId]"
+                  multiple
+                  collapse-tags
+                  collapse-tags-tooltip
+                  placeholder="点击添加标签"
+                  size="small"
+                  style="width:100%"
+                  @change="(v) => saveTags(row, v)"
+                >
+                  <el-option
+                    v-for="t in allTopics"
+                    :key="t.id"
+                    :label="t.name"
+                    :value="t.id"
+                    :disabled="t.status !== 1"
+                  />
+                </el-select>
               </template>
             </el-table-column>
 
-            <el-table-column label="操作" width="180">
+            <el-table-column label="操作" width="130">
               <template #default="{ row }">
-                <el-button link size="small" @click="openTagEdit(row)">标签</el-button>
                 <el-button link size="small" @click="refreshOne(row)">刷新</el-button>
                 <el-button link type="danger" size="small" @click="remove(row)">移除</el-button>
               </template>
@@ -340,27 +345,67 @@
           <el-empty v-if="!finding && !found.length" description="还没有结果，先查找" />
         </el-card>
       </el-tab-pane>
-    </el-tabs>
-
-    <!-- ───────── 标签编辑弹框 ───────── -->
-    <el-dialog v-model="tagDlgOpen" :title="tagDlgTarget === 'single' ? '编辑标签' : '批量打标签'" width="520px">
-      <div class="tag-picker">
-        <el-checkbox-group v-model="tagPickedTopicIds">
-          <div class="tag-grid">
-            <el-checkbox v-for="t in allTopics" :key="t.id" :label="t.id" :disabled="t.status !== 1">
-              <span :style="{ opacity: t.status === 1 ? 1 : .4 }">{{ t.icon }} {{ t.name }}</span>
-            </el-checkbox>
-          </div>
-        </el-checkbox-group>
-      </div>
-      <div v-if="tagDlgTarget === 'batch'" class="muted" style="margin-top:8px;font-size:12px">
-        将给选中的 {{ poolSelected.length }} 件商品打上勾选的标签（已有的标签不受影响）
+    
+    <!-- 批量打标签弹框 -->
+    <el-dialog v-model="batchTagOpen" title="批量打标签" width="480px">
+      <el-select v-model="batchTagIds" multiple placeholder="选择要打的标签" style="width:100%">
+        <el-option
+          v-for="t in allTopics"
+          :key="t.id"
+          :label="t.name"
+          :value="t.id"
+          :disabled="t.status !== 1"
+        />
+      </el-select>
+      <div style="color:#909399;font-size:12px;margin-top:8px">
+        将给选中的 {{ poolSelected.length }} 件商品打上这些标签（已有的不受影响）
       </div>
       <template #footer>
-        <el-button @click="tagDlgOpen = false">取消</el-button>
-        <el-button type="primary" :loading="tagDlgLoading" @click="saveTags">确定</el-button>
+        <el-button @click="batchTagOpen = false">取消</el-button>
+        <el-button type="primary" :loading="batchTagLoading" @click="confirmBatchTag">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 待选品单个：上架并打标签 -->
+    <el-dialog v-model="pendingTagDlg" title="上架并打标签" width="480px">
+      <el-select v-model="pendingTagIds" multiple placeholder="选择要打的标签（可不选，直接上架）" style="width:100%">
+        <el-option
+          v-for="t in allTopics"
+          :key="t.id"
+          :label="t.name"
+          :value="t.id"
+          :disabled="t.status !== 1"
+        />
+      </el-select>
+      <div style="color:#909399;font-size:12px;margin-top:8px">
+        上架后商品会进入选品池并打上选中的标签
+      </div>
+      <template #footer>
+        <el-button @click="pendingTagDlg = false">取消</el-button>
+        <el-button type="primary" :loading="pendingTagLoading" @click="confirmPendingTag">确定上架</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 待选品批量：上架并打标签 -->
+    <el-dialog v-model="pendingBatchTagDlg" title="批量上架并打标签" width="480px">
+      <el-select v-model="pendingBatchTagIds" multiple placeholder="选择要打的标签（可不选，直接上架）" style="width:100%">
+        <el-option
+          v-for="t in allTopics"
+          :key="t.id"
+          :label="t.name"
+          :value="t.id"
+          :disabled="t.status !== 1"
+        />
+      </el-select>
+      <div style="color:#909399;font-size:12px;margin-top:8px">
+        将给选中的 {{ selectedIds.length }} 件商品上架并打标签
+      </div>
+      <template #footer>
+        <el-button @click="pendingBatchTagDlg = false">取消</el-button>
+        <el-button type="primary" :loading="pendingBatchTagLoading" @click="confirmPendingBatchTag">确定上架</el-button>
+      </template>
+    </el-dialog>
+</el-tabs>
   </div>
 </template>
 
@@ -418,22 +463,33 @@ async function onShelf(row) {
   loadPending();
 }
 
-async function onShelfAndTag(row) {
-  // 先弹框选标签
-  const { value: topicIds } = await ElMessageBox({
-    title: '选择标签（专题）',
-    message: '上架后商品会自动打上这些标签',
-    confirmButtonText: '确定上架',
-    cancelButtonText: '取消',
-    showInput: false,
-    type: 'info',
-    // 用自定义的多选框
-  }).catch(() => null);
-  // 上面的 ElMessageBox 不太好做多选，换个思路：直接用 prompt 输入 topic id 列表太丑
-  // 改成调用 setGoodsTopics
-  await api.curationUpdate(row.curatedId, { status: 1 });
-  ElMessage.success('已上架，请去选品池页面打标签');
-  loadPending();
+// 待选品上架+打标签（单个）
+const pendingTagDlg = ref(false);
+const pendingTagIds = ref([]);
+const pendingTagRow = ref(null);
+const pendingTagLoading = ref(false);
+
+function onShelfAndTag(row) {
+  pendingTagRow.value = row;
+  pendingTagIds.value = [];
+  pendingTagDlg.value = true;
+}
+
+async function confirmPendingTag() {
+  if (!pendingTagRow.value) return;
+  pendingTagLoading.value = true;
+  try {
+    const id = pendingTagRow.value.curatedId;
+    await api.curationUpdate(id, { status: 1 });
+    for (const tid of pendingTagIds.value) {
+      await api.topicTagMany(tid, [id]);
+    }
+    ElMessage.success('已上架' + (pendingTagIds.value.length ? '并打标签' : ''));
+    pendingTagDlg.value = false;
+    loadPending();
+  } finally {
+    pendingTagLoading.value = false;
+  }
 }
 
 async function batchOnShelf() {
@@ -445,9 +501,32 @@ async function batchOnShelf() {
   loadPending();
 }
 
-async function batchTag() {
+// 待选品批量上架+打标签
+const pendingBatchTagDlg = ref(false);
+const pendingBatchTagIds = ref([]);
+const pendingBatchTagLoading = ref(false);
+
+function batchTag() {
   if (!selectedIds.value.length) return;
-  ElMessage.info('批量打标签功能开发中，先批量上架后去选品池或专题管理页操作');
+  pendingBatchTagIds.value = [];
+  pendingBatchTagDlg.value = true;
+}
+
+async function confirmPendingBatchTag() {
+  pendingBatchTagLoading.value = true;
+  try {
+    const ids = selectedIds.value;
+    await api.curationBatchOnShelf(ids);
+    for (const tid of pendingBatchTagIds.value) {
+      await api.topicTagMany(tid, ids);
+    }
+    ElMessage.success('已上架 ' + ids.length + ' 件' + (pendingBatchTagIds.value.length ? '并打标签' : ''));
+    pendingBatchTagDlg.value = false;
+    selectedIds.value = [];
+    loadPending();
+  } finally {
+    pendingBatchTagLoading.value = false;
+  }
 }
 
 async function batchRemove() {
@@ -489,22 +568,6 @@ const allTopics = ref([]);
 const goodsTags = ref({}); // { curatedId: [topicId, ...] }
 const poolSelected = ref([]);
 const loading = ref(false);
-const refreshing = ref(false);
-const removingOff = ref(false);
-const q = reactive({ groupKey: '', status: '', page: 1, pageSize: 20 });
-
-// 标签编辑弹框
-const tagDlgOpen = ref(false);
-const tagDlgTarget = ref(null); // 'single' 或 'batch'
-const tagDlgCuratedId = ref(null);
-const tagPickedTopicIds = ref([]);
-const tagDlgLoading = ref(false);
-
-const topicNameMap = computed(() => {
-  const m = {};
-  for (const t of allTopics.value) m[t.id] = t.name;
-  return m;
-});
 
 const expiredCount = computed(
   () => groups.value.reduce((n, g) => n + (g.total - g.onShelf), 0),
@@ -605,60 +668,59 @@ async function removeOffShelf() {
 }
 
 // ── 标签编辑 ──
-function openTagEdit(row) {
-  tagDlgTarget.value = 'single';
-  tagDlgCuratedId.value = row.curatedId;
-  tagPickedTopicIds.value = [...(goodsTags.value[row.curatedId] || [])];
-  tagDlgOpen.value = true;
+/** 单个商品保存标签（直接调用 setGoodsTopics，整套替换） */
+async function saveTags(row, topicIds) {
+  try {
+    await api.setGoodsTopics(row.curatedId, topicIds || []);
+    ElMessage.success("标签已更新");
+  } catch {
+    loadPool(); // 失败了刷新一下
+  }
 }
+
+// 批量打标签弹框
+const batchTagOpen = ref(false);
+const batchTagIds = ref([]);
+const batchTagLoading = ref(false);
 
 function openBatchTag() {
-  tagDlgTarget.value = 'batch';
-  tagDlgCuratedId.value = null;
-  tagPickedTopicIds.value = [];
-  tagDlgOpen.value = true;
+  if (!poolSelected.value.length) return;
+  batchTagIds.value = [];
+  batchTagOpen.value = true;
 }
 
-async function saveTags() {
-  tagDlgLoading.value = true;
+async function confirmBatchTag() {
+  if (!batchTagIds.value.length) {
+    ElMessage.warning("请至少选一个标签");
+    return;
+  }
+  batchTagLoading.value = true;
   try {
-    if (tagDlgTarget.value === 'single') {
-      await api.setGoodsTopics(tagDlgCuratedId.value, tagPickedTopicIds.value);
-      ElMessage.success('标签已保存');
-    } else {
-      // 批量：逐个标签打上去
-      const ids = poolSelected.value.map((r) => r.curatedId);
-      for (const tid of tagPickedTopicIds.value) {
-        await api.topicTagMany(tid, ids);
-      }
-      ElMessage.success(`已给 ${ids.length} 件商品打标签`);
+    const ids = poolSelected.value.map((r) => r.curatedId);
+    for (const tid of batchTagIds.value) {
+      await api.topicTagMany(tid, ids);
     }
-    tagDlgOpen.value = false;
+    ElMessage.success("已给 " + ids.length + " 件商品打标签");
+    batchTagOpen.value = false;
     loadPool();
   } finally {
-    tagDlgLoading.value = false;
+    batchTagLoading.value = false;
   }
 }
 
 async function batchUntag() {
   if (!poolSelected.value.length) return;
-  // 先让用户选要取消哪些标签
-  const { value: topicIds } = await ElMessageBox({
-    title: '批量取消标签',
-    message: '请在控制台输入...', // 简化处理：先弹确认框
-    type: 'warning',
-    showInput: false,
-  }).catch(() => null);
-  // 简化：直接确认是否取消所有标签（通过二次确认）
   await ElMessageBox.confirm(
-    `确认从选中的 ${poolSelected.value.length} 件商品上取消所有标签？`,
-    '批量取消标签',
-    { type: 'warning' },
+    "确认从选中的 " + poolSelected.value.length + " 件商品上移除所有标签？",
+    "批量取消标签",
+    { type: "warning" },
   );
   const ids = poolSelected.value.map((r) => r.curatedId);
-  // 逐个 topic 取消（先拿到这批商品的所有 topic，然后逐个 untag）
-  // 简化：直接提示去专题管理页操作
-  ElMessage.info('批量取消标签请去专题管理页操作，或单个商品编辑标签');
+  for (const t of allTopics.value) {
+    try { await api.topicUntagMany(t.id, ids); } catch {}
+  }
+  ElMessage.success("已取消标签");
+  loadPool();
 }
 
 // ── 找商品 ──
