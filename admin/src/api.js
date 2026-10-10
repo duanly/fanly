@@ -53,6 +53,7 @@ export const api = {
   curationGroups: () => http.get('/api/admin/curation/groups'),
   curationAdd: (data) => http.post('/api/admin/curation/add', data),
   curationImport: (data) => http.post('/api/admin/curation/import', data),
+  curationExistsBatch: (items) => http.post('/api/admin/curation/exists-batch', { items }),
   curationUpdate: (id, data) => http.post(`/api/admin/curation/${id}`, data),
   curationRefresh: (id) => http.post(`/api/admin/curation/${id}/refresh`),
   curationRefreshAll: () => http.post('/api/admin/curation/refresh-all'),

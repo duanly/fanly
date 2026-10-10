@@ -12,7 +12,7 @@
         active-text-color="#fff"
       >
         <el-menu-item index="/dashboard">仪表盘</el-menu-item>
-        <el-menu-item index="/curation">选品池</el-menu-item>
+        <el-menu-item index="/curation">商品货架</el-menu-item>
         <el-menu-item index="/topics">标签管理</el-menu-item>
         <el-menu-item index="/compare">比价组</el-menu-item>
         <el-menu-item index="/home-ops">首页运营</el-menu-item>
@@ -45,7 +45,7 @@ const router = useRouter();
 const plain = computed(() => route.meta.plain);
 const TITLES = {
   '/dashboard': '仪表盘',
-  '/curation': '选品池',
+  '/curation': '商品货架',
   '/topics': '标签管理',
   '/compare': '比价组',
   '/home-ops': '首页运营',

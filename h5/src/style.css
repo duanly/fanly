@@ -507,33 +507,13 @@ body {
 .ar-item.done { background: #f2fbf5; }
 .ar-item.done .st { color: #07c160; }
 
-/* 分类宫格：一页两行四列，多了横滑翻页 */
-.cat-scroll {
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-}
-.cat-scroll::-webkit-scrollbar { display: none; }
-.cat-pages { display: flex; }
-.cat-page {
-  flex: 0 0 100%;
+/* 分类宫格：一页两行四列，多页 van-swipe 自动轮播 */
+.cat-swipe .cat-page {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px 0;
-  scroll-snap-align: start;
+  padding-bottom: 8px;
 }
-.cat-dots {
-  display: flex;
-  justify-content: center;
-  gap: 5px;
-  margin-top: 10px;
-}
-.cat-dots i {
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  background: #e5e5e5;
-}
-.cat-dots i:first-child { background: var(--brand); width: 12px; border-radius: 3px; }
 
 /* 榜单下面那行说明 */
 .rank-tip {

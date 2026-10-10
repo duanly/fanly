@@ -98,9 +98,13 @@
     <div class="theme-section">
       <div class="theme-head">主题分区</div>
       <div class="grid-card">
-        <div class="cat-scroll">
-          <div class="cat-pages">
-            <div v-for="(pageItems, pi) in catPages" :key="pi" class="cat-page">
+        <van-swipe
+          :autoplay="catPages.length > 1 ? 4000 : 0"
+          indicator-color="rgba(255,255,255,0.6)"
+          class="cat-swipe"
+        >
+          <van-swipe-item v-for="(pageItems, pi) in catPages" :key="pi">
+            <div class="cat-page">
               <div
                 v-for="e in pageItems"
                 :key="e.key"
@@ -111,11 +115,8 @@
                 <div class="l">{{ e.name }}</div>
               </div>
             </div>
-          </div>
-        </div>
-        <div v-if="catPages.length > 1" class="cat-dots">
-          <i v-for="(p, i) in catPages" :key="i" />
-        </div>
+          </van-swipe-item>
+        </van-swipe>
       </div>
     </div>
 
@@ -242,18 +243,17 @@ const marqueeActs = computed(() => {
 });
 
 /**
- * 宫格来源四级：slot=grid 的专题 → 后台配的 category 链接 →
- * 池子里真有货的老 groupKey → 预设补齐到 8 个。
- *
- * 为什么一定要补满 8 个：宫格靠整齐吃饭，缺一格整行都塌，看着像没做完。
- * 预设专题点进去就算暂时没货也有空态兜着，比留个窟窿好。
+ * 宫格数据源：所有品类标签（type=category，status=1），按后台 sortWeight 排序。
+ * 8 个一页，多页自动轮播。
+ * 其次是后台配的 category 链接（兼容旧数据），再是有货的老 groupKey，最后预设兜底补满一页。
  */
 const catGroups = computed(() => {
   const out = [];
   const has = (url) => out.some((o) => o.url === url);
 
+  // 1. 所有品类标签（不限数量，按权重排）
   topics.value
-    .filter((t) => t.slot === 'grid')
+    .filter((t) => t.type === 'category' && t.status === 1)
     .forEach((t, i) => out.push({
       key: `topic-${t.slug}`,
       name: t.name,
@@ -263,6 +263,7 @@ const catGroups = computed(() => {
       internal: true,
     }));
 
+  // 2. 后台配的 category 链接（兼容旧数据）
   cats.value.forEach((c, i) => {
     const url = c.url || '';
     if (!url || has(url)) return;
@@ -276,6 +277,7 @@ const catGroups = computed(() => {
     });
   });
 
+  // 3. 有货的老 groupKey（兼容旧数据）
   groups.value
     .filter((g) => g.groupKey !== 'default' && g.onShelf > 0)
     .forEach((g, i) => {
@@ -284,11 +286,14 @@ const catGroups = computed(() => {
       out.push({ ...groupMeta(g.groupKey, i), key: `grp-${g.groupKey}`, url, internal: true });
     });
 
-  for (const g of GRID_GROUPS) {
-    if (out.length >= 8) break;
-    const url = `/group/${g.key}`;
-    if (has(url)) continue;
-    out.push({ ...g, key: `pre-${g.key}`, url, internal: true });
+  // 4. 预设兜底——只有一页都凑不满（<8）时才补，补到 8 个
+  if (out.length < 8) {
+    for (const g of GRID_GROUPS) {
+      if (out.length >= 8) break;
+      const url = `/group/${g.key}`;
+      if (has(url)) continue;
+      out.push({ ...g, key: `pre-${g.key}`, url, internal: true });
+    }
   }
 
   return out;

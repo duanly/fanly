@@ -72,7 +72,7 @@ export class CurationController {
   }
 
   @Post('add')
-  @ApiOperation({ summary: '加入选品池，已存在则刷新快照并重新上架' })
+  @ApiOperation({ summary: '加入待上架队列，已存在则刷新快照' })
   add(@Body() body: { platform: string; goodsId: string; groupKey?: string; sortWeight?: number }) {
     return this.curation.add(
       body.platform || 'PDD',
@@ -83,7 +83,7 @@ export class CurationController {
   }
 
   @Post('import')
-  @ApiOperation({ summary: '一键批量导入：多页/多频道拉取有佣金的商品直接进池' })
+  @ApiOperation({ summary: '一键批量导入：拉取有佣金的商品进入待上架队列' })
   importBatch(
     @Body() body: {
       platform?: string; channel?: string; keyword?: string;
@@ -125,6 +125,12 @@ export class CurationController {
       } catch { /* 单个失败不影响整体 */ }
     }
     return { deleted, total: ids.length };
+  }
+
+  @Post('exists-batch')
+  @ApiOperation({ summary: '批量查询商品是否已在货架（返回 status map）' })
+  existsBatch(@Body() body: { items: Array<{ platform: string; goodsId: string }> }) {
+    return this.curation.existsBatch(body.items || []);
   }
 
   // 静态路由必须排在 @Post(':id') 前面，否则 /refresh-all 会被当成 id

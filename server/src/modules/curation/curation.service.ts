@@ -58,8 +58,7 @@ export class CurationService {
   }
 
   /**
-   * 加入选品池。已经在池里的就刷新快照并重新上架，
-   * 这样运营重复点"加入"不会报错，也能顺手救回自动下架的商品。
+   * 加入待上架队列。已经在池里的就刷新快照并重新上架（不会降级）。
    */
   async add(platform: string, goodsId: string, groupKey = 'default', sortWeight = 0) {
     const g = await this.cps.getGoodsDetail(platform, goodsId);
@@ -67,20 +66,20 @@ export class CurationService {
     if (!(g.commission > 0)) {
       throw new BadRequestException('这个商品没有佣金，加进来用户点了也没返利');
     }
-    return this.upsert(g, groupKey, sortWeight);
+    return this.upsert(g, groupKey, sortWeight, CuratedStatus.PENDING);
   }
 
   /**
-   * 把一件已经拿到的商品写进池子（已存在则刷新快照并重新上架）。
+   * 把一件已经拿到的商品写进池子。
    * add() 走它、批量导入也走它——批量导入手里已经有完整商品对象，
    * 没理由再为每一件多打一次详情接口。
    *
-   * targetStatus: 写入时的目标状态，默认 ON（直接上架）。
-   *   传 PENDING 就是放进待选品池，等运营审核。
+   * targetStatus: 写入时的目标状态，默认 PENDING（进待上架队列等运营审核）。
+   *   传 ON 就是直接上架。
    *   注意：如果商品已经在池里并且是 ON/OFF/EXPIRED，不会被降级成 PENDING——
-   *   已上架的不能被自动拉品覆盖回待选品。
+   *   已上架的不能被自动拉品覆盖回待上架。
    */
-  private async upsert(g: UnifiedGoods, groupKey: string, sortWeight: number, targetStatus = CuratedStatus.ON) {
+  private async upsert(g: UnifiedGoods, groupKey: string, sortWeight: number, targetStatus = CuratedStatus.PENDING) {
     const exist = await this.repo.findOneBy({ platform: g.platform, goodsId: g.goodsId });
     // 已在池里（非 PENDING）的不降级；只有 PENDING 状态的会被刷新信息
     const finalStatus = exist && exist.status !== CuratedStatus.PENDING
@@ -111,7 +110,7 @@ export class CurationService {
    * 现在一次能翻多页、多频道，凑够 count 为止。有佣金才算数，0 佣金的跳过（跳过的
    * 数要报给运营，让他知道平台里还有多少是没返利的）。
    *
-   * targetStatus: 写入目标状态，默认 ON（直接上架）。传 PENDING 就是放进待选品池。
+   * targetStatus: 写入目标状态，默认 PENDING（进待上架队列）。传 ON 就是直接上架。
    */
   async importBatch(opts: {
     platform?: string;
@@ -126,7 +125,7 @@ export class CurationService {
     const target = Math.min(Math.max(opts.count ?? 100, 1), 500);
     const groupKey = opts.groupKey || 'default';
     const sortWeight = opts.sortWeight ?? 0;
-    const targetStatus = opts.targetStatus ?? CuratedStatus.ON;
+    const targetStatus = opts.targetStatus ?? CuratedStatus.PENDING;
     const MAX_PAGES = 10;
 
     const seen = new Set<string>();
@@ -184,6 +183,32 @@ export class CurationService {
       }
     }
     return { fetched: candidates.length, added, skipped, errors };
+  }
+
+  /**
+   * 批量查询商品是否已在货架里（任何状态都算）。
+   * 返回 map: "platform::goodsId" → status
+   * 用于搜索结果页打「已上架」「待上架」等标记。
+   */
+  async existsBatch(items: Array<{ platform: string; goodsId: string }>): Promise<Record<string, number>> {
+    if (!items?.length) return {};
+    const result: Record<string, number> = {};
+    // 分批查，避免 IN 太长
+    const BATCH = 100;
+    for (let i = 0; i < items.length; i += BATCH) {
+      const chunk = items.slice(i, i + BATCH);
+      const qb = this.repo.createQueryBuilder('c')
+        .where(
+          `CONCAT(c.platform, '::', c.goodsId) IN (:...keys)`,
+          { keys: chunk.map((x) => `${x.platform.toUpperCase()}::${x.goodsId}`) },
+        )
+        .select(['c.platform', 'c.goodsId', 'c.status']);
+      const rows = await qb.getMany();
+      for (const r of rows) {
+        result[`${r.platform}::${r.goodsId}`] = r.status;
+      }
+    }
+    return result;
   }
 
   /** 后台列表：不过滤状态，下架的也要看得见 */

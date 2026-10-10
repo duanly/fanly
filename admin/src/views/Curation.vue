@@ -1,8 +1,8 @@
 <template>
   <div>
     <el-tabs v-model="tab">
-      <!-- ───────── 选品工作台 ───────── -->
-      <el-tab-pane label="选品工作台" name="pending">
+      <!-- ───────── 待上架 ───────── -->
+      <el-tab-pane label="待上架" name="pending">
         <el-card shadow="never">
           <div class="bar">
             <el-select v-model="p.platform" placeholder="全部平台" clearable style="width:140px" @change="loadPending">
@@ -43,7 +43,7 @@
 
           <p class="hint" style="margin:0 0 10px">
             这里是自动拉品回来的「待选品」商品。每天凌晨会自动从各平台拉取约 1000 件有佣金的商品。
-            审核通过后点「上架」就进入选品池，前台就能看到了。
+            审核通过后点「上架」就进入货架，前台就能看到了。
           </p>
 
           <el-table
@@ -94,8 +94,8 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- ───────── 池内管理 ───────── -->
-      <el-tab-pane label="选品池" name="pool">
+      <!-- ───────── 货架内管理 ───────── -->
+      <el-tab-pane label="货架" name="pool">
         <el-card shadow="never">
           <div class="bar">
             <el-select v-model="q.groupKey" placeholder="全部专题" clearable style="width:190px" @change="loadPool">
@@ -168,7 +168,7 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="专题" width="150">
+            <el-table-column label="标签" width="150">
               <template #default="{ row }">
                 <el-select
                   v-model="row.groupKey"
@@ -285,7 +285,7 @@
             <el-input-number v-model="f.importCount" :min="20" :max="500" :step="20" style="width:110px" />
             <span class="hint">件</span>
             <el-button type="success" :loading="importing" @click="importBatch">
-              一键批量导入进池
+              一键批量导入进待上架
             </el-button>
 
             <el-divider direction="vertical" />
@@ -296,7 +296,7 @@
               filterable
               allow-create
               default-first-option
-              placeholder="专题"
+              placeholder="分类组"
             >
               <el-option
                 v-for="g in GROUPS"
@@ -324,14 +324,29 @@
                 佣金 <b>¥{{ g.commission }}</b>
                 <span class="m">{{ (g.commissionRate * 100).toFixed(1) }}% · 售 {{ g.salesVolume }}</span>
               </div>
+              <div class="card-status">
+                <el-tag v-if="foundStatus[statusKey(g)] === 1" type="success" size="small" effect="light">已上架</el-tag>
+                <el-tag v-else-if="foundStatus[statusKey(g)] === 3" type="warning" size="small" effect="light">待上架</el-tag>
+                <el-tag v-else-if="foundStatus[statusKey(g)] === 0" type="info" size="small" effect="light">已下架</el-tag>
+                <el-tag v-else-if="foundStatus[statusKey(g)] === 2" type="danger" size="small" effect="light">已过期</el-tag>
+              </div>
               <el-button
+                v-if="!foundStatus[statusKey(g)]"
                 size="small"
                 type="primary"
                 style="width:100%"
-                :disabled="inPool.has(g.goodsId)"
                 @click="add(g)"
               >
-                {{ inPool.has(g.goodsId) ? '已在池中' : '加入选品池' }}
+                加入待上架
+              </el-button>
+              <el-button
+                v-else
+                size="small"
+                plain
+                style="width:100%"
+                @click="refreshFoundStatus(g)"
+              >
+                刷新状态
               </el-button>
             </div>
           </div>
@@ -378,7 +393,7 @@
         />
       </el-select>
       <div style="color:#909399;font-size:12px;margin-top:8px">
-        上架后商品会进入选品池并打上选中的标签
+        上架后商品会进入货架并打上选中的标签
       </div>
       <template #footer>
         <el-button @click="pendingTagDlg = false">取消</el-button>
@@ -417,7 +432,7 @@ import { GROUPS, groupName } from '../constants/groups';
 
 const tab = ref('pending');
 
-// ── 选品工作台（待选品）──
+// ── 待上架（待选品）──
 const pending = ref({ list: [], total: 0 });
 const pLoading = ref(false);
 const pulling = ref(false);
@@ -546,7 +561,7 @@ async function removePending(row) {
 }
 
 async function autoPull() {
-  await ElMessageBox.confirm('手动触发一次自动拉品？会从各平台拉取商品进待选品池，可能需要几分钟。', '自动拉品', { type: 'info' });
+  await ElMessageBox.confirm('手动触发一次自动拉品？会从各平台拉取商品进待货架，可能需要几分钟。', '自动拉品', { type: 'info' });
   pulling.value = true;
   try {
     const r = await api.curationAutoPull({});
@@ -561,7 +576,7 @@ async function autoPull() {
   }
 }
 
-// ── 池内 ──
+// ── 货架内 ──
 const pool = ref({ list: [], total: 0 });
 const groups = ref([]);
 const allTopics = ref([]);
@@ -575,7 +590,7 @@ const expiredCount = computed(
 const inPool = computed(() => new Set(pool.value.list.map((r) => r.goodsId)));
 
 /**
- * 筛选下拉：预设专题 + 池子里实际出现过的自定义专题。
+ * 筛选下拉：预设专题 + 货架里实际出现过的自定义专题。
  * 只用后者的话，刚加的新专题在没选品前选不到，是个死结。
  */
 const groupOptions = computed(() => {
@@ -602,11 +617,6 @@ async function loadPool() {
       pageSize: q.pageSize,
     });
     groups.value = await api.curationGroups();
-    // 加载所有 topic（标签用）
-    if (!allTopics.value.length) {
-      const r = await api.topics();
-      allTopics.value = r.list || r || [];
-    }
     // 批量加载当前页商品的标签
     const ids = pool.value.list.map((g) => g.curatedId).filter(Boolean);
     if (ids.length) {
@@ -645,7 +655,7 @@ async function refreshAll() {
 }
 
 async function remove(row) {
-  await ElMessageBox.confirm(`把「${row.title.slice(0, 20)}」移出选品池？`, '确认', { type: 'warning' });
+  await ElMessageBox.confirm(`把「${row.title.slice(0, 20)}」移出货架？`, '确认', { type: 'warning' });
   await api.curationRemove(row.curatedId);
   ElMessage.success('已移除');
   loadPool();
@@ -653,7 +663,7 @@ async function remove(row) {
 
 async function removeOffShelf() {
   await ElMessageBox.confirm(
-    '移除所有已下架商品（含人工下架和自动下架），连同专题关联一起清掉，不可恢复。确认？',
+    '移除所有已下架商品（含人工下架和自动下架），连同标签关联一起清掉，不可恢复。确认？',
     '一键移除已下架',
     { type: 'warning', confirmButtonText: '移除', confirmButtonClass: 'el-button--danger' },
   );
@@ -751,14 +761,40 @@ async function load(append = false) {
     found.value = append ? found.value.concat(list) : list;
     f.hasMore = !!r.hasMore;
     if (!list.length && !append) ElMessage.warning('没查到商品，换个关键词或榜单试试');
+    // 批量查询已存在状态
+    if (list.length) {
+      try {
+        const items = list.map((g) => ({ platform: f.platform, goodsId: g.goodsId }));
+        const m = await api.curationExistsBatch(items);
+        if (append) {
+          foundStatus.value = { ...foundStatus.value, ...m };
+        } else {
+          foundStatus.value = m;
+        }
+      } catch { /* 状态查询失败不影响展示 */ }
+    }
   } finally {
     finding.value = false;
   }
 }
 
+// 状态 key 格式："PLATFORM::goodsId"
+function statusKey(g) {
+  return (f.platform || 'PDD').toUpperCase() + '::' + g.goodsId;
+}
+
+const foundStatus = ref({}); // { "PDD::xxx": 1, "PDD::yyy": 3, ... }
+
+async function refreshFoundStatus(g) {
+  const m = await api.curationExistsBatch([{ platform: f.platform, goodsId: g.goodsId }]);
+  foundStatus.value = { ...foundStatus.value, ...m };
+  ElMessage.success('已刷新');
+}
+
 function find() {
   f.page = 1;
   found.value = [];
+  foundStatus.value = {};
   load(false);
 }
 
@@ -779,9 +815,10 @@ async function importBatch() {
       sortWeight: f.sortWeight || 0,
     });
     ElMessage.success(
-      `导入完成：拉到 ${r.fetched} 件，入池 ${r.added}，无佣金跳过 ${r.skipped}` +
+      `导入完成：拉到 ${r.fetched} 件，入待上架 ${r.added}，无佣金跳过 ${r.skipped}` +
         `${r.errors ? `，失败 ${r.errors}` : ''}`,
     );
+    loadPending();
     loadPool();
   } finally {
     importing.value = false;
@@ -790,16 +827,23 @@ async function importBatch() {
 
 async function add(g) {
   await api.curationAdd({
-    platform: g.platform,
+    platform: f.platform,
     goodsId: g.goodsId,
     groupKey: f.groupKey || 'default',
     sortWeight: f.sortWeight || 0,
   });
-  ElMessage.success('已加入选品池');
+  ElMessage.success('已加入待上架');
+  foundStatus.value = { ...foundStatus.value, [statusKey(g)]: 3 };
+  loadPending();
   loadPool();
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 标签列表提前加载，待上架和货架都要用
+  try {
+    const r = await api.topics();
+    allTopics.value = r.list || r || [];
+  } catch {}
   loadPool();
   if (tab.value === 'pending') loadPending();
 });
@@ -824,6 +868,7 @@ onMounted(() => {
 .card .cp { color: #f56c6c; margin-left: 6px; font-size: 12px; }
 .card .c { font-size: 12px; color: #67c23a; margin: 4px 0 8px; }
 .card .c .m { margin-left: 6px; }
+.card-status { margin-bottom: 6px; text-align: center; }
 
 .tag-list { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 .tag-list .more-tag { margin-left: 2px; }
