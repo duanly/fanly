@@ -180,30 +180,52 @@ export class TopicService implements OnModuleInit {
     const t = await this.repo.findOneBy({ slug });
     if (!t || t.status !== 1) throw new NotFoundException('专题不存在或已下架');
 
-    const qb = this.goodsRepo
-      .createQueryBuilder('g')
-      .innerJoin(GoodsTopic, 'r', 'r.curatedId = g.id AND r.topicId = :tid', { tid: t.id })
-      .where('g.status = :st', { st: CuratedStatus.ON });
+    // 1. 查出这个 topic 下所有关联（带排序权重）
+    const rels = await this.relRepo.find({
+      where: { topicId: t.id },
+      select: ['curatedId', 'sortWeight'],
+    });
+    if (!rels.length) {
+      return { total: 0, page: Math.max(page, 1), topic: this.view(t), list: [] };
+    }
 
-    // 关联上的权重优先，这样同一件商品能在不同专题里排不同位置
-    if (sort === 'price') qb.orderBy('r.sortWeight', 'DESC').addOrderBy('g.couponPrice', 'ASC');
-    else qb.orderBy('r.sortWeight', 'DESC').addOrderBy('g.commission', 'DESC');
-    qb.addOrderBy('g.id', 'DESC');
+    // 2. 查商品详情
+    const goodsList = await this.goodsRepo.find({
+      where: { id: In(rels.map((r) => r.curatedId)), status: CuratedStatus.ON },
+    });
+    const byId = new Map(goodsList.map((g) => [g.id, g]));
 
-    const [rows, total] = await Promise.all([
-      qb
-        .skip((Math.max(page, 1) - 1) * pageSize)
-        .take(Math.min(pageSize, 100))
-        .getMany(),
-      // 单独算总数，避开 TypeORM getManyAndCount 在 join 时的 distinct 列名 bug
-      this.goodsRepo
-        .createQueryBuilder('g')
-        .innerJoin(GoodsTopic, 'r', 'r.curatedId = g.id AND r.topicId = :tid', { tid: t.id })
-        .where('g.status = :st', { st: CuratedStatus.ON })
-        .getCount(),
-    ]);
+    // 3. 组装 + 排序：关联权重优先，然后是佣金或价格
+    const rows = rels
+      .map((r) => ({ rel: r, goods: byId.get(r.curatedId) }))
+      .filter((x) => x.goods) as Array<{ rel: GoodsTopic; goods: CuratedGoods }>;
 
-    return { total, page, topic: this.view(t), list: rows.map((r) => this.toGoods(r)) };
+    if (sort === 'price') {
+      rows.sort((a, b) =>
+        b.rel.sortWeight - a.rel.sortWeight ||
+        Number(a.goods.couponPrice) - Number(b.goods.couponPrice) ||
+        b.goods.id - a.goods.id,
+      );
+    } else {
+      rows.sort((a, b) =>
+        b.rel.sortWeight - a.rel.sortWeight ||
+        Number(b.goods.commission) - Number(a.goods.commission) ||
+        b.goods.id - a.goods.id,
+      );
+    }
+
+    // 4. 分页
+    const total = rows.length;
+    const p = Math.max(page, 1);
+    const ps = Math.min(pageSize, 100);
+    const pageRows = rows.slice((p - 1) * ps, p * ps);
+
+    return {
+      total,
+      page: p,
+      topic: this.view(t),
+      list: pageRows.map((x) => this.toGoods(x.goods)),
+    };
   }
 
   /** 某商品身上挂了哪些专题，后台编辑时要回显 */
