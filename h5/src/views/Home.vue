@@ -3,6 +3,28 @@
     <!-- 顶部：渐变背景 + 搜索 -->
     <div class="top-wrap">
       <div class="top-bg"></div>
+
+      <!-- 开启返利卡片 -->
+      <div class="auth-card">
+        <div class="ac-head">
+          <span class="ac-title">开启返利</span>
+          <span class="ac-sub">授权后订单才认得到你</span>
+        </div>
+        <div class="ac-list">
+          <div
+            v-for="p in PLATS"
+            :key="p.key"
+            class="ac-item"
+            :class="{ done: auth[p.key] === true }"
+            @click="onPlatClick(p)"
+          >
+            <span class="ac-dot" :style="{ background: p.bg }">{{ p.short }}</span>
+            <span class="ac-name">{{ p.name }}</span>
+            <span class="ac-st">{{ auth[p.key] === true ? '已开启' : '去开启' }}</span>
+          </div>
+        </div>
+      </div>
+
       <div class="top-bar">
         <div class="search-box" @click="$router.push('/search')">
           <van-icon name="search" color="#ff4b3a" size="15" />
@@ -51,27 +73,6 @@
           </div>
         </van-swipe-item>
       </van-swipe>
-    </div>
-
-    <!-- 平台授权卡片 -->
-    <div class="auth-card">
-      <div class="ac-head">
-        <span class="ac-title">开启返利</span>
-        <span class="ac-sub">授权后订单才认得到你</span>
-      </div>
-      <div class="ac-list">
-        <div
-          v-for="p in PLATS"
-          :key="p.key"
-          class="ac-item"
-          :class="{ done: auth[p.key] === true }"
-          @click="goAuth(p)"
-        >
-          <span class="ac-dot" :style="{ background: p.bg }">{{ p.short }}</span>
-          <span class="ac-name">{{ p.name }}</span>
-          <span class="ac-st">{{ auth[p.key] === true ? '已开启' : '去开启' }}</span>
-        </div>
-      </div>
     </div>
 
     <!-- 全网比价入口 -->
@@ -146,7 +147,7 @@
     </div>
 
     <!-- 好物推荐 -->
-    <div class="section">
+    <div class="section rank-section">
       <div class="sec-head">
         <span class="sec-title">🏆 好物推荐</span>
         <span class="sec-more" @click="$router.push('/group/default')">全部 ›</span>
@@ -328,6 +329,15 @@ function goAuth(p) {
   router.push({ path: `/auth/${p.key}`, query: { redirect: '/' } });
 }
 
+function onPlatClick(p) {
+  if (auth[p.key] === true) {
+    // 已开启 → 跳转到搜索页（后续可加平台筛选）
+    router.push('/search');
+  } else {
+    goAuth(p);
+  }
+}
+
 function openLink(a) {
   if (a.internal) {
     router.push(a.url);
@@ -437,7 +447,7 @@ onMounted(() => {
 .top-bg {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 280px;
+  height: 420px;
   background: linear-gradient(180deg, #fff0ed 0%, #fff7f5 55%, #f7f8fa 100%);
   z-index: 0;
 }
@@ -598,43 +608,46 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: -8px -4px 12px;
+  margin: -14px -14px 12px;
+  padding: 0 10px;
 }
 .sec-title {
   position: relative;
   display: inline-flex;
   align-items: center;
-  height: 26px;
+  height: 28px;
   padding: 0 12px 0 10px;
   font-size: 15px;
   font-weight: 700;
   color: #fff;
   background: linear-gradient(135deg, #ff6b35 0%, #ff4b3a 100%);
-  border-radius: 4px 13px 13px 4px;
-  box-shadow: 0 2px 6px rgba(255, 75, 58, 0.25);
+  border-radius: 0 4px 14px 0;
+  box-shadow: 2px 2px 6px rgba(255, 75, 58, 0.25);
 }
 .sec-title::before {
   content: '';
   position: absolute;
-  left: 0;
+  left: -2px;
   top: 0;
-  width: 3px;
+  width: 4px;
   height: 100%;
-  background: rgba(255,255,255,0.4);
-  border-radius: 4px 0 0 4px;
+  background: rgba(0,0,0,0.15);
+  border-radius: 0 0 0 2px;
 }
 .sec-more {
   font-size: 12px;
   color: #999;
 }
 
-/* 平台授权大卡片 */
+/* 平台授权大卡片（在顶部渐变区内） */
 .auth-card {
-  margin: 14px 12px 0;
-  padding: 16px 14px 14px;
+  position: relative;
+  z-index: 1;
+  margin-top: 10px;
+  padding: 14px 14px 12px;
   background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(255, 75, 58, 0.1);
 }
 .ac-head {
   display: flex;
@@ -742,7 +755,18 @@ onMounted(() => {
 
 /* ========== 活动跑马灯 ========== */
 .act-section {
-  padding-bottom: 14px;
+  border-top-color: #7c5cff;
+  border-left-color: #7c5cff;
+  border-right-color: #7c5cff;
+  border-bottom-color: #7c5cff;
+  box-shadow: 0 4px 12px rgba(124, 92, 255, 0.15);
+}
+.act-section .sec-title {
+  background: linear-gradient(135deg, #7c5cff 0%, #5b3dff 100%);
+  box-shadow: 2px 2px 6px rgba(124, 92, 255, 0.25);
+}
+.act-section .sec-title::before {
+  background: rgba(0,0,0,0.12);
 }
 .act-marquee {
   margin: 0 -14px;
@@ -859,6 +883,19 @@ onMounted(() => {
 .cat-name {
   font-size: 12px;
   color: #333;
+}
+
+/* ========== 好物推荐 ========== */
+.rank-section {
+  border-top: 2px solid #fff;
+  border-left: 2px solid #fff;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+.rank-section .sec-title {
+  background: linear-gradient(135deg, #ff6b35 0%, #ff4b3a 100%);
+  box-shadow: 2px 2px 6px rgba(255, 75, 58, 0.25);
 }
 
 /* ========== 榜单 tabs ========== */

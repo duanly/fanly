@@ -175,9 +175,17 @@ async function doRecommend() {
   flex-shrink: 0;
 }
 .rebate-text {
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 18px;
+  font-size: 12px;
   font-weight: 700;
   color: #ff4b3a;
+  border: 1.5px solid #ff4b3a;
+  border-radius: 3px;
+  line-height: 1;
 }
 .rebate-amt {
   display: inline-flex;
