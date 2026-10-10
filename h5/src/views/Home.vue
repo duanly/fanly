@@ -608,21 +608,22 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: -20px -14px 8px -16px;
+  margin: -14px -14px 10px -14px;
   padding: 0 12px 0 0;
 }
 .sec-title {
   position: relative;
   display: inline-flex;
   align-items: center;
-  height: 28px;
-  padding: 0 12px 0 10px;
+  height: 30px;
+  padding: 0 14px 0 10px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
   color: #fff;
   background: linear-gradient(135deg, #ff6b35 0%, #ff4b3a 100%);
-  border-radius: 0 4px 14px 0;
+  border-radius: 0 4px 15px 0;
   box-shadow: 2px 2px 6px rgba(255, 75, 58, 0.25);
+  letter-spacing: 0.5px;
 }
 .sec-title::before {
   content: '';

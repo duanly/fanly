@@ -14,7 +14,12 @@
       indicator-color="rgba(255,255,255,0.6)"
     >
       <van-swipe-item v-for="(b, i) in banners" :key="i" @click="openBanner(b)">
-        <img :src="b.image" />
+        <div class="banner-slide" :style="bannerStyle(b)">
+          <div class="bs-text" v-if="b.title">
+            <div class="bs-sub">{{ b.subtitle || '' }}</div>
+            <div class="bs-title">{{ b.title }}</div>
+          </div>
+        </div>
       </van-swipe-item>
     </van-swipe>
 
@@ -124,6 +129,7 @@ const loading = ref(false);
 const finished = ref(false);
 const descExpanded = ref(false);
 const showShare = ref(false);
+const homeBanners = ref([]);
 
 // 倒计时
 const countdownText = ref('');
@@ -134,7 +140,16 @@ function back() {
   else router.replace('/');
 }
 
-const banners = computed(() => Array.isArray(topic.value.banners) ? topic.value.banners.filter((b) => b.image) : []);
+const topicBanners = computed(() => Array.isArray(topic.value.banners) ? topic.value.banners.filter((b) => b.image) : []);
+// 专题没配 banner 就用首页的兜底
+const banners = computed(() => topicBanners.value.length ? topicBanners.value : homeBanners.value);
+
+function bannerStyle(b) {
+  const isUrl = /^https?:|^data:/.test(b.image || '');
+  return isUrl
+    ? { backgroundImage: `url(${b.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+    : { background: b.image || b.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' };
+}
 
 const headStyle = computed(() => {
   // 有 banners 或者有 cover 时不用渐变底色
@@ -180,7 +195,8 @@ function startCountdown() {
 
 function openBanner(b) {
   if (!b?.url) return;
-  window.open(b.url, '_blank');
+  if (b.internal) router.push(b.url);
+  else window.open(b.url, '_blank');
 }
 
 async function load() {
@@ -216,21 +232,56 @@ function reset() {
   load();
 }
 
+// 加载首页 banner 作为兜底
+async function loadHomeBanners() {
+  try {
+    const r = await api.homeLinks('banner');
+    if (r?.length) homeBanners.value = r;
+  } catch { /* 没有就不用 */ }
+}
+
 onUnmounted(() => {
   if (countdownTimer) clearInterval(countdownTimer);
 });
 
 // 从一个专题直接跳另一个专题时，组件会复用，必须自己重置
 watch(() => route.params.slug, reset, { immediate: true });
+
+// 加载首页 banner 兜底
+loadHomeBanners();
 </script>
 
 <style scoped>
 .topic-banners {
   width: 100%;
 }
-.topic-banners img {
+.banner-slide {
   width: 100%;
-  display: block;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  color: #fff;
+}
+.banner-slide::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.08) 55%, transparent 100%);
+}
+.bs-text {
+  position: relative;
+  z-index: 1;
+}
+.bs-sub {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-bottom: 4px;
+}
+.bs-title {
+  font-size: 22px;
+  font-weight: 700;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .topic-head {

@@ -100,7 +100,7 @@ async function doRecommend() {
 
 <style scoped>
 .goods-card-v2 {
-  background: #fff;
+  background: #fafafa;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
@@ -141,6 +141,8 @@ async function doRecommend() {
 /* 内容区 */
 .body {
   padding: 8px 10px 10px;
+  background: #fff;
+  border-radius: 0 0 12px 12px;
 }
 .title {
   font-size: 12px;
