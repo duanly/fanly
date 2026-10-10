@@ -1,106 +1,127 @@
 <template>
-  <div class="page">
-    <div class="home-head">
-      <div class="search-row">
+  <div class="home-v2">
+    <!-- 顶部：渐变背景 + 搜索 -->
+    <div class="top-wrap">
+      <div class="top-bg"></div>
+      <div class="top-bar">
         <div class="search-box" @click="$router.push('/search')">
-          <van-icon name="search" color="#ff4b3a" size="16" style="margin-right:6px" />
-          <input v-model="keyword" placeholder="搜隐藏优惠券" readonly />
-          <span class="search-btn">搜索</span>
+          <van-icon name="search" color="#ff4b3a" size="15" />
+          <span class="ph">搜隐藏优惠券 · 搜什么都返</span>
         </div>
-        <div class="head-icon" @click="goParse">
-          <van-icon name="exchange" size="20" />
-          <span>转链</span>
-        </div>
-        <div class="head-icon" @click="$router.push('/checkin')">
-          <van-icon name="gift-o" size="20" />
-          <span>签到</span>
-        </div>
-      </div>
-
-      <!--
-        平台授权：摆在最显眼的地方，就是为了拉新时当面能教会。
-        没授权的订单认不到人，这一步比什么都重要。
-      -->
-      <div class="auth-row">
-        <div class="ar-title">
-          <span>开启返利</span>
-          <span class="muted">授权后订单才认得到你</span>
-        </div>
-        <div class="ar-plats">
-          <div
-            v-for="p in PLATS"
-            :key="p.key"
-            class="ar-item"
-            :class="{ done: auth[p.key] === true }"
-            @click="goAuth(p)"
-          >
-            <span class="dot" :style="{ background: p.bg }">{{ p.short }}</span>
-            <span class="n">{{ p.name }}</span>
-            <span class="st">{{ auth[p.key] === true ? '已开启' : '去开启' }}</span>
+        <div class="top-actions">
+          <div class="ta-item" @click="goParse">
+            <div class="ta-ico">🔗</div>
+            <span>转链</span>
+          </div>
+          <div class="ta-item" @click="$router.push('/checkin')">
+            <div class="ta-ico">🎁</div>
+            <span>签到</span>
           </div>
         </div>
       </div>
 
+      <!-- 复制链接提示条 -->
       <div class="paste-bar" @click="goParse">
-        <span style="font-weight:600">复制</span>
-        <span class="plats">
-          <i class="plat-dot" style="background:#ff5000">淘</i>
-          <i class="plat-dot" style="background:#e2231a">京</i>
-          <i class="plat-dot" style="background:#e02e24">拼</i>
-          <i class="plat-dot" style="background:#161823">抖</i>
-        </span>
-        <span style="font-weight:600">商品链接</span>
-        <van-icon name="play" color="#ff4b3a" size="11" />
-        <span class="cta">领券 + 返现 ›</span>
+        <div class="pb-left">
+          <span class="pb-ico">📋</span>
+          <span>复制商品链接，一键查券返利</span>
+        </div>
+        <div class="pb-right">
+          <span>立即查</span>
+          <van-icon name="arrow" color="#ff4b3a" size="10" />
+        </div>
       </div>
 
-      <van-swipe class="banner" :autoplay="4000" indicator-color="#fff">
-        <van-swipe-item
-          v-for="b in banners"
-          :key="b.id || b.title"
-          :style="bannerStyle(b)"
-          @click="openLink(b)"
-        >
-          <div>
-            <div class="t1">{{ b.title }}</div>
-            <div class="t2">{{ b.subtitle }}</div>
+      <!-- Banner 轮播 -->
+      <van-swipe class="banner-swipe" :autoplay="banners.length > 1 ? 4000 : 0" indicator-color="rgba(255,255,255,0.5)">
+        <van-swipe-item v-for="b in banners" :key="b.id || b.title" @click="openLink(b)">
+          <div class="banner-card" :style="{ background: b.image || b.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' }">
+            <div class="bn-text">
+              <div class="bn-tag">{{ b.subtitle || '限时活动' }}</div>
+              <div class="bn-title">{{ b.title }}</div>
+              <div class="bn-btn">
+                <span>立即抢购</span>
+                <van-icon name="arrow" color="#fff" size="10" />
+              </div>
+            </div>
           </div>
         </van-swipe-item>
       </van-swipe>
     </div>
 
-    <div v-if="compare.length" class="cmp-entry" @click="$router.push('/compare')">
-      <div class="left">
-        <div class="t">⚖️ 全网比价</div>
-        <div class="s">同款商品各平台<b>到手价</b>对比 · {{ compare.length }} 组</div>
+    <!-- 平台授权 -->
+    <div v-if="!allAuth" class="auth-card">
+      <div class="ac-head">
+        <span class="ac-title">💰 开启四平台返利</span>
+        <span class="ac-sub">授权后订单自动追踪</span>
       </div>
-      <div class="right">
-        <div v-if="topSave > 0" class="save">最多省 ¥{{ topSave }}</div>
-        <van-icon name="arrow" color="#fff" />
-      </div>
-    </div>
-
-    <div v-if="marqueeActs.length" class="act-marquee">
-      <div class="am-track">
+      <div class="ac-list">
         <div
-          v-for="(a, i) in marqueeActs"
-          :key="a.key + '-' + i"
-          class="act-card"
-          @click="openLink(a)"
+          v-for="p in PLATS"
+          :key="p.key"
+          class="ac-item"
+          :class="{ done: auth[p.key] === true }"
+          @click="goAuth(p)"
         >
-          <div class="t">{{ a.title }}</div>
-          <div class="s">{{ a.subtitle }}</div>
-          <span class="emoji">{{ a.icon }}</span>
+          <span class="ac-dot" :style="{ background: p.bg }">{{ p.short }}</span>
+          <span class="ac-name">{{ p.name }}</span>
+          <span class="ac-st">{{ auth[p.key] === true ? '✓ 已开启' : '去开启' }}</span>
         </div>
       </div>
     </div>
 
-    <div class="theme-section">
-      <div class="theme-head">主题分区</div>
+    <!-- 全网比价入口 -->
+    <div v-if="compare.length" class="cmp-card" @click="$router.push('/compare')">
+      <div class="cmp-left">
+        <div class="cmp-tag">⚖️ 全网比价</div>
+        <div class="cmp-title">同款商品各平台到手价对比</div>
+        <div class="cmp-sub">已收录 {{ compare.length }} 组比价 · 帮你选最便宜的</div>
+      </div>
+      <div class="cmp-right">
+        <div v-if="topSave > 0" class="cmp-save">
+          <span class="cs-n">¥{{ topSave }}</span>
+          <span class="cs-t">最多省</span>
+        </div>
+        <van-icon name="arrow" color="#fff" />
+      </div>
+    </div>
+
+    <!-- 活动标签位 -->
+    <div v-if="acts.length" class="section">
+      <div class="sec-head">
+        <span class="sec-title">🔥 限时活动</span>
+        <span class="sec-more" @click="scrollToCats">更多 ›</span>
+      </div>
+      <div class="act-scroll">
+        <div class="act-track">
+          <div
+            v-for="a in acts"
+            :key="a.key"
+            class="act-card"
+            @click="openLink(a)"
+          >
+            <div class="ac-ico" :style="{ background: a.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' }">
+              {{ a.icon || '🎁' }}
+            </div>
+            <div class="ac-info">
+              <div class="ac-title">{{ a.title }}</div>
+              <div class="ac-sub">{{ a.subtitle || '限时特惠' }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 品类宫格 -->
+    <div class="section" ref="catsRef">
+      <div class="sec-head">
+        <span class="sec-title">📦 全部分类</span>
+        <span class="sec-more">共 {{ catGroups.length }} 个</span>
+      </div>
       <div class="grid-card">
         <van-swipe
-          :autoplay="catPages.length > 1 ? 4000 : 0"
-          indicator-color="rgba(255,255,255,0.6)"
+          :autoplay="catPages.length > 1 ? 5000 : 0"
+          indicator-color="rgba(255,75,58,0.3)"
           class="cat-swipe"
         >
           <van-swipe-item v-for="(pageItems, pi) in catPages" :key="pi">
@@ -108,11 +129,11 @@
               <div
                 v-for="e in pageItems"
                 :key="e.key"
-                class="plat-item"
+                class="cat-item"
                 @click="openCat(e)"
               >
-                <div class="plat-icon" :style="{ background: e.bg }">{{ e.icon }}</div>
-                <div class="l">{{ e.name }}</div>
+                <div class="cat-ico" :style="{ background: e.bg }">{{ e.icon }}</div>
+                <div class="cat-name">{{ e.name }}</div>
               </div>
             </div>
           </van-swipe-item>
@@ -120,37 +141,38 @@
       </div>
     </div>
 
-    <div class="rank-head">
-      <div class="rank-title">好物推荐</div>
-      <div class="rank-more" @click="$router.push('/group/default')">
-        全部 ›
+    <!-- 好物推荐 -->
+    <div class="section">
+      <div class="sec-head">
+        <span class="sec-title">🏆 好物推荐</span>
+        <span class="sec-more" @click="$router.push('/group/default')">全部 ›</span>
       </div>
+
+      <van-tabs class="rank-tabs" v-model:active="rankIdx" color="#ff4b3a" line-width="16" @change="resetRank">
+        <van-tab v-for="r in RANKS" :key="r.type" :title="r.name" />
+      </van-tabs>
+
+      <div v-if="rankTip" class="rank-tip">{{ rankTip }}</div>
+
+      <van-list
+        v-model:loading="rankLoading"
+        :finished="rankFinished"
+        finished-text="— 到底啦，已经帮你挑了这么多 —"
+        @load="loadRank"
+      >
+        <div class="goods-list">
+          <GoodsCard
+            v-for="g in list"
+            :key="g.platform + g.goodsId"
+            :g="g"
+            show-recommend
+            @recommended="onRecommended"
+          />
+        </div>
+      </van-list>
+
+      <van-empty v-if="!rankLoading && !list.length" :description="emptyText" />
     </div>
-
-    <van-tabs class="rank-tabs" v-model:active="rankIdx" color="#ff4b3a" line-width="20" @change="resetRank">
-      <van-tab v-for="r in RANKS" :key="r.type" :title="r.name" />
-    </van-tabs>
-
-    <div v-if="rankTip" class="rank-tip muted">{{ rankTip }}</div>
-
-    <van-list
-      v-model:loading="rankLoading"
-      :finished="rankFinished"
-      finished-text="没有更多了"
-      @load="loadRank"
-    >
-      <div class="goods-grid">
-        <GoodsCard
-          v-for="g in list"
-          :key="g.platform + g.goodsId"
-          :g="g"
-          show-recommend
-          @recommended="onRecommended"
-        />
-      </div>
-    </van-list>
-
-    <van-empty v-if="!rankLoading && !list.length" :description="emptyText" />
 
     <BeianFooter />
   </div>
@@ -163,132 +185,85 @@ import { showToast } from 'vant';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
 import BeianFooter from '../components/BeianFooter.vue';
-import { GRID_GROUPS, groupMeta } from '../constants/groups';
 import { PLATFORMS as PLATS } from '../utils/platform';
 
-const RANKS = [
-  { type: 'hot', name: '🔥 热销榜', tip: '按最近 7 天本站下单量排；数据还少的时候用平台销量补齐' },
-  { type: 'rebate', name: '💰 返利榜', tip: '按买了能返多少排，返得最多的在前面' },
-  { type: 'pick', name: '⭐️ 推荐榜', tip: '大家推荐次数最多的，你也可以给喜欢的商品点推荐' },
-];
-
-/** 后台一条 banner 都没配时的兜底，不让首页开天窗 */
-const FALLBACK_BANNERS = [
-  { title: '天天签到领金币', subtitle: '攒够就能换钱', image: 'linear-gradient(135deg,#ff8a3d,#ff3b30)', url: '/checkin', internal: true },
-  { title: '全网比价', subtitle: '同款哪家最便宜，一眼看清', image: 'linear-gradient(135deg,#4a3aff,#7b3ad5)', url: '/compare', internal: true },
-  { title: '邀请好友赚钱', subtitle: '他买东西，你拿分成', image: 'linear-gradient(135deg,#ff6a9a,#ff3b6b)', url: '/agent', internal: true },
-];
-
 const router = useRouter();
-const keyword = ref('');
-const groups = ref([]);
-const cats = ref([]);
-const links = ref([]);
+const auth = reactive({});
+
+const RANKS = [
+  { type: 'hot', name: '热销榜', tip: '按近 7 天实付订单数排序，真金白银选出来的' },
+  { type: 'rebate', name: '返利最高', tip: '佣金绝对金额排序，不是比例——比例高的往往是便宜货' },
+  { type: 'pick', name: '推荐榜', tip: '用户一人一票投出来的，再加运营手动权重' },
+];
+
+const banners = ref([]);
 const topics = ref([]);
-const banners = ref(FALLBACK_BANNERS);
+const links = ref([]);
+const cats = ref([]);
+const groups = ref([]);
 const compare = ref([]);
-const list = ref([]);
+const topSave = ref(0);
+
 const rankIdx = ref(0);
+const list = ref([]);
 const rankPage = ref(1);
 const rankLoading = ref(false);
 const rankFinished = ref(false);
-const auth = reactive({});
 
+const catsRef = ref(null);
+const allAuth = computed(() => PLATS.every((p) => auth.value[p.key] === true));
 const rankTip = computed(() => RANKS[rankIdx.value]?.tip || '');
 const emptyText = computed(() =>
-  RANKS[rankIdx.value].type === 'hot'
-    ? '还没有订单，热销榜攒够数据就出来了'
-    : '后台还没选品',
+  RANKS[rankIdx.value].type === 'hot' ? '还没有真实订单数据，榜单在积累中' : '货架还在备货，先看看别的分区',
 );
-const topSave = computed(() => compare.value.reduce((m, g) => Math.max(m, g.maxSave || 0), 0));
 
-const bannerStyle = (b) => ({
-  height: '100%',
-  display: 'grid',
-  placeItems: 'center',
-  cursor: 'pointer',
-  background: /^https?:|^data:/.test(b.image || '')
-    ? `center/cover no-repeat url(${b.image})`
-    : (b.image || 'linear-gradient(135deg,#ff8a3d,#ff3b30)'),
-});
-
-/**
- * 活动位 = type=activity 的活动标签（按 sortWeight 排序）。
- * 全部走站内 /topic/xxx 页面，标签管理后台统一维护。
- */
+// 活动位
 const acts = computed(() =>
   topics.value
     .filter((t) => t.type === 'activity' && t.status === 1)
+    .slice(0, 10)
     .map((t) => ({
       key: `t-${t.slug}`,
       title: t.name,
       subtitle: t.intro || '',
       icon: t.icon || '🎁',
+      bg: t.bg,
       url: `/topic/${t.slug}`,
       internal: true,
     })),
 );
 
-/**
- * 活动位跑马灯内容：复制多份实现无缝循环。
- * 份数必须是偶数，translateX(-50%) 才会落在整份边界上，不闪跳。
- */
-const marqueeActs = computed(() => {
-  const arr = acts.value;
-  if (!arr.length) return [];
-  let reps = Math.ceil(6 / arr.length);
-  if (reps < 2) reps = 2;
-  if (reps % 2) reps += 1;
-  return Array.from({ length: reps }, () => arr).flat();
-});
-
-/**
- * 宫格数据源：所有品类标签（type=category，status=1），按后台 sortWeight 排序。
- * 8 个一页，多页自动轮播。
- * 其次是后台配的 category 链接（兼容旧数据），再是有货的老 groupKey，最后预设兜底补满一页。
- */
+// 品类宫格
 const catGroups = computed(() => {
   const out = [];
   const has = (url) => out.some((o) => o.url === url);
 
-  // 1. 所有品类标签（不限数量，按权重排）
+  // 品类标签（主力）
   topics.value
     .filter((t) => t.type === 'category' && t.status === 1)
     .forEach((t, i) => out.push({
       key: `topic-${t.slug}`,
       name: t.name,
       icon: t.icon || '📦',
-      bg: t.bg || groupMeta(t.slug, i).bg,
+      bg: t.bg || `hsl(${(i * 37) % 360}, 70%, 85%)`,
       url: `/topic/${t.slug}`,
       internal: true,
     }));
 
-  // 2. 后台配的 category 链接（兼容旧数据）
-  cats.value.forEach((c, i) => {
-    const url = c.url || '';
-    if (!url || has(url)) return;
-    out.push({
-      key: `cat-${c.id ?? i}`,
-      name: c.title,
-      icon: c.icon || '📦',
-      bg: c.image || groupMeta(url.replace(/^\/(group|topic)\//, ''), i).bg,
-      url,
-      internal: c.internal,
-    });
-  });
+  // 不够 4 个的话用预设补，免得太空
+  const PRESET = [
+    { key: 'food', name: '美食生鲜', icon: '🍎', bg: 'linear-gradient(135deg,#ff9a56,#ff6b35)' },
+    { key: 'beauty', name: '美妆个护', icon: '💄', bg: 'linear-gradient(135deg,#ff6b9d,#c44569)' },
+    { key: 'home', name: '家居日用', icon: '🏠', bg: 'linear-gradient(135deg,#4ecdc4,#44a08d)' },
+    { key: 'digital', name: '数码家电', icon: '📱', bg: 'linear-gradient(135deg,#667eea,#764ba2)' },
+    { key: 'clothes', name: '服饰鞋包', icon: '👗', bg: 'linear-gradient(135deg,#f093fb,#f5576c)' },
+    { key: 'baby', name: '母婴玩具', icon: '🧸', bg: 'linear-gradient(135deg,#a8edea,#fed6e3)' },
+    { key: 'sport', name: '运动户外', icon: '⚽', bg: 'linear-gradient(135deg,#43cea2,#185a9d)' },
+    { key: 'book', name: '图书文具', icon: '📚', bg: 'linear-gradient(135deg,#ffecd2,#fcb69f)' },
+  ];
 
-  // 3. 有货的老 groupKey（兼容旧数据）
-  groups.value
-    .filter((g) => g.groupKey !== 'default' && g.onShelf > 0)
-    .forEach((g, i) => {
-      const url = `/group/${g.groupKey}`;
-      if (has(url)) return;
-      out.push({ ...groupMeta(g.groupKey, i), key: `grp-${g.groupKey}`, url, internal: true });
-    });
-
-  // 4. 预设兜底——只有一页都凑不满（<8）时才补，补到 8 个
-  if (out.length < 8) {
-    for (const g of GRID_GROUPS) {
+  if (out.length < 4) {
+    for (const g of PRESET) {
       if (out.length >= 8) break;
       const url = `/group/${g.key}`;
       if (has(url)) continue;
@@ -306,6 +281,12 @@ const catPages = computed(() => {
   return pages.length ? pages : [[]];
 });
 
+function bannerStyle(b) {
+  return b.image
+    ? { backgroundImage: `url(${b.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+    : { background: b.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' };
+}
+
 function goParse() {
   if (!localStorage.getItem('token')) {
     return router.push({ path: '/login', query: { redirect: '/parse' } });
@@ -317,26 +298,28 @@ function goAuth(p) {
   if (!localStorage.getItem('token')) {
     return router.push({ path: '/login', query: { redirect: '/' } });
   }
-  if (auth[p.key] === true) return showToast(`${p.name}已经开启了`);
+  if (auth.value[p.key] === true) return showToast(`${p.name}已经开启了`);
   router.push({ path: `/auth/${p.key}`, query: { redirect: '/' } });
 }
 
 function openLink(a) {
-  if (!a?.url) return;
-  if (a.internal) router.push(a.url);
-  else window.open(a.url, '_blank');
-}
-
-const openCat = (e) => openLink(e);
-
-function onRecommended(g) {
-  // 推荐榜当前页要立刻看到名次变化，其他榜不用动
-  if (RANKS[rankIdx.value].type === 'pick') {
-    resetRank();
+  if (a.internal) {
+    router.push(a.url);
+  } else if (a.url) {
+    window.open(a.url, '_blank');
   }
 }
 
-function resetRank() {
+function openCat(e) {
+  if (e.internal) router.push(e.url);
+  else if (e.url) window.open(e.url, '_blank');
+}
+
+function scrollToCats() {
+  catsRef.value?.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function resetRank() {
   list.value = [];
   rankPage.value = 1;
   rankFinished.value = false;
@@ -361,8 +344,24 @@ async function loadRank() {
   }
 }
 
+function onRecommended(g) {
+  // 推荐成功后不做特殊处理，卡片自己会更新
+}
+
 /** 侧边数据各自失败各自空，不互相牵连，更不能拖住主商品流 */
 async function loadSide() {
+  // 先加载授权状态
+  if (localStorage.getItem('token')) {
+    Promise.all(PLATS.map(async (p) => {
+      try {
+        const s = await api.authzStatus(p.key);
+        auth[p.key] = !s.needAuth;
+      } catch {
+        auth[p.key] = undefined;
+      }
+    }));
+  }
+
   const safe = async (fn, target, map) => {
     try {
       const v = await fn();
@@ -372,29 +371,417 @@ async function loadSide() {
   await Promise.all([
     safe(() => api.goodsGroups(), groups),
     safe(() => api.topics(), topics),
+    safe(() => api.homeLinks('banner'), banners),
     safe(() => api.homeLinks('entry'), links),
     safe(() => api.homeLinks('category'), cats),
-    safe(() => api.homeLinks('banner'), banners, (v) => (v?.length ? v : FALLBACK_BANNERS)),
-    safe(() => api.compareList({ limit: 20 }), compare),
+    safe(() => api.compareGroups(), compare, (v) => v.list || v || []),
   ]);
-}
 
-async function loadAuth() {
-  if (!localStorage.getItem('token')) return;
-  await Promise.all(PLATS.map(async (p) => {
-    try {
-      const s = await api.authzStatus(p.key);
-      auth[p.key] = !s.needAuth;
-    } catch {
-      auth[p.key] = undefined;
+  // 算一下全网最高省多少
+  if (compare.value?.length) {
+    let max = 0;
+    for (const g of compare.value) {
+      const prices = (g.items || []).map((i) => Number(i.couponPrice || i.price || 9999)).filter((n) => n > 0);
+      if (prices.length >= 2) {
+        const diff = Math.max(...prices) - Math.min(...prices);
+        if (diff > max) max = diff;
+      }
     }
-  }));
+    topSave.value = Math.round(max * 10) / 10;
+  }
 }
 
 onMounted(() => {
-  rankLoading.value = true;
-  loadRank();
   loadSide();
-  loadAuth();
+  loadRank();
 });
 </script>
+
+<style scoped>
+.home-v2 {
+  background: #f5f6f8;
+  padding-bottom: 20px;
+}
+
+/* ========== 顶部渐变区 ========== */
+.top-wrap {
+  position: relative;
+  padding: 0 12px 14px;
+}
+.top-bg {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 260px;
+  background: linear-gradient(180deg, #fff5f0 0%, #fff8f5 50%, #f5f6f8 100%);
+  z-index: 0;
+}
+
+.top-bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0 10px;
+}
+.search-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  background: #fff;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(255, 75, 58, 0.08);
+}
+.search-box .ph {
+  font-size: 13px;
+  color: #999;
+}
+.top-actions {
+  display: flex;
+  gap: 14px;
+}
+.ta-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: #333;
+}
+.ta-ico {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* 复制链接提示 */
+.paste-bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 38px;
+  padding: 0 14px;
+  margin: 4px 0 12px;
+  background: linear-gradient(90deg, #fff 0%, #fff5f0 100%);
+  border-radius: 19px;
+  font-size: 12px;
+  color: #333;
+  box-shadow: 0 2px 8px rgba(255, 75, 58, 0.06);
+}
+.pb-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pb-ico { font-size: 14px; }
+.pb-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #ff4b3a;
+  font-weight: 600;
+}
+
+/* Banner */
+.banner-swipe {
+  position: relative;
+  z-index: 1;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(255, 100, 50, 0.15);
+}
+.banner-card {
+  height: 130px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  color: #fff;
+  position: relative;
+}
+.banner-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.1) 50%, transparent 100%);
+}
+.bn-text {
+  position: relative;
+  z-index: 1;
+}
+.bn-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(255,255,255,0.25);
+  border-radius: 999px;
+  font-size: 11px;
+  backdrop-filter: blur(4px);
+}
+.bn-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 6px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.bn-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 4px 12px;
+  background: #fff;
+  color: #ff4b3a;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* ========== 通用 section ========== */
+.section {
+  margin: 16px 12px 0;
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 14px 12px;
+}
+.sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.sec-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.sec-more {
+  font-size: 12px;
+  color: #999;
+}
+
+/* ========== 授权卡片 ========== */
+.auth-card {
+  margin: 12px 12px 0;
+  padding: 14px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.ac-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.ac-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.ac-sub {
+  font-size: 12px;
+  color: #999;
+}
+.ac-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.ac-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 0;
+  border-radius: 10px;
+  background: #f8f9fb;
+  transition: transform 0.15s;
+}
+.ac-item:active { transform: scale(0.95); }
+.ac-item.done {
+  background: #fff5f3;
+}
+.ac-dot {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ac-name {
+  font-size: 12px;
+  color: #333;
+}
+.ac-st {
+  font-size: 10px;
+  color: #999;
+}
+.ac-item.done .ac-st {
+  color: #ff4b3a;
+}
+
+/* ========== 比价卡片 ========== */
+.cmp-card {
+  margin: 12px 12px 0;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 14px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+.cmp-tag {
+  font-size: 11px;
+  opacity: 0.85;
+  margin-bottom: 4px;
+}
+.cmp-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+.cmp-sub {
+  font-size: 11px;
+  opacity: 0.8;
+  margin-top: 4px;
+}
+.cmp-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cmp-save {
+  text-align: right;
+}
+.cs-n {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+.cs-t {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+/* ========== 活动横向滚动 ========== */
+.act-scroll {
+  margin: 0 -14px;
+  padding: 0 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.act-scroll::-webkit-scrollbar { display: none; }
+.act-track {
+  display: flex;
+  gap: 10px;
+  padding-right: 14px;
+}
+.act-card {
+  flex: 0 0 auto;
+  width: 140px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #fff5f3 0%, #fff 100%);
+  border-radius: 12px;
+  border: 1px solid #ffe8e2;
+}
+.ac-ico {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 18px;
+  color: #fff;
+  flex-shrink: 0;
+}
+.ac-info {
+  min-width: 0;
+}
+.ac-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ac-sub {
+  font-size: 11px;
+  color: #ff4b3a;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ========== 品类宫格 ========== */
+.grid-card {
+  background: linear-gradient(180deg, #fffaf8 0%, #fff 100%);
+  border-radius: 12px;
+  padding: 12px 0 8px;
+}
+.cat-swipe {
+  min-height: 150px;
+}
+.cat-page {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px 0;
+  padding: 0 4px;
+}
+.cat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.cat-item:active { transform: scale(0.95); }
+.cat-ico {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  font-size: 22px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  transition: transform 0.2s;
+}
+.cat-name {
+  font-size: 12px;
+  color: #333;
+}
+
+/* ========== 榜单 tabs ========== */
+.rank-tabs {
+  margin: 0 -14px 10px;
+  padding: 0 14px;
+  font-weight: 600;
+}
+.rank-tip {
+  font-size: 11px;
+  color: #b0b3b8;
+  margin-bottom: 8px;
+}
+
+/* ========== 商品列表 ========== */
+.goods-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+</style>
