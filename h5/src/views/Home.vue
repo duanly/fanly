@@ -36,24 +36,6 @@
         </div>
       </div>
 
-      <!-- 平台授权快捷入口 -->
-      <div v-if="!allAuth" class="auth-quick">
-        <span class="aq-label">🔒 开启返利</span>
-        <div class="aq-dots">
-          <span
-            v-for="p in PLATS"
-            :key="p.key"
-            class="aq-dot"
-            :class="{ done: auth[p.key] === true }"
-            :style="{ background: auth[p.key] === true ? p.bg : '#fff' }"
-            @click.stop="goAuth(p)"
-          >
-            <span :style="{ color: auth[p.key] === true ? '#fff' : p.bg }">{{ p.short }}</span>
-          </span>
-        </div>
-        <span class="aq-link" @click.stop="goFirstUnAuth">去开启 ›</span>
-      </div>
-
       <!-- Banner 轮播 -->
       <van-swipe class="banner-swipe" :autoplay="banners.length > 1 ? 4000 : 0" indicator-color="rgba(255,255,255,0.5)">
         <van-swipe-item v-for="b in banners" :key="b.id || b.title" @click="openLink(b)">
@@ -69,6 +51,27 @@
           </div>
         </van-swipe-item>
       </van-swipe>
+    </div>
+
+    <!-- 平台授权卡片 -->
+    <div class="auth-card">
+      <div class="ac-head">
+        <span class="ac-title">开启返利</span>
+        <span class="ac-sub">授权后订单才认得到你</span>
+      </div>
+      <div class="ac-list">
+        <div
+          v-for="p in PLATS"
+          :key="p.key"
+          class="ac-item"
+          :class="{ done: auth[p.key] === true }"
+          @click="goAuth(p)"
+        >
+          <span class="ac-dot" :style="{ background: p.bg }">{{ p.short }}</span>
+          <span class="ac-name">{{ p.name }}</span>
+          <span class="ac-st">{{ auth[p.key] === true ? '已开启' : '去开启' }}</span>
+        </div>
+      </div>
     </div>
 
     <!-- 全网比价入口 -->
@@ -250,10 +253,10 @@ const marqueeActs = computed(() => {
   if (reps % 2) reps += 1;
   return Array.from({ length: reps }, () => arr).flat();
 });
-// 数量越多动画越快，但有下限
+// 数量越多动画越长，但有上下限
 const marqueeDuration = computed(() => {
   const n = acts.value.length;
-  return Math.max(12, n * 3);
+  return Math.max(25, n * 5);
 });
 
 // 品类宫格
@@ -323,11 +326,6 @@ function goAuth(p) {
   }
   if (auth[p.key] === true) return showToast(`${p.name}已经开启了`);
   router.push({ path: `/auth/${p.key}`, query: { redirect: '/' } });
-}
-
-function goFirstUnAuth() {
-  const first = PLATS.find((p) => auth[p.key] !== true);
-  if (first) goAuth(first);
 }
 
 function openLink(a) {
@@ -439,7 +437,7 @@ onMounted(() => {
 .top-bg {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 320px;
+  height: 280px;
   background: linear-gradient(180deg, #fff0ed 0%, #fff7f5 55%, #f7f8fa 100%);
   z-index: 0;
 }
@@ -539,10 +537,10 @@ onMounted(() => {
   box-shadow: 0 4px 14px rgba(255, 100, 50, 0.18);
 }
 .banner-card {
-  height: 120px;
+  height: 160px;
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 24px;
   color: #fff;
   position: relative;
 }
@@ -586,17 +584,21 @@ onMounted(() => {
 
 /* ========== 通用 section ========== */
 .section {
-  margin: 12px 12px 0;
+  margin: 14px 12px 0;
   background: #fff;
   border-radius: 14px;
-  padding: 14px 14px 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  padding: 14px 14px 14px;
+  border-top: 6px solid #ff6b35;
+  border-left: 2px solid #ff6b35;
+  border-right: 2px solid #ff6b35;
+  border-bottom: 2px solid #ff6b35;
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.12);
 }
 .sec-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: -4px -2px 12px;
+  margin: -8px -4px 12px;
 }
 .sec-title {
   position: relative;
@@ -626,51 +628,71 @@ onMounted(() => {
   color: #999;
 }
 
-/* 授权快捷入口（顶部渐变区内） */
-.auth-quick {
-  position: relative;
-  z-index: 1;
+/* 平台授权大卡片 */
+.auth-card {
+  margin: 14px 12px 0;
+  padding: 16px 14px 14px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+}
+.ac-head {
   display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.ac-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.ac-sub {
+  font-size: 13px;
+  color: #999;
+}
+.ac-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.ac-item {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  height: 36px;
-  padding: 0 14px;
-  margin: 8px 0 10px;
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(10px);
-  border-radius: 18px;
-  box-shadow: 0 2px 8px rgba(255, 75, 58, 0.08);
-}
-.aq-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #333;
-}
-.aq-dots {
-  display: flex;
   gap: 6px;
+  padding: 12px 0 10px;
+  border-radius: 12px;
+  background: #f5f9f5;
+  transition: transform 0.15s;
 }
-.aq-dot {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
+.ac-item:active { transform: scale(0.95); }
+.ac-item.done {
+  background: #f0f8f0;
+}
+.ac-dot {
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 16px;
   font-weight: 700;
-  border: 1.5px solid #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  transition: transform 0.15s;
 }
-.aq-dot:active { transform: scale(0.9); }
-.aq-dot.done {
-  border-color: transparent;
+.ac-name {
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
 }
-.aq-link {
+.ac-st {
   font-size: 12px;
+  color: #07c160;
+  font-weight: 500;
+}
+.ac-item:not(.done) .ac-st {
   color: #ff4b3a;
-  font-weight: 600;
 }
 
 /* ========== 比价卡片 ========== */
@@ -804,13 +826,8 @@ onMounted(() => {
 /* ========== 品类宫格 ========== */
 .grid-card {
   background: #fff;
-  border-radius: 12px;
-  padding: 12px 0 8px;
-  border-top: 6px solid #ff6b35;
-  border-left: 2px solid #ff6b35;
-  border-right: 2px solid #ff6b35;
-  border-bottom: 2px solid #ff6b35;
-  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.15);
+  border-radius: 8px;
+  padding: 8px 0 4px;
 }
 .cat-swipe {
   min-height: 150px;
