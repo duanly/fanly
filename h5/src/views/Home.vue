@@ -24,10 +24,14 @@
       <div class="paste-bar" @click="goParse">
         <div class="pb-left">
           <span class="pb-ico">📋</span>
-          <span>复制商品链接，一键查券返利</span>
+          <span>复制</span>
+          <span class="pb-plats">
+            <i v-for="p in PLATS" :key="p.key" class="pb-plat-dot" :style="{ background: p.bg }">{{ p.short }}</i>
+          </span>
+          <span>商品链接</span>
         </div>
         <div class="pb-right">
-          <span>立即查</span>
+          <span>领券返现</span>
           <van-icon name="arrow" color="#ff4b3a" size="10" />
         </div>
       </div>
@@ -86,17 +90,17 @@
       </div>
     </div>
 
-    <!-- 活动标签位 -->
-    <div v-if="acts.length" class="section">
+    <!-- 活动标签位（无缝跑马灯） -->
+    <div v-if="acts.length" class="section act-section">
       <div class="sec-head">
         <span class="sec-title">🔥 限时活动</span>
         <span class="sec-more" @click="scrollToCats">更多 ›</span>
       </div>
-      <div class="act-scroll">
-        <div class="act-track">
+      <div class="act-marquee">
+        <div class="am-track" :style="{ animationDuration: marqueeDuration + 's' }">
           <div
-            v-for="a in acts"
-            :key="a.key"
+            v-for="(a, i) in marqueeActs"
+            :key="a.key + '-' + i"
             class="act-card"
             @click="openLink(a)"
           >
@@ -211,7 +215,7 @@ const rankLoading = ref(false);
 const rankFinished = ref(false);
 
 const catsRef = ref(null);
-const allAuth = computed(() => PLATS.every((p) => auth.value[p.key] === true));
+const allAuth = computed(() => PLATS.every((p) => auth[p.key] === true));
 const rankTip = computed(() => RANKS[rankIdx.value]?.tip || '');
 const emptyText = computed(() =>
   RANKS[rankIdx.value].type === 'hot' ? '还没有真实订单数据，榜单在积累中' : '货架还在备货，先看看别的分区',
@@ -232,6 +236,21 @@ const acts = computed(() =>
       internal: true,
     })),
 );
+
+// 跑马灯：复制多份实现无缝循环，必须偶数份才不跳
+const marqueeActs = computed(() => {
+  const arr = acts.value;
+  if (!arr.length) return [];
+  let reps = Math.ceil(8 / arr.length);
+  if (reps < 2) reps = 2;
+  if (reps % 2) reps += 1;
+  return Array.from({ length: reps }, () => arr).flat();
+});
+// 数量越多动画越快，但有下限
+const marqueeDuration = computed(() => {
+  const n = acts.value.length;
+  return Math.max(12, n * 3);
+});
 
 // 品类宫格
 const catGroups = computed(() => {
@@ -298,7 +317,7 @@ function goAuth(p) {
   if (!localStorage.getItem('token')) {
     return router.push({ path: '/login', query: { redirect: '/' } });
   }
-  if (auth.value[p.key] === true) return showToast(`${p.name}已经开启了`);
+  if (auth[p.key] === true) return showToast(`${p.name}已经开启了`);
   router.push({ path: `/auth/${p.key}`, query: { redirect: '/' } });
 }
 
@@ -399,7 +418,7 @@ onMounted(() => {
 
 <style scoped>
 .home-v2 {
-  background: #f5f6f8;
+  background: #f7f8fa;
   padding-bottom: 20px;
 }
 
@@ -411,8 +430,8 @@ onMounted(() => {
 .top-bg {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 260px;
-  background: linear-gradient(180deg, #fff5f0 0%, #fff8f5 50%, #f5f6f8 100%);
+  height: 280px;
+  background: linear-gradient(180deg, #fff0ed 0%, #fff7f5 55%, #f7f8fa 100%);
   z-index: 0;
 }
 
@@ -433,7 +452,7 @@ onMounted(() => {
   padding: 0 14px;
   background: #fff;
   border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(255, 75, 58, 0.08);
+  box-shadow: 0 2px 10px rgba(255, 75, 58, 0.1);
 }
 .search-box .ph {
   font-size: 13px;
@@ -463,14 +482,14 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 38px;
+  height: 40px;
   padding: 0 14px;
   margin: 4px 0 12px;
-  background: linear-gradient(90deg, #fff 0%, #fff5f0 100%);
-  border-radius: 19px;
+  background: #fff;
+  border-radius: 20px;
   font-size: 12px;
   color: #333;
-  box-shadow: 0 2px 8px rgba(255, 75, 58, 0.06);
+  box-shadow: 0 2px 10px rgba(255, 75, 58, 0.08);
 }
 .pb-left {
   display: flex;
@@ -478,6 +497,22 @@ onMounted(() => {
   gap: 6px;
 }
 .pb-ico { font-size: 14px; }
+.pb-plats {
+  display: inline-flex;
+  gap: 3px;
+  margin: 0 2px;
+}
+.pb-plat-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 600;
+}
 .pb-right {
   display: flex;
   align-items: center;
@@ -490,12 +525,12 @@ onMounted(() => {
 .banner-swipe {
   position: relative;
   z-index: 1;
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 16px rgba(255, 100, 50, 0.15);
+  box-shadow: 0 4px 14px rgba(255, 100, 50, 0.18);
 }
 .banner-card {
-  height: 130px;
+  height: 120px;
   display: flex;
   align-items: center;
   padding: 0 20px;
@@ -506,7 +541,7 @@ onMounted(() => {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.1) 50%, transparent 100%);
+  background: linear-gradient(90deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.08) 55%, transparent 100%);
 }
 .bn-text {
   position: relative;
@@ -521,10 +556,10 @@ onMounted(() => {
   backdrop-filter: blur(4px);
 }
 .bn-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   margin-top: 6px;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 .bn-btn {
   display: inline-flex;
@@ -537,15 +572,16 @@ onMounted(() => {
   font-size: 12px;
   font-weight: 600;
   border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
 }
 
 /* ========== 通用 section ========== */
 .section {
-  margin: 16px 12px 0;
+  margin: 12px 12px 0;
   background: #fff;
   border-radius: 14px;
   padding: 14px 14px 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
 }
 .sec-head {
   display: flex;
@@ -569,7 +605,7 @@ onMounted(() => {
   padding: 14px;
   background: #fff;
   border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
 }
 .ac-head {
   display: flex;
@@ -598,7 +634,7 @@ onMounted(() => {
   gap: 4px;
   padding: 10px 0;
   border-radius: 10px;
-  background: #f8f9fb;
+  background: #f7f8fa;
   transition: transform 0.15s;
 }
 .ac-item:active { transform: scale(0.95); }
@@ -673,22 +709,50 @@ onMounted(() => {
   opacity: 0.8;
 }
 
-/* ========== 活动横向滚动 ========== */
-.act-scroll {
+/* ========== 活动跑马灯 ========== */
+.act-section {
+  padding-bottom: 14px;
+}
+.act-marquee {
   margin: 0 -14px;
   padding: 0 14px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  overflow: hidden;
+  position: relative;
 }
-.act-scroll::-webkit-scrollbar { display: none; }
-.act-track {
+.act-marquee::before,
+.act-marquee::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  z-index: 2;
+  pointer-events: none;
+}
+.act-marquee::before {
+  left: 0;
+  background: linear-gradient(90deg, #fff 0%, transparent 100%);
+}
+.act-marquee::after {
+  right: 0;
+  background: linear-gradient(-90deg, #fff 0%, transparent 100%);
+}
+.am-track {
   display: flex;
   gap: 10px;
-  padding-right: 14px;
+  animation: marquee-scroll linear infinite;
+  width: max-content;
+}
+.act-marquee:hover .am-track {
+  animation-play-state: paused;
+}
+@keyframes marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 .act-card {
   flex: 0 0 auto;
-  width: 140px;
+  width: 150px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -730,7 +794,7 @@ onMounted(() => {
 
 /* ========== 品类宫格 ========== */
 .grid-card {
-  background: linear-gradient(180deg, #fffaf8 0%, #fff 100%);
+  background: #fff;
   border-radius: 12px;
   padding: 12px 0 8px;
 }
@@ -758,7 +822,7 @@ onMounted(() => {
   justify-content: center;
   border-radius: 14px;
   font-size: 22px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.06);
   transition: transform 0.2s;
 }
 .cat-name {

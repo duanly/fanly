@@ -2,11 +2,6 @@
   <div class="goods-card-v2" @click="go">
     <div class="img-wrap">
       <img :src="g.image" :alt="g.title" loading="lazy" />
-      <!-- 平台小标 -->
-      <span
-        class="plat-tag"
-        :style="{ background: platColor(g.platform) }"
-      >{{ platShort(g.platform) }}</span>
       <!-- 券标 -->
       <span v-if="g.couponAmount > 0" class="coupon-tag">
         <span class="ct-yen">¥</span>
@@ -22,7 +17,7 @@
 
       <!-- 返利 -->
       <div v-if="rebate > 0" class="rebate-row">
-        <span class="rebate-tag">返</span>
+        <span class="rebate-tag" :style="{ background: platColor(g.platform) }">{{ platShort(g.platform) }}返</span>
         <span class="rebate-amt">¥{{ rebate }}</span>
         <span class="rebate-label">买了就返</span>
       </div>
@@ -54,7 +49,7 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { api } from '../api';
-import { platColor, platName, platShort } from '../utils/platform';
+import { platColor, platShort } from '../utils/platform';
 
 const props = defineProps({
   g: { type: Object, required: true },
@@ -128,20 +123,26 @@ async function doRecommend() {
   object-fit: cover;
 }
 
-/* 平台小标 */
-.plat-tag {
-  position: absolute;
-  left: 6px;
-  top: 6px;
+/* 返利行 */
+.rebate-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+.rebate-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 2px 6px;
+  height: 16px;
   color: #fff;
   font-size: 10px;
-  font-weight: 600;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  font-weight: 700;
+  border-radius: 4px;
+  line-height: 1;
+  white-space: nowrap;
 }
-
-/* 券标 */
 .coupon-tag {
   position: absolute;
   right: 0;
