@@ -150,16 +150,18 @@ async function buy() {
     const r = await api.convert(route.params.platform, route.params.goodsId);
     if (r?.needAuth) return toAuth(r.platform || route.params.platform);
     link.value = r;
-    // deeplink 为空时绝不能往 location.href 里塞 undefined，
-    // 那会被当成相对路径跳走，表现就是「点了购买莫名其妙回到首页」
-    if (!r.deeplink) {
+    // 跳 H5 推广短链（HTTP）：浏览器/微信里会自动唤起 App，没装就引导下载。
+    // deeplink 是拼多多的 schema（pinduoduo://…），location.href 在很多环境里被拦，
+    // 只当短链也空了才拿它兜底。绝不能塞 undefined，会被当成相对路径跳回首页。
+    const target = r.shortUrl || r.deeplink;
+    if (!target) {
       showLink.value = true;
       return;
     }
-    // 真机上这一步唤起电商 App，浏览器里唤不起就展示链接
     showToast('正在打开购物 App…');
-    location.href = r.deeplink;
-    setTimeout(() => { showLink.value = true; }, 1200);
+    location.href = target;
+    // 1.5 秒后还没离开页面，多半是跳转被拦，把口令/短链弹给用户手动复制
+    setTimeout(() => { showLink.value = true; }, 1500);
   } finally {
     converting.value = false;
   }

@@ -256,7 +256,8 @@ export class PddProvider implements CpsProvider {
 
   async recommendGoodsPage(p: RecommendParams = {}): Promise<GoodsPage> {
     const page = Math.max(p.page ?? 1, 1);
-    const limit = Math.min(p.pageSize ?? 20, 100);
+    // 拼多多推荐接口 limit 上限是 50，传多了直接报 50001「一次最多查询50个商品」
+    const limit = Math.min(p.pageSize ?? 20, 50);
     const offset = (page - 1) * limit;
     const channelType = PddProvider.CHANNEL_TYPE[p.channel ?? 'earn'] ?? 3;
 
@@ -307,7 +308,9 @@ export class PddProvider implements CpsProvider {
     return {
       platform: 'PDD',
       goodsId: goodsSign,
-      shortUrl: u.mobile_short_url || u.short_url || u.mobile_url || u.url || '',
+      // 优先「唤起 App」的短链：浏览器/微信里打开会自动唤起 App，没装就引导下载。
+      // schema_url 是原生 schema（pinduoduo://…），H5 里 location.href 会被拦，不能拿来当跳转主链。
+      shortUrl: u.mobile_short_url || u.mobile_url || u.short_url || u.url || '',
       deeplink: u.schema_url || u.mobile_url || '',
       password: '', // 拼多多没有淘口令那种东西，分享的就是短链
       positionId,

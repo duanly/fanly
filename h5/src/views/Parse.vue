@@ -152,10 +152,12 @@ async function doParse() {
 }
 
 function openApp() {
-  const dl = result.value?.link?.deeplink;
-  if (!dl) return showToast('转链信息缺失');
+  const link = result.value?.link;
+  // 优先 H5 短链（唤起 App / 引导下载），schema deeplink 只作兜底
+  const target = link?.shortUrl || link?.deeplink;
+  if (!target) return showToast('转链信息缺失');
   showToast('正在打开购物 App…');
-  location.href = dl;
+  location.href = target;
 }
 
 function back() {
