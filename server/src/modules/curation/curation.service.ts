@@ -8,6 +8,10 @@ import { UnifiedGoods } from '../cps/cps.types';
 /** 刷新时每件商品之间的间隔，别把平台接口打限流了 */
 const REFRESH_GAP_MS = 120;
 
+function statusName(s: number) {
+  return { 0: 'OFF', 1: 'ON', 2: 'EXPIRED', 3: 'PENDING' }[s] || String(s);
+}
+
 @Injectable()
 export class CurationService {
   private readonly logger = new Logger(CurationService.name);
@@ -70,9 +74,18 @@ export class CurationService {
    * 把一件已经拿到的商品写进池子（已存在则刷新快照并重新上架）。
    * add() 走它、批量导入也走它——批量导入手里已经有完整商品对象，
    * 没理由再为每一件多打一次详情接口。
+   *
+   * targetStatus: 写入时的目标状态，默认 ON（直接上架）。
+   *   传 PENDING 就是放进待选品池，等运营审核。
+   *   注意：如果商品已经在池里并且是 ON/OFF/EXPIRED，不会被降级成 PENDING——
+   *   已上架的不能被自动拉品覆盖回待选品。
    */
-  private async upsert(g: UnifiedGoods, groupKey: string, sortWeight: number) {
+  private async upsert(g: UnifiedGoods, groupKey: string, sortWeight: number, targetStatus = CuratedStatus.ON) {
     const exist = await this.repo.findOneBy({ platform: g.platform, goodsId: g.goodsId });
+    // 已在池里（非 PENDING）的不降级；只有 PENDING 状态的会被刷新信息
+    const finalStatus = exist && exist.status !== CuratedStatus.PENDING
+      ? exist.status
+      : targetStatus;
     const row = this.repo.create({
       ...(exist ?? {}),
       ...this.snapshot(g),
@@ -80,13 +93,13 @@ export class CurationService {
       goodsId: g.goodsId,
       groupKey,
       sortWeight,
-      status: CuratedStatus.ON,
-      offReason: '',
+      status: finalStatus,
+      offReason: finalStatus === CuratedStatus.ON ? '' : (exist?.offReason ?? ''),
       lastSyncAt: new Date(),
     });
     const saved = await this.repo.save(row);
     this.logger.log(
-      `选品池 ${exist ? '更新' : '新增'}: ${g.platform}/${g.goodsId} ${g.title.slice(0, 20)}`,
+      `选品池 ${exist ? '更新' : '新增'} [${statusName(finalStatus)}]: ${g.platform}/${g.goodsId} ${g.title.slice(0, 20)}`,
     );
     return this.toGoods(saved);
   }
@@ -97,6 +110,8 @@ export class CurationService {
    * 这是「上架到自己的平台」的主入口——之前后台只能一页一页挑（拼多多只给 40 条），
    * 现在一次能翻多页、多频道，凑够 count 为止。有佣金才算数，0 佣金的跳过（跳过的
    * 数要报给运营，让他知道平台里还有多少是没返利的）。
+   *
+   * targetStatus: 写入目标状态，默认 ON（直接上架）。传 PENDING 就是放进待选品池。
    */
   async importBatch(opts: {
     platform?: string;
@@ -105,11 +120,13 @@ export class CurationService {
     count?: number;
     groupKey?: string;
     sortWeight?: number;
+    targetStatus?: number;
   }): Promise<{ fetched: number; added: number; skipped: number; errors: number }> {
     const platform = (opts.platform || 'PDD').toUpperCase();
     const target = Math.min(Math.max(opts.count ?? 100, 1), 500);
     const groupKey = opts.groupKey || 'default';
     const sortWeight = opts.sortWeight ?? 0;
+    const targetStatus = opts.targetStatus ?? CuratedStatus.ON;
     const MAX_PAGES = 10;
 
     const seen = new Set<string>();
@@ -159,7 +176,7 @@ export class CurationService {
     for (const g of candidates) {
       if (!(g.commission > 0)) { skipped++; continue; }
       try {
-        await this.upsert(g, groupKey, sortWeight);
+        await this.upsert(g, groupKey, sortWeight, targetStatus);
         added++;
       } catch (e: any) {
         errors++;
@@ -341,5 +358,104 @@ export class CurationService {
     if (!row) throw new NotFoundException('选品不存在');
     const r = await this.refreshOne(row);
     return { result: r, goods: this.toGoods(row), status: row.status, offReason: row.offReason };
+  }
+
+  /**
+   * 自动拉品：从各平台批量拉商品，以待选品（PENDING）状态入库。
+   *
+   * 策略：每个平台从三个维度混合拉——热销榜 + 收益榜 + 大品类关键词搜索，
+   * 凑够 targetCount 就停。拉回来都是 PENDING，运营在选品工作台审核后上架。
+   *
+   * 已在池里（ON/OFF/EXPIRED）的跳过，不会被覆盖成 PENDING；
+   * 已经是 PENDING 的会刷新信息（价格、佣金、销量更新到最新）。
+   */
+  async autoPull(opts: {
+    platforms?: string[];
+    targetPerPlatform?: number;
+    keywords?: string[];
+  }): Promise<Record<string, { fetched: number; added: number; skipped: number; errors: number }>> {
+    const platforms = opts.platforms?.length ? opts.platforms : ['PDD', 'JD', 'TB', 'DY'];
+    const target = Math.min(Math.max(opts.targetPerPlatform ?? 1000, 100), 5000);
+    const keywords = opts.keywords?.length ? opts.keywords : ['日用', '食品', '美妆', '数码', '服饰'];
+
+    const result: Record<string, { fetched: number; added: number; skipped: number; errors: number }> = {};
+
+    for (const platform of platforms) {
+      this.logger.log(`自动拉品开始 [${platform}], 目标 ${target} 件`);
+      const stat = { fetched: 0, added: 0, skipped: 0, errors: 0 };
+      const seen = new Set<string>();
+      const candidates: UnifiedGoods[] = [];
+      const collect = (list: UnifiedGoods[]) => {
+        for (const g of list) {
+          if (!g?.goodsId || seen.has(g.goodsId)) continue;
+          seen.add(g.goodsId);
+          candidates.push(g);
+          if (candidates.length >= target) return true;
+        }
+        return false;
+      };
+
+      // 维度 1：热销榜（25% 配额）
+      try {
+        const hotTarget = Math.floor(target * 0.25);
+        for (let page = 1; page <= 20 && candidates.length < hotTarget; page++) {
+          const r = await this.cps.recommendGoodsPage(platform, { channel: 'hot', page, pageSize: 50 });
+          if (!r.list.length || !r.hasMore) break;
+          if (collect(r.list)) break;
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      } catch (e: any) {
+        this.logger.warn(`自动拉品 [${platform}] 热销榜失败: ${e.message}`);
+      }
+
+      // 维度 2：收益榜（25% 配额）
+      try {
+        const earnTarget = Math.floor(target * 0.5);
+        for (let page = 1; page <= 20 && candidates.length < earnTarget; page++) {
+          const r = await this.cps.recommendGoodsPage(platform, { channel: 'earn', page, pageSize: 50 });
+          if (!r.list.length || !r.hasMore) break;
+          if (collect(r.list)) break;
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      } catch (e: any) {
+        this.logger.warn(`自动拉品 [${platform}] 收益榜失败: ${e.message}`);
+      }
+
+      // 维度 3：关键词搜索（每个关键词分一点配额，总共 50% 配额）
+      const kwTarget = Math.floor(target * 0.5);
+      const kwQuota = Math.ceil(kwTarget / keywords.length);
+      for (const kw of keywords) {
+        if (candidates.length >= target) break;
+        try {
+          for (let page = 1; page <= 5; page++) {
+            const r = await this.cps.searchGoodsPage(platform, { keyword: kw, page, pageSize: 50, sort: 'sales' });
+            if (!r.list.length || !r.hasMore) break;
+            if (collect(r.list)) break;
+            if (candidates.filter((g) => g.keyword === kw).length >= kwQuota) break;
+            await new Promise((r) => setTimeout(r, 200));
+          }
+        } catch (e: any) {
+          this.logger.warn(`自动拉品 [${platform}] 关键词[${kw}]失败: ${e.message}`);
+        }
+      }
+
+      // 写入库（PENDING 状态）
+      for (const g of candidates) {
+        stat.fetched++;
+        if (!(g.commission > 0)) { stat.skipped++; continue; }
+        try {
+          await this.upsert(g, 'default', 0, CuratedStatus.PENDING);
+          stat.added++;
+        } catch (e: any) {
+          stat.errors++;
+          this.logger.warn(`自动拉品入库失败 ${platform}/${g.goodsId}: ${e.message}`);
+        }
+      }
+
+      result[platform] = stat;
+      this.logger.log(`自动拉品完成 [${platform}]: 拉取 ${stat.fetched}, 入库 ${stat.added}, 跳过 ${stat.skipped}, 错误 ${stat.errors}`);
+    }
+
+    return result;
   }
 }

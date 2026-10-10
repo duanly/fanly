@@ -81,4 +81,16 @@ export class JobService {
     await this.agent.recalcLevels();
     this.logger.log('代理等级已重算');
   }
+
+  /**
+   * 自动拉品，每天凌晨 02:30。
+   *
+   * 从各平台拉商品进待选品池（PENDING 状态），运营审核后上架。
+   * 放在凌晨跑，避开业务高峰，也别和对账（03:00）挤在一起。
+   */
+  @Cron('0 30 2 * * *')
+  async autoPullGoods() {
+    const r = await this.curation.autoPull({});
+    this.logger.log(`自动拉品完成: ${JSON.stringify(r)}`);
+  }
 }

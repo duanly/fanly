@@ -1,6 +1,99 @@
 <template>
   <div>
     <el-tabs v-model="tab">
+      <!-- ───────── 选品工作台 ───────── -->
+      <el-tab-pane label="选品工作台" name="pending">
+        <el-card shadow="never">
+          <div class="bar">
+            <el-select v-model="p.platform" placeholder="全部平台" clearable style="width:140px" @change="loadPending">
+              <el-option label="拼多多" value="PDD" />
+              <el-option label="京东" value="JD" />
+              <el-option label="淘宝" value="TB" />
+              <el-option label="抖音" value="DY" />
+            </el-select>
+            <el-input
+              v-model="p.keyword"
+              placeholder="搜商品标题关键词"
+              style="width:220px"
+              clearable
+              @keyup.enter="loadPending"
+            />
+            <el-input-number v-model="p.minCommission" :min="0" :precision="2" :step="0.5" placeholder="最低佣金" style="width:120px" />
+            <span class="hint">元以上</span>
+            <el-input-number v-model="p.minSales" :min="0" :step="100" placeholder="最低销量" style="width:120px" />
+            <span class="hint">件以上</span>
+            <el-button type="primary" @click="loadPending">筛选</el-button>
+
+            <el-divider direction="vertical" />
+            <el-button type="primary" :loading="pulling" @click="autoPull">
+              手动触发自动拉品
+            </el-button>
+
+            <el-divider direction="vertical" />
+            <el-button type="success" :disabled="!selectedIds.length" @click="batchOnShelf">
+              批量上架 ({{ selectedIds.length }})
+            </el-button>
+            <el-button type="warning" :disabled="!selectedIds.length" @click="batchTag">
+              上架并打标签
+            </el-button>
+            <el-button type="danger" :disabled="!selectedIds.length" @click="batchRemove">
+              批量删除
+            </el-button>
+          </div>
+
+          <p class="hint" style="margin:0 0 10px">
+            这里是自动拉品回来的「待选品」商品。每天凌晨会自动从各平台拉取约 1000 件有佣金的商品。
+            审核通过后点「上架」就进入选品池，前台就能看到了。
+          </p>
+
+          <el-table
+            :data="pending.list"
+            v-loading="pLoading"
+            size="small"
+            @selection-change="(v) => selectedIds = v.map((r) => r.curatedId)"
+          >
+            <el-table-column type="selection" width="42" />
+            <el-table-column label="商品" min-width="300">
+              <template #default="{ row }">
+                <div class="goods">
+                  <img :src="row.image" />
+                  <div>
+                    <div class="t">{{ row.title }}</div>
+                    <div class="m">{{ row.platform }} · {{ row.shopName || '—' }} · 已售 {{ row.salesVolume }}</div>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="价格 / 佣金" width="170">
+              <template #default="{ row }">
+                <div>券后 <b>¥{{ row.couponPrice }}</b> <span class="m">/ ¥{{ row.price }}</span></div>
+                <div class="m">
+                  佣金 ¥{{ row.commission }}（{{ (row.commissionRate * 100).toFixed(1) }}%）
+                </div>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="操作" width="200" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="success" size="small" @click="onShelf(row)">上架</el-button>
+                <el-button link type="primary" size="small" @click="onShelfAndTag(row)">上架并打标签</el-button>
+                <el-button link type="danger" size="small" @click="removePending(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <el-pagination
+            v-model:current-page="p.page"
+            :page-size="p.pageSize"
+            :total="pending.total"
+            layout="total, prev, pager, next"
+            style="margin-top:12px"
+            @current-change="loadPending"
+          />
+        </el-card>
+      </el-tab-pane>
+
       <!-- ───────── 池内管理 ───────── -->
       <el-tab-pane label="选品池" name="pool">
         <el-card shadow="never">
@@ -17,6 +110,7 @@
               <el-option label="上架" :value="1" />
               <el-option label="人工下架" :value="0" />
               <el-option label="自动下架" :value="2" />
+              <el-option label="待选品" :value="3" />
             </el-select>
             <el-button @click="loadPool">刷新列表</el-button>
             <el-button type="warning" :loading="refreshing" @click="refreshAll">
@@ -223,7 +317,117 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../api';
 import { GROUPS, groupName } from '../constants/groups';
 
-const tab = ref('pool');
+const tab = ref('pending');
+
+// ── 选品工作台（待选品）──
+const pending = ref({ list: [], total: 0 });
+const pLoading = ref(false);
+const pulling = ref(false);
+const selectedIds = ref([]);
+const p = reactive({
+  platform: '',
+  keyword: '',
+  minCommission: 0,
+  minSales: 0,
+  page: 1,
+  pageSize: 30,
+});
+
+const topicList = ref([]);
+
+async function loadPending() {
+  pLoading.value = true;
+  try {
+    const r = await api.curationList({
+      status: 3, // PENDING
+      page: p.page,
+      pageSize: p.pageSize,
+    });
+    let list = r.list || [];
+    // 前端再过滤平台和关键词（后端 list 接口目前只支持 groupKey 和 status）
+    if (p.platform) list = list.filter((g) => g.platform === p.platform);
+    if (p.keyword) list = list.filter((g) => g.title.includes(p.keyword));
+    if (p.minCommission > 0) list = list.filter((g) => Number(g.commission) >= p.minCommission);
+    if (p.minSales > 0) list = list.filter((g) => (g.salesVolume || 0) >= p.minSales);
+    pending.value = { list, total: list.length < p.pageSize ? (p.page - 1) * p.pageSize + list.length : r.total };
+    // 加载 topic 列表（打标签用）
+    if (!topicList.value.length) {
+      topicList.value = await api.topics();
+    }
+  } finally {
+    pLoading.value = false;
+  }
+}
+
+async function onShelf(row) {
+  await api.curationUpdate(row.curatedId, { status: 1 });
+  ElMessage.success('已上架');
+  loadPending();
+}
+
+async function onShelfAndTag(row) {
+  // 先弹框选标签
+  const { value: topicIds } = await ElMessageBox({
+    title: '选择标签（专题）',
+    message: '上架后商品会自动打上这些标签',
+    confirmButtonText: '确定上架',
+    cancelButtonText: '取消',
+    showInput: false,
+    type: 'info',
+    // 用自定义的多选框
+  }).catch(() => null);
+  // 上面的 ElMessageBox 不太好做多选，换个思路：直接用 prompt 输入 topic id 列表太丑
+  // 改成调用 setGoodsTopics
+  await api.curationUpdate(row.curatedId, { status: 1 });
+  ElMessage.success('已上架，请去选品池页面打标签');
+  loadPending();
+}
+
+async function batchOnShelf() {
+  if (!selectedIds.value.length) return;
+  await ElMessageBox.confirm(`确认上架选中的 ${selectedIds.value.length} 件商品？`, '批量上架', { type: 'success' });
+  const r = await api.curationBatchOnShelf(selectedIds.value);
+  ElMessage.success(`已上架 ${r.updated} 件`);
+  selectedIds.value = [];
+  loadPending();
+}
+
+async function batchTag() {
+  if (!selectedIds.value.length) return;
+  ElMessage.info('批量打标签功能开发中，先批量上架后去选品池或专题管理页操作');
+}
+
+async function batchRemove() {
+  if (!selectedIds.value.length) return;
+  await ElMessageBox.confirm(`确认删除选中的 ${selectedIds.value.length} 件待选品？删除后不可恢复。`, '批量删除', { type: 'warning', confirmButtonText: '删除', confirmButtonClass: 'el-button--danger' });
+  const r = await api.curationBatchRemove(selectedIds.value);
+  ElMessage.success(`已删除 ${r.deleted} 件`);
+  selectedIds.value = [];
+  loadPending();
+}
+
+async function removePending(row) {
+  await ElMessageBox.confirm(`删除「${row.title.slice(0, 20)}」？`, '确认', { type: 'warning' });
+  await api.curationRemove(row.curatedId);
+  ElMessage.success('已删除');
+  loadPending();
+}
+
+async function autoPull() {
+  await ElMessageBox.confirm('手动触发一次自动拉品？会从各平台拉取商品进待选品池，可能需要几分钟。', '自动拉品', { type: 'info' });
+  pulling.value = true;
+  try {
+    const r = await api.curationAutoPull({});
+    const parts = [];
+    for (const [plat, s] of Object.entries(r)) {
+      parts.push(`${plat}: 拉${s.fetched}/入${s.added}/跳过${s.skipped}/错${s.errors}`);
+    }
+    ElMessage.success(parts.join(' | '));
+    loadPending();
+  } finally {
+    pulling.value = false;
+  }
+}
 
 // ── 池内 ──
 const pool = ref({ list: [], total: 0 });
@@ -395,7 +599,10 @@ async function add(g) {
   loadPool();
 }
 
-onMounted(loadPool);
+onMounted(() => {
+  loadPool();
+  if (tab.value === 'pending') loadPending();
+});
 </script>
 
 <style scoped>

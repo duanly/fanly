@@ -6,6 +6,7 @@ export enum CuratedStatus {
   OFF = 0,      // 人工下架
   ON = 1,       // 上架
   EXPIRED = 2,  // 自动下架：佣金归零或商品已退出推广
+  PENDING = 3,  // 待选品：自动拉回来但还没经运营审核
 }
 
 /**

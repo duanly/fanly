@@ -93,6 +93,40 @@ export class CurationController {
     return this.curation.importBatch(body);
   }
 
+  @Post('auto-pull')
+  @ApiOperation({ summary: '手动触发自动拉品（进待选品池），商品多时会跑一会儿' })
+  autoPull(@Body() body: { platforms?: string[]; targetPerPlatform?: number; keywords?: string[] }) {
+    return this.curation.autoPull(body || {});
+  }
+
+  @Post('batch-on-shelf')
+  @ApiOperation({ summary: '批量上架：把待选品或下架的商品设为上架' })
+  async batchOnShelf(@Body() body: { ids: number[] }) {
+    const ids = body.ids || [];
+    let updated = 0;
+    for (const id of ids) {
+      try {
+        await this.curation.update(id, { status: 1 });
+        updated++;
+      } catch { /* 单个失败不影响整体 */ }
+    }
+    return { updated, total: ids.length };
+  }
+
+  @Post('batch-remove')
+  @ApiOperation({ summary: '批量删除商品（连带清掉专题关联）' })
+  async batchRemove(@Body() body: { ids: number[] }) {
+    const ids = body.ids || [];
+    let deleted = 0;
+    for (const id of ids) {
+      try {
+        const r = await this.curation.remove(id);
+        deleted += r.deleted || 0;
+      } catch { /* 单个失败不影响整体 */ }
+    }
+    return { deleted, total: ids.length };
+  }
+
   // 静态路由必须排在 @Post(':id') 前面，否则 /refresh-all 会被当成 id
   @Post('refresh-all')
   @ApiOperation({ summary: '全池刷新，商品多时会跑一会儿' })

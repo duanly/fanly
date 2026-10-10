@@ -58,6 +58,9 @@ export const api = {
   curationRefreshAll: () => http.post('/api/admin/curation/refresh-all'),
   curationRemoveOffShelf: () => http.post('/api/admin/curation/remove-off-shelf'),
   curationRemove: (id) => http.delete(`/api/admin/curation/${id}`),
+  curationAutoPull: (data) => http.post('/api/admin/curation/auto-pull', data),
+  curationBatchOnShelf: (ids) => http.post('/api/admin/curation/batch-on-shelf', { ids }),
+  curationBatchRemove: (ids) => http.post('/api/admin/curation/batch-remove', { ids }),
 
   // 专题（= 标签 = 页面 = 首页入口）
   // 列表走后台接口（含下架的、带商品数），专题内商品直接用公开接口，不用另开一个
