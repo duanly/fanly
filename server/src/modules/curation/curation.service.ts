@@ -426,12 +426,14 @@ export class CurationService {
       const kwQuota = Math.ceil(kwTarget / keywords.length);
       for (const kw of keywords) {
         if (candidates.length >= target) break;
+        const beforeCount = candidates.length;
         try {
           for (let page = 1; page <= 5; page++) {
             const r = await this.cps.searchGoodsPage(platform, { keyword: kw, page, pageSize: 50, sort: 'sales' });
             if (!r.list.length || !r.hasMore) break;
             if (collect(r.list)) break;
-            if (candidates.filter((g) => g.keyword === kw).length >= kwQuota) break;
+            // 这个关键词已经拉够配额了就停
+            if (candidates.length - beforeCount >= kwQuota) break;
             await new Promise((r) => setTimeout(r, 200));
           }
         } catch (e: any) {
