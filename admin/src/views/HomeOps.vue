@@ -6,12 +6,26 @@
       <el-tab-pane label="活动位" name="entry" />
     </el-tabs>
 
-    <div class="bar">
+    <div v-if="slot !== 'entry'" class="bar">
       <el-button type="primary" @click="openNew">新增</el-button>
       <span class="hint">{{ SLOT_HINT[slot] }}</span>
     </div>
 
-    <el-table :data="rows" v-loading="loading" size="small">
+    <!-- 活动位已迁移到标签管理 -->
+    <div v-if="slot === 'entry'" class="migrate-tip">
+      <el-alert
+        title="活动位已迁移到「标签管理」"
+        type="info"
+        :closable="false"
+        description="活动位现在由「活动标签」驱动。在标签管理中新建 type=活动标签 的标签，设置好图标、介绍、活动时间、banner 等，就会自动出现在首页活动位。"
+      />
+      <el-button type="primary" style="margin-top:16px" @click="$router.push('/topics')">
+        去标签管理
+      </el-button>
+    </div>
+
+    <template v-else>
+      <el-table :data="rows" v-loading="loading" size="small">
       <el-table-column label="图标" width="70">
         <template #default="{ row }">
           <span style="font-size:22px">{{ row.icon }}</span>
@@ -58,8 +72,9 @@
         </template>
       </el-table-column>
     </el-table>
+    </template>
 
-    <el-dialog v-model="visible" :title="form.id ? '编辑活动位' : '新增活动位'" width="480px">
+    <el-dialog v-model="visible" :title="form.id ? '编辑' : '新增'" width="480px">
       <el-form label-width="80px">
         <el-form-item label="图标">
           <el-input v-model="form.icon" placeholder="一个 emoji，例如 🎁" style="width:120px" />
@@ -117,8 +132,8 @@ const loading = ref(false);
 const visible = ref(false);
 const SLOT_HINT = {
   banner: '首页顶部轮播。背景可以填图片 URL，也可以填 CSS 渐变。点击会跳到配的链接。',
-  category: '首页八大分区。链接一般填 /group/专题key，图标用 emoji，背景填渐变。一页放 8 个，多了横滑。',
-  entry: '分区下面那一排活动入口。可以是外链，也可以是站内路径（如 /checkin）。',
+  category: '首页八大分区链接（旧）。现在宫格已改为自动从「品类标签」读取，这里的配置仅作兼容兜底。',
+  entry: '活动位已迁移到标签管理',
 };
 const slot = ref('banner');
 const form = reactive({
@@ -181,4 +196,5 @@ onMounted(load);
 .hint { color: #909399; font-size: 12px; }
 .m { color: #909399; font-size: 12px; }
 .bg-prev { width: 100px; }
+.migrate-tip { padding: 40px 20px; text-align: center; }
 </style>

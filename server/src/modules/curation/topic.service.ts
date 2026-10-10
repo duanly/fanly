@@ -190,10 +190,18 @@ export class TopicService implements OnModuleInit {
     else qb.orderBy('r.sortWeight', 'DESC').addOrderBy('g.commission', 'DESC');
     qb.addOrderBy('g.id', 'DESC');
 
-    const [rows, total] = await qb
-      .skip((Math.max(page, 1) - 1) * pageSize)
-      .take(Math.min(pageSize, 100))
-      .getManyAndCount();
+    const [rows, total] = await Promise.all([
+      qb
+        .skip((Math.max(page, 1) - 1) * pageSize)
+        .take(Math.min(pageSize, 100))
+        .getMany(),
+      // 单独算总数，避开 TypeORM getManyAndCount 在 join 时的 distinct 列名 bug
+      this.goodsRepo
+        .createQueryBuilder('g')
+        .innerJoin(GoodsTopic, 'r', 'r.curatedId = g.id AND r.topicId = :tid', { tid: t.id })
+        .where('g.status = :st', { st: CuratedStatus.ON })
+        .getCount(),
+    ]);
 
     return { total, page, topic: this.view(t), list: rows.map((r) => this.toGoods(r)) };
   }

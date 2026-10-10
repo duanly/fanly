@@ -212,22 +212,22 @@ const bannerStyle = (b) => ({
     : (b.image || 'linear-gradient(135deg,#ff8a3d,#ff3b30)'),
 });
 
-/** 分区优先用后台配的；没配就退回「池子里真有货的专题」；再没有才用预设 */
 /**
- * 活动位 = slot=activity 的专题 + home_link 里的外链。
- * 专题走站内 /topic/xxx，真外链（比如跳京东的活动页）还得靠 home_link。
+ * 活动位 = type=activity 的活动标签（按 sortWeight 排序）。
+ * 全部走站内 /topic/xxx 页面，标签管理后台统一维护。
  */
-const acts = computed(() => [
-  ...topics.value.filter((t) => t.slot === 'activity').map((t) => ({
-    key: `t-${t.slug}`,
-    title: t.name,
-    subtitle: t.intro || '',
-    icon: t.icon || '🎁',
-    url: `/topic/${t.slug}`,
-    internal: true,
-  })),
-  ...links.value.map((l) => ({ ...l, key: `l-${l.id}` })),
-]);
+const acts = computed(() =>
+  topics.value
+    .filter((t) => t.type === 'activity' && t.status === 1)
+    .map((t) => ({
+      key: `t-${t.slug}`,
+      title: t.name,
+      subtitle: t.intro || '',
+      icon: t.icon || '🎁',
+      url: `/topic/${t.slug}`,
+      internal: true,
+    })),
+);
 
 /**
  * 活动位跑马灯内容：复制多份实现无缝循环。
