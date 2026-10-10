@@ -4,6 +4,23 @@
     <div class="top-wrap">
       <div class="top-bg"></div>
 
+      <div class="top-bar">
+        <div class="search-box" @click="$router.push('/search')">
+          <van-icon name="search" color="#ff4b3a" size="15" />
+          <span class="ph">搜隐藏优惠券 · 搜什么都返</span>
+        </div>
+        <div class="top-actions">
+          <div class="ta-item" @click="goParse">
+            <div class="ta-ico">🔗</div>
+            <span>转链</span>
+          </div>
+          <div class="ta-item" @click="$router.push('/checkin')">
+            <div class="ta-ico">🎁</div>
+            <span>签到</span>
+          </div>
+        </div>
+      </div>
+
       <!-- 开启返利卡片 -->
       <div class="auth-card">
         <div class="ac-head">
@@ -21,23 +38,6 @@
             <span class="ac-dot" :style="{ background: p.bg }">{{ p.short }}</span>
             <span class="ac-name">{{ p.name }}</span>
             <span class="ac-st">{{ auth[p.key] === true ? '已开启' : '去开启' }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="top-bar">
-        <div class="search-box" @click="$router.push('/search')">
-          <van-icon name="search" color="#ff4b3a" size="15" />
-          <span class="ph">搜隐藏优惠券 · 搜什么都返</span>
-        </div>
-        <div class="top-actions">
-          <div class="ta-item" @click="goParse">
-            <div class="ta-ico">🔗</div>
-            <span>转链</span>
-          </div>
-          <div class="ta-item" @click="$router.push('/checkin')">
-            <div class="ta-ico">🎁</div>
-            <span>签到</span>
           </div>
         </div>
       </div>
@@ -91,32 +91,6 @@
       </div>
     </div>
 
-    <!-- 活动标签位（无缝跑马灯） -->
-    <div v-if="acts.length" class="section act-section">
-      <div class="sec-head">
-        <span class="sec-title">🔥 限时活动</span>
-        <span class="sec-more" @click="scrollToCats">更多 ›</span>
-      </div>
-      <div class="act-marquee">
-        <div class="am-track" :style="{ animationDuration: marqueeDuration + 's' }">
-          <div
-            v-for="(a, i) in marqueeActs"
-            :key="a.key + '-' + i"
-            class="act-card"
-            @click="openLink(a)"
-          >
-            <div class="ac-ico" :style="{ background: a.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' }">
-              {{ a.icon || '🎁' }}
-            </div>
-            <div class="ac-info">
-              <div class="ac-title">{{ a.title }}</div>
-              <div class="ac-sub">{{ a.subtitle || '限时特惠' }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- 品类宫格 -->
     <div class="section" ref="catsRef">
       <div class="sec-head">
@@ -143,6 +117,32 @@
             </div>
           </van-swipe-item>
         </van-swipe>
+      </div>
+    </div>
+
+    <!-- 活动标签位（无缝跑马灯） -->
+    <div v-if="acts.length" class="section act-section">
+      <div class="sec-head">
+        <span class="sec-title">🔥 限时活动</span>
+        <span class="sec-more">更多 ›</span>
+      </div>
+      <div class="act-marquee">
+        <div class="am-track" :style="{ animationDuration: marqueeDuration + 's' }">
+          <div
+            v-for="(a, i) in marqueeActs"
+            :key="a.key + '-' + i"
+            class="act-card"
+            @click="openLink(a)"
+          >
+            <div class="ac-ico" :style="{ background: a.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' }">
+              {{ a.icon || '🎁' }}
+            </div>
+            <div class="ac-info">
+              <div class="ac-title">{{ a.title }}</div>
+              <div class="ac-sub">{{ a.subtitle || '限时特惠' }}</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -608,8 +608,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: -14px -14px 12px;
-  padding: 0 10px;
+  margin: -20px -14px 8px -16px;
+  padding: 0 12px 0 0;
 }
 .sec-title {
   position: relative;

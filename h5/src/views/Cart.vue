@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <van-nav-bar title="购物车" fixed placeholder>
+    <van-nav-bar title="购物车" fixed placeholder left-arrow @click-left="$router.back()">
       <template #right>
         <span v-if="list.length" style="font-size:13px" @click="editing = !editing">
           {{ editing ? '完成' : '管理' }}
@@ -57,6 +57,7 @@
 
       <van-submit-bar
         v-if="list.length"
+        class="cart-submit-bar"
         :price="editing ? 0 : totalFinal * 100"
         :button-text="editing ? `删除 (${picked.length})` : '去购买'"
         :button-color="editing ? '#969799' : '#ff4b3a'"
@@ -191,6 +192,13 @@ onMounted(load);
 </script>
 
 <style scoped>
+.page {
+  padding-bottom: 110px;
+}
+:deep(.cart-submit-bar) {
+  bottom: 50px !important;
+  padding-bottom: 0 !important;
+}
 .cart-sync { padding: 8px 14px 0; font-size: 12px; }
 
 .cart-item {
