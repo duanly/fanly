@@ -219,8 +219,22 @@ body {
 }
 
 /* 榜单抬头（热销榜/返利榜/推荐榜）加边距 + 圆角 */
+.rank-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 16px 4px;
+}
+.rank-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+.rank-more {
+  font-size: 13px;
+  color: #969799;
+}
 .rank-tabs {
-  margin: 12px;
+  margin: 0 12px 4px;
 }
 .rank-tabs .van-tabs__nav {
   border-radius: var(--radius);

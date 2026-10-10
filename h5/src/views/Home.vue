@@ -119,6 +119,13 @@
       </div>
     </div>
 
+    <div class="rank-head">
+      <div class="rank-title">好物推荐</div>
+      <div class="rank-more" @click="$router.push('/group/default')">
+        全部 ›
+      </div>
+    </div>
+
     <van-tabs class="rank-tabs" v-model:active="rankIdx" color="#ff4b3a" line-width="20" @change="resetRank">
       <van-tab v-for="r in RANKS" :key="r.type" :title="r.name" />
     </van-tabs>
