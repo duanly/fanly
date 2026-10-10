@@ -1,6 +1,12 @@
 <template>
   <div>
     <div class="bar">
+      <el-radio-group v-model="activeType" size="default" @change="load">
+        <el-radio-button value="">全部</el-radio-button>
+        <el-radio-button value="category">品类标签</el-radio-button>
+        <el-radio-button value="activity">活动标签</el-radio-button>
+        <el-radio-button value="operate">运营标签</el-radio-button>
+      </el-radio-group>
       <el-button type="primary" @click="openEdit()">新建专题</el-button>
       <span class="hint">
         建好就能用：页面地址一列就是 H5 的入口，不用改代码也不用发版
@@ -75,6 +81,17 @@
           </div>
         </el-form-item>
 
+        <el-form-item label="类型">
+          <el-radio-group v-model="form.type">
+            <el-radio value="category">品类标签</el-radio>
+            <el-radio value="activity">活动标签</el-radio>
+            <el-radio value="operate">运营标签</el-radio>
+          </el-radio-group>
+          <div class="tip">
+            品类是长期的（日用百货），活动是时效性的（中秋特惠），运营是首页推荐位用的（爆款推荐）。
+          </div>
+        </el-form-item>
+
         <el-form-item label="首页位置">
           <el-radio-group v-model="form.slot">
             <el-radio value="grid">八大分区</el-radio>
@@ -109,6 +126,50 @@
         <el-form-item label="排序权重">
           <el-input-number v-model="form.sortWeight" :min="0" :max="9999" />
           <span class="tip inline">越大越靠前</span>
+        </el-form-item>
+
+        <el-form-item label="活动时间">
+          <el-date-picker
+            v-model="form.startAt"
+            type="datetime"
+            placeholder="开始时间"
+            style="width:200px"
+            value-format="YYYY-MM-DD HH:mm:ss"
+          />
+          <span style="margin:0 8px;color:#999">至</span>
+          <el-date-picker
+            v-model="form.endAt"
+            type="datetime"
+            placeholder="结束时间"
+            style="width:200px"
+            value-format="YYYY-MM-DD HH:mm:ss"
+          />
+          <div class="tip">设了结束时间，专题页会显示倒计时；都留空就是永久有效</div>
+        </el-form-item>
+
+        <el-form-item label="分享海报">
+          <el-input v-model="form.shareImage" placeholder="海报图 URL，用户点分享时长按保存" />
+        </el-form-item>
+
+        <el-form-item label="顶部轮播图">
+          <div class="banner-list">
+            <div v-for="(b, i) in form.banners" :key="i" class="banner-item">
+              <el-input v-model="b.image" placeholder="图片 URL" style="flex:1" />
+              <el-input v-model="b.url" placeholder="跳转链接（可选）" style="width:180px;margin-left:8px" />
+              <el-button link type="danger" style="margin-left:4px" @click="removeBanner(i)">删除</el-button>
+            </div>
+            <el-button size="small" @click="addBanner">+ 添加一张</el-button>
+          </div>
+          <div class="tip">不配就用单张头图（cover），再没有就用底色渐变</div>
+        </el-form-item>
+
+        <el-form-item label="活动规则">
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="5"
+            placeholder="活动规则、参与方式、注意事项等，支持换行"
+          />
         </el-form-item>
       </el-form>
 
@@ -213,10 +274,12 @@ import { api } from '../api';
 
 const SLOT_NAME = { grid: '八大分区', activity: '活动位', hidden: '不露面' };
 const SLOT_TAG = { grid: 'success', activity: 'warning', hidden: 'info' };
+const TYPE_NAME = { category: '品类标签', activity: '活动标签', operate: '运营标签' };
 
 const EMPTY = {
   id: null, name: '', slug: '', icon: '', bg: '', cover: '', intro: '',
-  slot: 'grid', sortWeight: 0, status: 1,
+  type: 'category', slot: 'grid', sortWeight: 0, status: 1,
+  startAt: null, endAt: null, banners: [], description: '', shareImage: '',
 };
 
 const list = ref([]);
@@ -224,11 +287,12 @@ const loading = ref(false);
 const editOpen = ref(false);
 const saving = ref(false);
 const form = reactive({ ...EMPTY });
+const activeType = ref('');
 
 async function load() {
   loading.value = true;
   try {
-    const r = await api.topics();
+    const r = await api.topics(activeType.value || undefined);
     list.value = r.list || r || [];
   } finally {
     loading.value = false;
@@ -236,8 +300,19 @@ async function load() {
 }
 
 function openEdit(row) {
-  Object.assign(form, EMPTY, row ? { ...row } : {});
+  const data = row ? { ...row } : {};
+  // banners 确保是数组
+  if (!data.banners || !Array.isArray(data.banners)) data.banners = [];
+  Object.assign(form, EMPTY, data);
   editOpen.value = true;
+}
+
+function addBanner() {
+  form.banners.push({ image: '', url: '' });
+}
+
+function removeBanner(i) {
+  form.banners.splice(i, 1);
 }
 
 async function save() {
@@ -362,4 +437,6 @@ onMounted(load);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden; line-height: 1.35;
 }
+.banner-list { width: 100%; }
+.banner-item { display: flex; align-items: center; margin-bottom: 8px; }
 </style>

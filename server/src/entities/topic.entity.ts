@@ -63,6 +63,33 @@ export class Topic {
   @Index()
   @Column({ type: 'tinyint', default: 1 }) status: number;
 
+  /**
+   * 标签类型：
+   *   category  品类标签（日用百货、美妆个护等，长期存在）
+   *   activity  活动标签（中秋、双11等，时效性强）
+   *   operate   运营标签（新人专享、爆款推荐等，首页推荐位用）
+   */
+  @Index()
+  @Column({ length: 16, default: 'category' }) type: string;
+
+  /** 活动开始时间，有值则专题页显示倒计时/活动状态 */
+  @Column({ type: 'datetime', nullable: true }) startAt: Date | null;
+
+  /** 活动结束时间，过了显示「活动已结束」 */
+  @Column({ type: 'datetime', nullable: true }) endAt: Date | null;
+
+  /**
+   * 顶部轮播图，JSON 数组：[{ image, url? }]
+   * 没配就用 cover 单图，再没有就用 bg 渐变。
+   */
+  @Column({ type: 'text', nullable: true }) banners: string | null;
+
+  /** 活动规则/长文案，支持换行纯文本，专题页可展开查看 */
+  @Column({ type: 'text', default: '' }) description: string;
+
+  /** 分享海报图 URL，用户点分享时弹出来长按保存 */
+  @Column({ length: 512, default: '' }) shareImage: string;
+
   @CreateDateColumn() createdAt: Date;
   @UpdateDateColumn() updatedAt: Date;
 }

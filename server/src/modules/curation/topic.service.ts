@@ -12,6 +12,15 @@ function toSlug(raw: string): string {
     .slice(0, 48);
 }
 
+/** JSON 解析兜底，parse 失败就返回默认值，别把整个接口搞挂 */
+function safeParseJson<T = any>(str: string, fallback: T): T {
+  try {
+    return JSON.parse(str) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 @Injectable()
 export class TopicService implements OnModuleInit {
   private readonly logger = new Logger(TopicService.name);
@@ -82,8 +91,15 @@ export class TopicService implements OnModuleInit {
       cover: t.cover,
       intro: t.intro,
       slot: t.slot,
+      type: t.type,
       sortWeight: t.sortWeight,
       status: t.status,
+      startAt: t.startAt,
+      endAt: t.endAt,
+      /** banners 存的是 JSON 字符串，取出来解析成数组 */
+      banners: t.banners ? safeParseJson(t.banners, []) : [],
+      description: t.description || '',
+      shareImage: t.shareImage || '',
       /** 后台直接显示这个，运营不用猜 URL 填什么 */
       pageUrl: `/topic/${t.slug}`,
       ...(goodsCount === undefined ? {} : { goodsCount }),
@@ -100,8 +116,10 @@ export class TopicService implements OnModuleInit {
   }
 
   /** 后台用：全都返，带每个专题挂了多少件 */
-  async listAdmin() {
-    const rows = await this.repo.find({ order: { sortWeight: 'DESC', id: 'ASC' } });
+  async listAdmin(type?: string) {
+    const where: any = {};
+    if (type) where.type = type;
+    const rows = await this.repo.find({ where, order: { sortWeight: 'DESC', id: 'ASC' } });
     if (!rows.length) return [];
 
     const counts = await this.relRepo
@@ -210,7 +228,8 @@ export class TopicService implements OnModuleInit {
     if (await this.repo.findOneBy({ slug })) {
       throw new BadRequestException(`slug「${slug}」已存在，换一个`);
     }
-    const t = await this.repo.save(this.repo.create({ ...d, slug }));
+    const data = this.normalizeInput(d);
+    const t = await this.repo.save(this.repo.create(data));
     this.logger.log(`新建专题 ${t.name} → /topic/${t.slug}`);
     return this.view(t, 0);
   }
@@ -224,8 +243,25 @@ export class TopicService implements OnModuleInit {
     if (!t) throw new NotFoundException('专题不存在');
     delete (d as any).slug;
     delete (d as any).id;
-    Object.assign(t, d);
+    const data = this.normalizeInput(d);
+    Object.assign(t, data);
     return this.view(await this.repo.save(t));
+  }
+
+  /**
+   * 输入标准化：数组字段（banners）转 JSON 字符串再存库，
+   * 前端传过来的是数组，数据库里存的是 text。
+   */
+  private normalizeInput(d: Partial<Topic>): Record<string, any> {
+    const out: Record<string, any> = { ...d };
+    if ('banners' in out) {
+      if (Array.isArray(out.banners)) {
+        out.banners = JSON.stringify(out.banners);
+      } else if (!out.banners) {
+        out.banners = null;
+      }
+    }
+    return out;
   }
 
   /**

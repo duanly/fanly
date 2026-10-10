@@ -91,8 +91,8 @@ export class TopicAdminController {
 
   @Get()
   @ApiOperation({ summary: '专题列表，含下架的，带挂了多少件商品' })
-  list() {
-    return this.svc.listAdmin().then((list) => ({ list }));
+  list(@Query('type') type?: string) {
+    return this.svc.listAdmin(type).then((list) => ({ list }));
   }
 
   @Post()
@@ -117,6 +117,13 @@ export class TopicAdminController {
   @ApiOperation({ summary: '某商品挂了哪些专题' })
   ofGoods(@Param('curatedId') id: string) {
     return this.svc.ofGoods(+id).then((topicIds) => ({ topicIds }));
+  }
+
+  @Post('of-goods-batch')
+  @ApiOperation({ summary: '批量查商品挂了哪些专题，返回 { curatedId: [topicId, ...] }' })
+  ofGoodsBatch(@Body() b: { curatedIds: number[] }) {
+    const ids = (b?.curatedIds ?? []).map(Number).filter((n) => n > 0);
+    return this.svc.ofGoodsBatch(ids).then((m) => Object.fromEntries(m));
   }
 
   @Post('of-goods/:curatedId')

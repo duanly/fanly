@@ -64,7 +64,7 @@ export const api = {
 
   // 专题（= 标签 = 页面 = 首页入口）
   // 列表走后台接口（含下架的、带商品数），专题内商品直接用公开接口，不用另开一个
-  topics: () => http.get('/api/admin/topics'),
+  topics: (type) => http.get('/api/admin/topics', { params: type ? { type } : undefined }),
   topicCreate: (data) => http.post('/api/admin/topics', data),
   topicUpdate: (id, data) => http.put(`/api/admin/topics/${id}`, data),
   topicRemove: (id) => http.delete(`/api/admin/topics/${id}`),
@@ -72,6 +72,7 @@ export const api = {
   topicTagMany: (id, curatedIds) => http.post(`/api/admin/topics/${id}/tag-many`, { curatedIds }),
   topicUntagMany: (id, curatedIds) => http.post(`/api/admin/topics/${id}/untag-many`, { curatedIds }),
   goodsTopics: (curatedId) => http.get(`/api/admin/topics/of-goods/${curatedId}`),
+  goodsTopicsBatch: (curatedIds) => http.post('/api/admin/topics/of-goods-batch', { curatedIds }),
   setGoodsTopics: (curatedId, topicIds) =>
     http.post(`/api/admin/topics/of-goods/${curatedId}`, { topicIds }),
 

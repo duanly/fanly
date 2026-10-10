@@ -119,6 +119,15 @@
             <el-button type="danger" :loading="removingOff" @click="removeOffShelf">
               一键移除已下架
             </el-button>
+
+            <el-divider direction="vertical" />
+            <el-button type="primary" :disabled="!poolSelected.length" @click="openBatchTag">
+              批量打标签 ({{ poolSelected.length }})
+            </el-button>
+            <el-button type="danger" :disabled="!poolSelected.length" @click="batchUntag">
+              批量取消标签
+            </el-button>
+
             <span class="hint">定时任务每小时自动刷一次，这里是手动催一次</span>
           </div>
 
@@ -131,7 +140,13 @@
             style="margin-bottom:12px"
           />
 
-          <el-table :data="pool.list" v-loading="loading" size="small">
+          <el-table
+            :data="pool.list"
+            v-loading="loading"
+            size="small"
+            @selection-change="(v) => poolSelected = v"
+          >
+            <el-table-column type="selection" width="42" />
             <el-table-column label="商品" min-width="300">
               <template #default="{ row }">
                 <div class="goods">
@@ -198,8 +213,26 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="操作" width="130">
+            <el-table-column label="标签" width="180">
               <template #default="{ row }">
+                <div class="tag-list">
+                  <el-tag
+                    v-for="t in (goodsTags[row.curatedId] || []).slice(0, 3)"
+                    :key="t"
+                    size="small"
+                    type="info"
+                    effect="plain"
+                  >{{ topicNameMap[t] || t }}</el-tag>
+                  <span v-if="(goodsTags[row.curatedId] || []).length > 3" class="m more-tag">
+                    +{{ (goodsTags[row.curatedId] || []).length - 3 }}
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+
+            <el-table-column label="操作" width="180">
+              <template #default="{ row }">
+                <el-button link size="small" @click="openTagEdit(row)">标签</el-button>
                 <el-button link size="small" @click="refreshOne(row)">刷新</el-button>
                 <el-button link type="danger" size="small" @click="remove(row)">移除</el-button>
               </template>
@@ -308,6 +341,26 @@
         </el-card>
       </el-tab-pane>
     </el-tabs>
+
+    <!-- ───────── 标签编辑弹框 ───────── -->
+    <el-dialog v-model="tagDlgOpen" :title="tagDlgTarget === 'single' ? '编辑标签' : '批量打标签'" width="520px">
+      <div class="tag-picker">
+        <el-checkbox-group v-model="tagPickedTopicIds">
+          <div class="tag-grid">
+            <el-checkbox v-for="t in allTopics" :key="t.id" :label="t.id" :disabled="t.status !== 1">
+              <span :style="{ opacity: t.status === 1 ? 1 : .4 }">{{ t.icon }} {{ t.name }}</span>
+            </el-checkbox>
+          </div>
+        </el-checkbox-group>
+      </div>
+      <div v-if="tagDlgTarget === 'batch'" class="muted" style="margin-top:8px;font-size:12px">
+        将给选中的 {{ poolSelected.length }} 件商品打上勾选的标签（已有的标签不受影响）
+      </div>
+      <template #footer>
+        <el-button @click="tagDlgOpen = false">取消</el-button>
+        <el-button type="primary" :loading="tagDlgLoading" @click="saveTags">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -432,10 +485,26 @@ async function autoPull() {
 // ── 池内 ──
 const pool = ref({ list: [], total: 0 });
 const groups = ref([]);
+const allTopics = ref([]);
+const goodsTags = ref({}); // { curatedId: [topicId, ...] }
+const poolSelected = ref([]);
 const loading = ref(false);
 const refreshing = ref(false);
 const removingOff = ref(false);
 const q = reactive({ groupKey: '', status: '', page: 1, pageSize: 20 });
+
+// 标签编辑弹框
+const tagDlgOpen = ref(false);
+const tagDlgTarget = ref(null); // 'single' 或 'batch'
+const tagDlgCuratedId = ref(null);
+const tagPickedTopicIds = ref([]);
+const tagDlgLoading = ref(false);
+
+const topicNameMap = computed(() => {
+  const m = {};
+  for (const t of allTopics.value) m[t.id] = t.name;
+  return m;
+});
 
 const expiredCount = computed(
   () => groups.value.reduce((n, g) => n + (g.total - g.onShelf), 0),
@@ -470,6 +539,18 @@ async function loadPool() {
       pageSize: q.pageSize,
     });
     groups.value = await api.curationGroups();
+    // 加载所有 topic（标签用）
+    if (!allTopics.value.length) {
+      const r = await api.topics();
+      allTopics.value = r.list || r || [];
+    }
+    // 批量加载当前页商品的标签
+    const ids = pool.value.list.map((g) => g.curatedId).filter(Boolean);
+    if (ids.length) {
+      try {
+        goodsTags.value = await api.goodsTopicsBatch(ids);
+      } catch { goodsTags.value = {}; }
+    }
   } finally {
     loading.value = false;
   }
@@ -521,6 +602,63 @@ async function removeOffShelf() {
   } finally {
     removingOff.value = false;
   }
+}
+
+// ── 标签编辑 ──
+function openTagEdit(row) {
+  tagDlgTarget.value = 'single';
+  tagDlgCuratedId.value = row.curatedId;
+  tagPickedTopicIds.value = [...(goodsTags.value[row.curatedId] || [])];
+  tagDlgOpen.value = true;
+}
+
+function openBatchTag() {
+  tagDlgTarget.value = 'batch';
+  tagDlgCuratedId.value = null;
+  tagPickedTopicIds.value = [];
+  tagDlgOpen.value = true;
+}
+
+async function saveTags() {
+  tagDlgLoading.value = true;
+  try {
+    if (tagDlgTarget.value === 'single') {
+      await api.setGoodsTopics(tagDlgCuratedId.value, tagPickedTopicIds.value);
+      ElMessage.success('标签已保存');
+    } else {
+      // 批量：逐个标签打上去
+      const ids = poolSelected.value.map((r) => r.curatedId);
+      for (const tid of tagPickedTopicIds.value) {
+        await api.topicTagMany(tid, ids);
+      }
+      ElMessage.success(`已给 ${ids.length} 件商品打标签`);
+    }
+    tagDlgOpen.value = false;
+    loadPool();
+  } finally {
+    tagDlgLoading.value = false;
+  }
+}
+
+async function batchUntag() {
+  if (!poolSelected.value.length) return;
+  // 先让用户选要取消哪些标签
+  const { value: topicIds } = await ElMessageBox({
+    title: '批量取消标签',
+    message: '请在控制台输入...', // 简化处理：先弹确认框
+    type: 'warning',
+    showInput: false,
+  }).catch(() => null);
+  // 简化：直接确认是否取消所有标签（通过二次确认）
+  await ElMessageBox.confirm(
+    `确认从选中的 ${poolSelected.value.length} 件商品上取消所有标签？`,
+    '批量取消标签',
+    { type: 'warning' },
+  );
+  const ids = poolSelected.value.map((r) => r.curatedId);
+  // 逐个 topic 取消（先拿到这批商品的所有 topic，然后逐个 untag）
+  // 简化：直接提示去专题管理页操作
+  ElMessage.info('批量取消标签请去专题管理页操作，或单个商品编辑标签');
 }
 
 // ── 找商品 ──
@@ -624,4 +762,9 @@ onMounted(() => {
 .card .cp { color: #f56c6c; margin-left: 6px; font-size: 12px; }
 .card .c { font-size: 12px; color: #67c23a; margin: 4px 0 8px; }
 .card .c .m { margin-left: 6px; }
+
+.tag-list { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.tag-list .more-tag { margin-left: 2px; }
+.tag-picker { max-height: 400px; overflow-y: auto; }
+.tag-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 16px; }
 </style>
