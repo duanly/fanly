@@ -47,11 +47,8 @@ export const CATEGORIES = [
 export const categoryName = (key) =>
   CATEGORIES.find((c) => c.key === key)?.name || key;
 
-/** 首页宫格显示哪些。default（精选）放在第一个，作为「全部好物」的入口 */
-export const GRID_GROUPS = [
-  { ...GROUPS[0], name: '全部好物' },
-  ...GROUPS.filter((g) => g.key !== 'default'),
-].slice(0, 8);
+/** 首页宫格显示哪些（去掉 default，它就是首页本身） */
+export const GRID_GROUPS = GROUPS.filter((g) => g.key !== 'default');
 
 /** 后台自建的专题（比如「婴儿」）在这儿没有预设，给个兜底外观 */
 const FALLBACK_BG = [

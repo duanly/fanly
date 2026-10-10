@@ -1,5 +1,8 @@
 <template>
-  <div style="min-height:100vh;background:linear-gradient(160deg,#ff6a3d,#ff3b30 55%,#f5f6f8 55%)">
+  <div style="min-height:100vh;background:linear-gradient(160deg,#ff6a3d,#ff3b30 55%,#f5f6f8 55%);position:relative">
+    <div class="login-back" @click="back">
+      <van-icon name="arrow-left" color="#fff" size="22" />
+    </div>
     <div style="padding:60px 24px 24px;color:#fff">
       <div style="font-size:26px;font-weight:700">省钱猫</div>
       <div style="opacity:.9;margin-top:6px">买啥都返现，省下的就是赚到的</div>
@@ -94,4 +97,25 @@ onMounted(() => {
     localStorage.setItem('deviceId', 'web-' + Math.random().toString(36).slice(2, 12));
   }
 });
+
+function back() {
+  if (window.history.length > 1) router.back();
+  else router.replace('/');
+}
 </script>
+
+<style scoped>
+.login-back {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  z-index: 10;
+}
+</style>

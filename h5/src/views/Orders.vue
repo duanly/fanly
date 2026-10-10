@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <van-nav-bar title="我的订单" fixed placeholder />
+    <van-nav-bar title="我的订单" left-arrow fixed placeholder @click-left="back" />
 
     <NeedLogin
       v-if="!logged"
@@ -56,11 +56,18 @@
 
 <script setup>
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { api } from '../api';
 import NeedLogin from '../components/NeedLogin.vue';
 import { platName as platformName } from '../utils/platform';
 
 const logged = ref(!!localStorage.getItem('token'));
+const router = useRouter();
+
+function back() {
+  if (window.history.length > 1) router.back();
+  else router.replace('/');
+}
 
 const tabs = [
   { label: '全部', status: undefined },

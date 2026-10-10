@@ -1,5 +1,8 @@
 <template>
-  <div style="min-height:100vh;background:linear-gradient(160deg,#ff6a3d,#ff3b30)">
+  <div style="min-height:100vh;background:linear-gradient(160deg,#ff6a3d,#ff3b30);position:relative">
+    <div class="invite-back" @click="back">
+      <van-icon name="arrow-left" color="#fff" size="22" />
+    </div>
     <div style="padding:70px 24px 20px;color:#fff;text-align:center">
       <div style="font-size:30px;font-weight:700">省钱猫</div>
       <div style="margin-top:10px;opacity:.92">买啥都返现，省下的就是赚到的</div>
@@ -49,6 +52,11 @@ function go() {
   router.replace('/login');
 }
 
+function back() {
+  if (window.history.length > 1) router.back();
+  else router.replace('/');
+}
+
 onMounted(async () => {
   const code = String(route.params.code || '').toUpperCase();
   // 绑定关系只在首次注册时生效，这里先存下来
@@ -58,3 +66,19 @@ onMounted(async () => {
   } catch { /* 无效码也让用户能注册 */ }
 });
 </script>
+
+<style scoped>
+.invite-back {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  z-index: 10;
+}
+</style>
