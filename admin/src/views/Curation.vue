@@ -620,6 +620,13 @@ const goodsTags = ref({}); // { curatedId: [topicId, ...] }
 const poolSelected = ref([]);
 const loading = ref(false);
 
+const q = reactive({
+  groupKey: '',
+  status: '',
+  page: 1,
+  pageSize: 30,
+});
+
 const expiredCount = computed(
   () => groups.value.reduce((n, g) => n + (g.total - g.onShelf), 0),
 );
