@@ -116,19 +116,13 @@
       </div>
     </div>
 
-    <!-- 活动标签位（可拖动跑马灯） -->
+    <!-- 活动标签位（自动滚动） -->
     <div v-if="acts.length" class="sec-head-wrap act-head">
       <span class="sec-title">限时活动 🕙</span>
-      <span class="sec-more">更多 ›</span>
+      <span class="sec-more" @click="showAllActs = true">全部活动 ›</span>
     </div>
     <div v-if="acts.length" class="section act-section">
-      <div
-        class="act-marquee"
-        ref="marqueeRef"
-        @touchstart="onMarqueeTouchStart"
-        @touchmove="onMarqueeTouchMove"
-        @touchend="onMarqueeTouchEnd"
-      >
+      <div class="act-marquee" ref="marqueeRef">
         <div class="am-track" :style="{ transform: `translateX(${marqueeX}px)` }">
           <div
             v-for="(a, i) in marqueeActs"
@@ -183,6 +177,30 @@
     <van-back-top right="16" bottom="110" />
 
     <BeianFooter />
+
+    <!-- 全部活动弹窗 -->
+    <van-popup v-model:show="showAllActs" position="bottom" round :style="{ height: '70%' }">
+      <div class="all-acts">
+        <div class="aa-head">
+          <div class="aa-title">全部活动</div>
+          <van-icon name="cross" size="20" @click="showAllActs = false" />
+        </div>
+        <div class="aa-grid">
+          <div
+            v-for="a in acts"
+            :key="a.key"
+            class="aa-item"
+            @click="openLink(a); showAllActs = false"
+          >
+            <div class="aa-ico" :style="{ background: a.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' }">
+              {{ a.icon || '🎁' }}
+            </div>
+            <div class="aa-name">{{ a.title }}</div>
+            <div class="aa-sub">{{ a.subtitle || '限时特惠' }}</div>
+          </div>
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -261,22 +279,18 @@ const marqueeActs = computed(() => {
   return Array.from({ length: reps }, () => arr).flat();
 });
 
-// ── 跑马灯 JS 控制（支持自动滚动 + 手动拖动）──
+// ── 跑马灯自动滚动 ──
 const marqueeRef = ref(null);
 const marqueeX = ref(0);
 let marqueeRaf = 0;
 let marqueeSpeed = 0.8; // px/frame，约 48px/s
 let marqueeLastTime = 0;
-let marqueeDragging = false;
-let marqueeDragStartX = 0;
-let marqueeDragStartOffset = 0;
-let singleSetWidth = 0; // 一组活动的总宽度（无缝循环用）
+let singleSetWidth = 0;
 
 function measureMarquee() {
   const track = marqueeRef.value?.querySelector('.am-track');
   if (!track || !acts.value.length) return;
   const totalW = track.scrollWidth;
-  // 算出一份的宽度（总宽度 / 份数）
   let reps = Math.ceil(10 / acts.value.length);
   if (reps < 2) reps = 2;
   if (reps % 2) reps += 1;
@@ -287,11 +301,8 @@ function marqueeLoop(ts) {
   if (!marqueeLastTime) marqueeLastTime = ts;
   const dt = ts - marqueeLastTime;
   marqueeLastTime = ts;
-
-  if (!marqueeDragging && singleSetWidth > 0) {
-    // 按时间计算位移，保证不同刷新率下速度一致
+  if (singleSetWidth > 0) {
     marqueeX.value -= marqueeSpeed * (dt / 16.67);
-    // 无缝循环：滚完一组就拉回来
     if (marqueeX.value <= -singleSetWidth) {
       marqueeX.value += singleSetWidth;
     }
@@ -312,26 +323,8 @@ function stopMarquee() {
   }
 }
 
-function onMarqueeTouchStart(e) {
-  marqueeDragging = true;
-  marqueeDragStartX = e.touches[0].clientX;
-  marqueeDragStartOffset = marqueeX.value;
-}
-
-function onMarqueeTouchMove(e) {
-  if (!marqueeDragging) return;
-  const dx = e.touches[0].clientX - marqueeDragStartX;
-  marqueeX.value = marqueeDragStartOffset + dx;
-  // 拖到边界时也做循环处理，避免露白
-  if (singleSetWidth > 0) {
-    if (marqueeX.value > 0) marqueeX.value -= singleSetWidth;
-    else if (marqueeX.value < -singleSetWidth) marqueeX.value += singleSetWidth;
-  }
-}
-
-function onMarqueeTouchEnd() {
-  marqueeDragging = false;
-}
+// 全部活动弹窗
+const showAllActs = ref(false);
 
 // 品类宫格
 const catGroups = computed(() => {
@@ -1033,5 +1026,73 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+/* ========== 全部活动弹窗 ========== */
+.all-acts {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.aa-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid #f2f2f2;
+}
+.aa-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.aa-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px 12px;
+}
+.aa-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.aa-item:active {
+  transform: scale(0.95);
+}
+.aa-ico {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  font-size: 22px;
+  color: #fff;
+  margin-bottom: 8px;
+}
+.aa-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #1a1a1a;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  width: 100%;
+}
+.aa-sub {
+  font-size: 10px;
+  color: #ff4b3a;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 </style>
