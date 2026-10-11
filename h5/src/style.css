@@ -432,6 +432,13 @@ html {
   padding: 18px 16px;
   margin: 12px;
 }
+/* 我的页面：钱包卡片向上浮动一点，跟顶部渐变接在一起 */
+.mine-wallet {
+  margin-top: -16px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 8px 24px rgba(255, 59, 48, 0.25);
+}
 
 .wallet .big { font-size: 30px; font-weight: 800; line-height: 1.2; }
 .wallet .sub { opacity: .85; font-size: 12px; }

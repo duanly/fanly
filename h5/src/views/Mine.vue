@@ -7,14 +7,14 @@
     />
 
     <template v-else>
-    <div style="background:linear-gradient(135deg,#ff6a3d,#ff3b30);padding:20px 16px 0">
+    <div style="background:linear-gradient(135deg,#ff6a3d,#ff3b30);padding:20px 16px 28px">
       <div style="display:flex;align-items:center;gap:12px;color:#fff">
-        <van-image round width="54" height="54" :src="p?.avatar" >
-          <template #error><van-icon name="user-circle-o" size="54" color="#fff" /></template>
+        <van-image round width="56" height="56" :src="p?.avatar" fit="cover">
+          <template #default><div style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center"><van-icon name="user-o" size="28" color="#fff" /></div></template>
         </van-image>
         <div>
-          <div style="font-size:17px;font-weight:600">{{ p?.nickname || '—' }}</div>
-          <div style="opacity:.85;font-size:12px">
+          <div style="font-size:18px;font-weight:700">{{ p?.nickname || '—' }}</div>
+          <div style="opacity:.85;font-size:12px;margin-top:2px">
             {{ p?.mobile }}
             <span v-if="p?.bindAgent"> · 邀请人 {{ p.bindAgent.agentCode }}</span>
           </div>
@@ -22,7 +22,7 @@
       </div>
     </div>
 
-    <div class="wallet" style="margin-top:-6px">
+    <div class="wallet mine-wallet">
       <div class="sub">可提现余额（元）</div>
       <div class="big">{{ money(p?.balance) }}</div>
       <div class="wallet-cols">

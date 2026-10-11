@@ -58,16 +58,16 @@
       <div class="buy-bar">
         <div class="buy-cart" @click="$router.push('/cart')">
           <van-badge :content="cartCount > 0 ? cartCount : ''">
-            <van-icon name="cart-o" size="24" />
+            <van-icon name="star-o" size="24" />
           </van-badge>
-          <span>购物车</span>
+          <span>收藏夹</span>
         </div>
         <van-button
           type="warning"
           class="buy-btn"
           :loading="adding"
           @click="addCart"
-        >加入购物车</van-button>
+        >加入收藏</van-button>
         <van-button
           type="danger"
           color="#ff4b3a"
@@ -116,9 +116,9 @@ async function addCart() {
   adding.value = true;
   try {
     const r = await api.cartAdd(route.params.platform, route.params.goodsId);
-    if (r.already) return showToast('已经在购物车里了');
+    if (r.already) return showToast('已经在收藏夹里了');
     bumpCartCount(1);
-    showToast('已加入购物车');
+    showToast('已加入收藏夹');
   } finally {
     adding.value = false;
   }

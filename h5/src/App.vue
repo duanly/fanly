@@ -16,7 +16,7 @@
   >
     <van-tabbar-item to="/" icon="shop-o">首页</van-tabbar-item>
     <van-tabbar-item to="/compare" icon="balance-list-o">比价</van-tabbar-item>
-    <van-tabbar-item to="/cart" icon="shopping-cart-o" :badge="cartBadge">购物车</van-tabbar-item>
+    <van-tabbar-item to="/cart" icon="star-o" :badge="cartBadge">收藏夹</van-tabbar-item>
     <van-tabbar-item to="/mine" icon="user-o">我的</van-tabbar-item>
   </van-tabbar>
 

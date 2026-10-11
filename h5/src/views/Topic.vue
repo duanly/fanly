@@ -130,6 +130,7 @@ const finished = ref(false);
 const descExpanded = ref(false);
 const showShare = ref(false);
 const homeBanners = ref([]);
+// 保留变量但不再用于 banner 兜底，后续可删
 
 // 倒计时
 const countdownText = ref('');
@@ -141,8 +142,8 @@ function back() {
 }
 
 const topicBanners = computed(() => Array.isArray(topic.value.banners) ? topic.value.banners.filter((b) => b.image) : []);
-// 专题没配 banner 就用首页的兜底
-const banners = computed(() => topicBanners.value.length ? topicBanners.value : homeBanners.value);
+// 专题没配 banner 就不显示，不再用首页兜底
+const banners = computed(() => topicBanners.value);
 
 function bannerStyle(b) {
   const isUrl = /^https?:|^data:/.test(b.image || '');
@@ -232,8 +233,9 @@ function reset() {
   load();
 }
 
-// 加载首页 banner 作为兜底
+// 加载首页 banner 兜底（已停用，保留代码）
 async function loadHomeBanners() {
+  return;
   try {
     const r = await api.homeLinks('banner');
     if (r?.length) homeBanners.value = r;

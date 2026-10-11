@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <van-nav-bar title="购物车" fixed placeholder left-arrow @click-left="$router.back()">
+    <van-nav-bar title="收藏夹" fixed placeholder left-arrow @click-left="$router.back()">
       <template #right>
         <span v-if="list.length" style="font-size:13px" @click="editing = !editing">
           {{ editing ? '完成' : '管理' }}
@@ -10,7 +10,7 @@
 
     <NeedLogin
       v-if="!logged"
-      title="登录后查看购物车"
+      title="登录后查看收藏夹"
       desc="把相中的商品先存起来，价格变了我们会告诉你"
     />
 
@@ -49,7 +49,7 @@
         </div>
       </van-checkbox-group>
 
-      <van-empty v-if="!loading && !list.length" description="购物车是空的">
+      <van-empty v-if="!loading && !list.length" description="收藏夹是空的">
         <van-button round type="primary" size="small" @click="$router.push('/')">
           去逛逛
         </van-button>
@@ -82,7 +82,7 @@
       v-model:show="showJump"
       :actions="jumpActions"
       cancel-text="取消"
-      description="购物车里的商品来自不同平台，需要分别打开"
+      description="收藏的商品来自不同平台，需要分别打开"
       @select="onJump"
     />
   </div>
