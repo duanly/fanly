@@ -53,10 +53,12 @@ export class JobService {
   }
 
   /**
-   * 选品池刷新，每小时的第 5 分钟。
+   * 选品池刷新，每 30 分钟（第 5 和 35 分钟）。
    * 错开整点，别和拉单挤在一起把平台接口打爆。
+   * 同时详情页访问时也会触发单条惰性刷新（30 分钟内不重复刷），
+   * 所以这里主要是兜底，保证没人点的商品也不至于太旧。
    */
-  @Cron('0 5 * * * *')
+  @Cron('0 5,35 * * * *')
   async refreshCuration() {
     const r = await this.curation.refreshAll();
     if (!r.total) return;

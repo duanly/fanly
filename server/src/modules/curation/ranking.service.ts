@@ -37,6 +37,22 @@ export class RankingService {
   }
 
   /**
+   * 同平台同名商品去重。
+   * 选品池里可能出现同款不同 goodsId 的情况（不同店铺、不同 sku），
+   * 展示时去重，保留第一条（调用方自己先排好序）。
+   * 跨平台的不去重——同款在不同平台都有是正常的，甚至是比价的基础。
+   */
+  private dedupByTitle<T extends { platform: string; title: string }>(list: T[]): T[] {
+    const seen = new Set<string>();
+    return list.filter((r) => {
+      const key = `${r.platform}:${r.title.trim()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  /**
    * 热销榜：近 N 天我们平台下单最多的商品，不够数就用选品池补齐。
    *
    * 为什么要补：冷启动阶段一单都没有，榜单空着是首页最难看的状态——
@@ -77,9 +93,12 @@ export class RankingService {
       ordered.push(this.toGoods(p)); // 注意：不给 orderCount
     }
 
-    const list = ordered.slice(skip, skip + pageSize);
-    if (list.length < ordered.length) {
-      this.logger.debug(`热销榜第 ${page} 页：真实 ${realRows.length} 条，补位 ${ordered.length - realRows.length} 条`);
+    // 同平台同名去重（同名商品保留排在前面的那个——真订单优先、销量高优先）
+    const deduped = this.dedupByTitle(ordered);
+
+    const list = deduped.slice(skip, skip + pageSize);
+    if (list.length < deduped.length) {
+      this.logger.debug(`热销榜第 ${page} 页：真实 ${realRows.length} 条，补位 ${deduped.length - realRows.length} 条`);
     }
     return {
       list,
@@ -138,23 +157,25 @@ export class RankingService {
   /** 返利榜：选品池里到手返利最高的（按佣金金额降序，等价于按返利降序） */
   async rebate(page = 1, pageSize = 20) {
     const skip = (page - 1) * pageSize;
-    // 注意：commission 是 decimal(SQLite 存 TEXT)，直接 DESC 会按字符串排（"9">"10"）
-    // 用 CAST 转成数值再排
+    // 先多取一些，去重后再按分页切
+    const fetchSize = Math.min(pageSize * 3, 200);
     const rows = await this.goodsRepo
       .createQueryBuilder('g')
       .where('g.status = :status', { status: CuratedStatus.ON })
       .orderBy('CAST(g.commission AS DECIMAL)', 'DESC')
       .addOrderBy('g.id', 'DESC')
-      .skip(skip)
-      .take(pageSize)
+      .skip(0)
+      .take(skip + fetchSize)
       .getMany();
+    const deduped = this.dedupByTitle(rows);
     const total = await this.goodsRepo.count({ where: { status: CuratedStatus.ON } });
+    const list = deduped.slice(skip, skip + pageSize);
     return {
-      list: rows.map((r) => this.toGoods(r)),
+      list: list.map((r) => this.toGoods(r)),
       total,
       page,
       pageSize,
-      hasMore: skip + rows.length < total,
+      hasMore: skip + list.length < deduped.length,
     };
   }
 
@@ -167,21 +188,24 @@ export class RankingService {
    */
   async pick(page = 1, pageSize = 20) {
     const skip = (page - 1) * pageSize;
-    const [rows, total] = await this.goodsRepo
+    const fetchSize = Math.min(pageSize * 3, 200);
+    const [allRows, total] = await this.goodsRepo
       .createQueryBuilder('g')
       .where('g.status = :status', { status: CuratedStatus.ON })
       .orderBy('CAST(g.recommendScore AS INTEGER)', 'DESC')
       .addOrderBy('CAST(g.sortWeight AS INTEGER)', 'DESC')
       .addOrderBy('g.id', 'DESC')
-      .skip(skip)
-      .take(pageSize)
+      .skip(0)
+      .take(skip + fetchSize)
       .getManyAndCount();
+    const deduped = this.dedupByTitle(allRows);
+    const rows = deduped.slice(skip, skip + pageSize);
     return {
       list: rows.map((r) => ({ ...this.toGoods(r), recommendScore: r.recommendScore })),
       total,
       page,
       pageSize,
-      hasMore: skip + rows.length < total,
+      hasMore: skip + rows.length < deduped.length,
     };
   }
 }

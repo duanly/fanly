@@ -153,6 +153,34 @@ export class GoodsController {
     @Param('goodsId') goodsId: string,
     @CurrentUser('sub') userId?: number,
   ) {
+    const p = platform.toUpperCase();
+    // 优先从选品池读，保证跟列表页价格一致，也更快
+    const cached = await this.curatedRepo.findOneBy({ platform: p, goodsId });
+    if (cached && cached.status !== 0) {
+      const g = {
+        platform: cached.platform,
+        goodsId: cached.goodsId,
+        title: cached.title,
+        image: cached.image,
+        shopName: cached.shopName,
+        price: Number(cached.price),
+        couponPrice: Number(cached.couponPrice),
+        couponAmount: Number(cached.couponAmount),
+        commissionRate: Number(cached.commissionRate),
+        commission: Number(cached.commission),
+        salesVolume: cached.salesVolume,
+      };
+      const result = (await this.withRebate([g], userId))[0];
+      // 后台异步刷新一下，下次进来就是最新价了。
+      // 超过 30 分钟没刷的才刷，避免每个请求都打平台接口
+      const stale = !cached.lastSyncAt
+        || Date.now() - new Date(cached.lastSyncAt).getTime() > 30 * 60 * 1000;
+      if (stale) {
+        this.curation.refreshById(cached.id).catch(() => { /* 失败不影响当前请求 */ });
+      }
+      return result;
+    }
+    // 选品池里没有的话，走实时接口兜底
     const g = await this.cps.getGoodsDetail(platform, goodsId);
     if (!g) return null;
     return (await this.withRebate([g], userId))[0];
