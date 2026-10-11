@@ -10,10 +10,6 @@
           <span class="ph">搜隐藏优惠券 · 搜什么都返</span>
         </div>
         <div class="top-actions">
-          <div class="ta-item" @click="goParse">
-            <div class="ta-ico">🔗</div>
-            <span>转链</span>
-          </div>
           <div class="ta-item" @click="$router.push('/checkin')">
             <div class="ta-ico">🎁</div>
             <span>签到</span>
@@ -42,7 +38,7 @@
         </div>
       </div>
 
-      <!-- 复制链接提示条 -->
+      <!-- 复制链接转链条 -->
       <div class="paste-bar" @click="goParse">
         <div class="pb-left">
           <span class="pb-ico">📋</span>
@@ -53,7 +49,7 @@
           <span>商品链接</span>
         </div>
         <div class="pb-right">
-          <span>领券返现</span>
+          <span>转链返现</span>
           <van-icon name="arrow" color="#ff4b3a" size="10" />
         </div>
       </div>
@@ -66,7 +62,7 @@
               <div class="bn-tag">{{ b.subtitle || '限时活动' }}</div>
               <div class="bn-title">{{ b.title }}</div>
               <div class="bn-btn">
-                <span>立即抢购</span>
+                <span>{{ bannerBtnText(b) }}</span>
                 <van-icon name="arrow" color="#fff" size="10" />
               </div>
             </div>
@@ -202,9 +198,9 @@ const RANKS = [
 
 /** 后台没配 banner 时的兜底，不让首页开天窗 */
 const FALLBACK_BANNERS = [
-  { id: 'fb-1', title: '天天签到领金币', subtitle: '攒够就能换钱', image: 'linear-gradient(135deg,#ff8a3d,#ff3b30)', url: '/checkin', internal: true },
-  { id: 'fb-2', title: '全网比价', subtitle: '同款哪家最便宜，一眼看清', image: 'linear-gradient(135deg,#4a3aff,#7b3ad5)', url: '/compare', internal: true },
-  { id: 'fb-3', title: '邀请好友赚钱', subtitle: '他买东西，你拿分成', image: 'linear-gradient(135deg,#ff6a9a,#ff3b6b)', url: '/agent', internal: true },
+  { id: 'fb-1', title: '天天签到领金币', subtitle: '攒够就能换钱', image: 'linear-gradient(135deg,#ff8a3d,#ff3b30)', url: '/checkin', internal: true, btnText: '立即签到' },
+  { id: 'fb-2', title: '全网比价', subtitle: '同款哪家最便宜，一眼看清', image: 'linear-gradient(135deg,#4a3aff,#7b3ad5)', url: '/compare', internal: true, btnText: '立即抢购' },
+  { id: 'fb-3', title: '邀请好友赚钱', subtitle: '他买东西，你拿分成', image: 'linear-gradient(135deg,#ff6a9a,#ff3b6b)', url: '/agent', internal: true, btnText: '立即邀请' },
 ];
 
 const banners = ref(FALLBACK_BANNERS);
@@ -311,6 +307,10 @@ function bannerStyle(b) {
   return b.image
     ? { backgroundImage: `url(${b.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }
     : { background: b.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' };
+}
+function bannerBtnText(b) {
+  if (b.btnText) return b.btnText;
+  return '立即抢购';
 }
 
 function goParse() {
@@ -553,6 +553,7 @@ onMounted(() => {
   height: 160px;
   display: flex;
   align-items: center;
+  justify-content: center;
   padding: 0 24px;
   color: #fff;
   position: relative;
@@ -566,6 +567,7 @@ onMounted(() => {
 .bn-text {
   position: relative;
   z-index: 1;
+  text-align: center;
 }
 .bn-tag {
   display: inline-block;
