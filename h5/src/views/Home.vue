@@ -197,7 +197,7 @@ const auth = reactive({});
 
 const RANKS = [
   { type: 'hot', name: '🔥 热销榜', tip: '按近 7 天实付订单数排序，真金白银选出来的' },
-  { type: 'rebate', name: '💰 返利最高', tip: '佣金绝对金额排序，不是比例——比例高的往往是便宜货' },
+  { type: 'rebate', name: '💰 返利榜', tip: '佣金绝对金额排序，不是比例——比例高的往往是便宜货' },
   { type: 'pick', name: '⭐️ 推荐榜', tip: '用户一人一票投出来的，再加运营手动权重' },
 ];
 
@@ -439,6 +439,8 @@ onMounted(() => {
   padding-bottom: 20px;
   overflow-x: hidden;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* ========== 顶部渐变区 ========== */
@@ -605,38 +607,26 @@ onMounted(() => {
   border-right: 2px solid #ff6b35;
   border-bottom: 2px solid #ff6b35;
   box-shadow: 0 4px 12px rgba(255, 107, 53, 0.12);
+  overflow: hidden;
 }
 .sec-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: -14px -14px 10px -14px;
-  padding: 0 12px 0 0;
+  margin: 2px 0 12px;
 }
 .sec-title {
-  position: relative;
   display: inline-flex;
   align-items: center;
   height: 28px;
-  padding: 0 14px 0 10px;
+  padding: 0 14px;
   font-size: 15px;
   font-weight: 800;
   color: #fff;
   background: linear-gradient(135deg, #ff6b35 0%, #ff4b3a 100%);
-  border-radius: 0 14px 14px 0;
-  box-shadow: 2px 2px 6px rgba(255, 75, 58, 0.25);
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(255, 75, 58, 0.25);
   letter-spacing: 0.5px;
-}
-/* 左下角 S 型收口：用白色圆盖住尖角，形成流畅的 S 曲线 */
-.sec-title::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: -8px;
-  width: 8px;
-  height: 8px;
-  background: #fff;
-  border-top-left-radius: 8px;
 }
 .sec-more {
   font-size: 12px;

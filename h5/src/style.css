@@ -20,9 +20,14 @@ body {
   color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
-#app { max-width: 640px; margin: 0 auto; min-height: 100vh; overflow-x: hidden; }
+html {
+  overflow-x: hidden;
+}
+
+#app { max-width: 640px; width: 100%; margin: 0 auto; min-height: 100vh; overflow-x: hidden; box-sizing: border-box; }
 
 .page { padding-bottom: 8px; }
 .pad { padding: 12px; }
