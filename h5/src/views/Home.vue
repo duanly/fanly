@@ -741,7 +741,7 @@ onMounted(() => {
 
 /* ========== 活动跑马灯 ========== */
 .act-section {
-  border-color: #7c5cff;
+  border-color: #fff;
   box-shadow: 0 4px 12px rgba(124, 92, 255, 0.15);
 }
 .act-marquee {
