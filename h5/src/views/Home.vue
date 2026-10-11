@@ -894,6 +894,8 @@ onUnmounted(() => {
   position: relative;
   cursor: grab;
   user-select: none;
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
 }
 .act-marquee:active {
   cursor: grabbing;
