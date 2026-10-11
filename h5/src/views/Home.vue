@@ -598,7 +598,7 @@ onMounted(() => {
 
 /* ========== 通用 section ========== */
 .section {
-  margin: 24px 12px 0;
+  margin: 14px 12px 0;
   background: #fff;
   border-radius: 14px;
   padding: 12px 14px 14px;
@@ -610,19 +610,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: -36px -2px 10px;
-  padding: 0 2px;
+  margin: 0 0 12px;
 }
 .sec-title {
   font-size: 18px;
   font-weight: 700;
   color: #1a1a1a;
-  background: transparent;
-  box-shadow: none;
-  height: auto;
-  padding: 0;
-  letter-spacing: 0;
-  border-radius: 0;
 }
 .sec-more {
   font-size: 13px;
