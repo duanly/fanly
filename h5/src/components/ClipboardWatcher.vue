@@ -40,6 +40,9 @@ const router = useRouter();
 
 // 同一段内容只提示一次，别反复弹
 const SEEN_KEY = 'clipSeen';
+// 冷却时间：两次检查之间至少间隔这么久，避免 iOS 每次切回页面都弹「粘贴」
+const COOLDOWN_MS = 3 * 60 * 1000; // 3 分钟
+const LAST_CHECK_KEY = 'clipLastCheck';
 
 function seen() {
   try { return localStorage.getItem(SEEN_KEY) || ''; } catch { return ''; }
@@ -49,11 +52,24 @@ function markSeen(t) {
   try { localStorage.setItem(SEEN_KEY, t.slice(0, 200)); } catch { /* 忽略 */ }
 }
 
+function inCooldown() {
+  try {
+    const last = Number(localStorage.getItem(LAST_CHECK_KEY) || 0);
+    return Date.now() - last < COOLDOWN_MS;
+  } catch { return false; }
+}
+
+function markChecked() {
+  try { localStorage.setItem(LAST_CHECK_KEY, String(Date.now())); } catch { /* 忽略 */ }
+}
+
 async function check() {
   // 登录了才有意义——转链要带用户的推广位
   if (!localStorage.getItem('token')) return;
   if (show.value) return;
+  if (inCooldown()) return;
   const t = await readClipboard();
+  markChecked();
   if (!t || !looksLikeShare(t)) return;
   if (t.slice(0, 200) === seen()) return;
   text.value = t;
@@ -79,11 +95,9 @@ function onVisible() {
 onMounted(() => {
   check();
   document.addEventListener('visibilitychange', onVisible);
-  window.addEventListener('focus', check);
 });
 
 onUnmounted(() => {
   document.removeEventListener('visibilitychange', onVisible);
-  window.removeEventListener('focus', check);
 });
 </script>
