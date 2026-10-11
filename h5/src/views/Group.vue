@@ -30,6 +30,8 @@
         去后台「选品池」搜商品，加入时把专题填成 {{ key }} 就会显示在这里
       </div>
     </van-empty>
+
+    <van-back-top right="16" bottom="80" />
   </div>
 </template>
 

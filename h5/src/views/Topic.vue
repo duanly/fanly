@@ -89,6 +89,8 @@
       description="这个专题还在备货，换个分区看看"
     />
 
+    <van-back-top right="16" bottom="80" />
+
     <BeianFooter />
 
     <!-- 分享海报弹层 -->

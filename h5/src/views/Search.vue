@@ -21,6 +21,8 @@
         <GoodsCard v-for="g in list" :key="g.platform + g.goodsId" :g="g" />
       </div>
     </van-list>
+
+    <van-back-top right="16" bottom="80" />
   </div>
 </template>
 
@@ -30,11 +32,11 @@ import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
 import { PLATFORMS } from '../utils/platform';
 
-const platforms = PLATFORMS;
+const platforms = [{ key: 'ALL', name: '全部' }, ...PLATFORMS];
 const sortOptions = [
   { text: '综合排序', value: '' },
   { text: '销量优先', value: 'sales' },
-  { text: '返利最高', value: 'commission' },
+  { text: '返利最高', value: 'rebate' },
   { text: '价格最低', value: 'price' },
 ];
 

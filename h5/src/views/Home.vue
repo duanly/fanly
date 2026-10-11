@@ -174,6 +174,8 @@
       <van-empty v-if="!rankLoading && !list.length" :description="emptyText" />
     </div>
 
+    <van-back-top right="16" bottom="80" />
+
     <BeianFooter />
   </div>
 </template>

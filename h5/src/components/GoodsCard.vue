@@ -2,12 +2,13 @@
   <div class="goods-card-v2" @click="go">
     <div class="img-wrap">
       <img :src="g.image" :alt="g.title" loading="lazy" />
-      <!-- 热销标（保留在图上，不挡主体） -->
-      <span v-if="showHot && g.salesVolume > 1000" class="hot-tag">🔥 热销</span>
     </div>
 
     <div class="body">
-      <div class="title">{{ g.title }}</div>
+      <div class="title">
+        <span v-if="showHot && g.salesVolume > 1000" class="hot-tag">🔥 热销</span>
+        {{ g.title }}
+      </div>
 
       <!-- 返利（核心卖点，放大突出） -->
       <div class="rebate-block">
@@ -124,19 +125,6 @@ async function doRecommend() {
   object-fit: cover;
 }
 
-/* 热销标 */
-.hot-tag {
-  position: absolute;
-  left: 6px;
-  bottom: 6px;
-  padding: 2px 6px;
-  background: rgba(0,0,0,0.55);
-  color: #fff;
-  font-size: 10px;
-  border-radius: 999px;
-  backdrop-filter: blur(4px);
-}
-
 /* 内容区 */
 .body {
   padding: 8px 10px 10px;
@@ -152,6 +140,18 @@ async function doRecommend() {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.title .hot-tag {
+  display: inline-block;
+  padding: 1px 4px;
+  margin-right: 4px;
+  background: #fff0ec;
+  color: #ff4b3a;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 3px;
+  line-height: 1.4;
+  vertical-align: top;
 }
 
 /* ===== 返利区（核心卖点，放大突出） ===== */
