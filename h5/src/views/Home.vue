@@ -613,20 +613,22 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 2px 0 12px;
+  margin: -22px -2px 10px;
+  position: relative;
+  z-index: 2;
 }
 .sec-title {
   display: inline-flex;
   align-items: center;
-  height: 28px;
-  padding: 0 14px;
+  height: 32px;
+  padding: 0 24px 0 14px;
   font-size: 15px;
   font-weight: 800;
   color: #fff;
-  background: linear-gradient(135deg, #ff6b35 0%, #ff4b3a 100%);
-  border-radius: 14px;
-  box-shadow: 0 2px 6px rgba(255, 75, 58, 0.25);
+  background: linear-gradient(90deg, #ff4b3a, #ff8a3d);
+  border-radius: 0 0 16px 0;
   letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(255, 75, 58, 0.2);
 }
 .sec-more {
   font-size: 12px;
@@ -756,11 +758,8 @@ onMounted(() => {
   box-shadow: 0 4px 12px rgba(124, 92, 255, 0.15);
 }
 .act-section .sec-title {
-  background: linear-gradient(135deg, #7c5cff 0%, #5b3dff 100%);
-  box-shadow: 2px 2px 6px rgba(124, 92, 255, 0.25);
-}
-.act-section .sec-title::before {
-  background: rgba(0,0,0,0.12);
+  background: linear-gradient(90deg, #5b3dff, #9b7fff);
+  box-shadow: 0 2px 6px rgba(124, 92, 255, 0.2);
 }
 .act-marquee {
   margin: 0 -14px;
@@ -886,10 +885,27 @@ onMounted(() => {
   border-right: 2px solid #fff;
   border-bottom: 2px solid #fff;
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  margin-top: 24px;
+  padding-top: 12px;
+}
+.rank-section .sec-head {
+  margin: -36px -2px 8px;
+  padding: 0 2px;
 }
 .rank-section .sec-title {
-  background: linear-gradient(135deg, #ff6b35 0%, #ff4b3a 100%);
-  box-shadow: 2px 2px 6px rgba(255, 75, 58, 0.25);
+  background: transparent;
+  color: #1a1a1a;
+  box-shadow: none;
+  font-size: 18px;
+  font-weight: 700;
+  height: auto;
+  padding: 0;
+  letter-spacing: 0;
+  border-radius: 0;
+}
+.rank-section .sec-more {
+  font-size: 13px;
+  color: #969799;
 }
 
 /* ========== 榜单 tabs ========== */
