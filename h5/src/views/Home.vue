@@ -89,7 +89,7 @@
 
     <!-- 品类宫格 -->
     <div class="sec-head-wrap cats-head">
-      <span class="sec-title">全部分类 📦</span>
+      <span class="sec-title">全部分类 📒</span>
       <span class="sec-more">共 {{ catGroups.length }} 个</span>
     </div>
     <div class="section cats-section" ref="catsRef">
@@ -118,7 +118,7 @@
 
     <!-- 活动标签位（无缝跑马灯） -->
     <div v-if="acts.length" class="sec-head-wrap act-head">
-      <span class="sec-title">限时活动 🔥</span>
+      <span class="sec-title">限时活动 🕙</span>
       <span class="sec-more">更多 ›</span>
     </div>
     <div v-if="acts.length" class="section act-section">
@@ -144,7 +144,7 @@
 
     <!-- 好物推荐 -->
     <div class="sec-head-wrap rank-head">
-      <span class="sec-title">好物推荐 🏆</span>
+      <span class="sec-title">好物推荐 👍</span>
       <span class="sec-more" @click="$router.push('/group/default')">全部 ›</span>
     </div>
     <div class="section rank-section">
