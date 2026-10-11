@@ -598,14 +598,11 @@ onMounted(() => {
 
 /* ========== 通用 section ========== */
 .section {
-  margin: 14px 12px 0;
+  margin: 24px 12px 0;
   background: #fff;
   border-radius: 14px;
-  padding: 14px 14px 14px;
-  border-top: 6px solid #ff6b35;
-  border-left: 2px solid #ff6b35;
-  border-right: 2px solid #ff6b35;
-  border-bottom: 2px solid #ff6b35;
+  padding: 12px 14px 14px;
+  border: 2px solid #ff6b35;
   box-shadow: 0 4px 12px rgba(255, 107, 53, 0.12);
   overflow: hidden;
 }
@@ -613,26 +610,23 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: -22px -2px 10px;
-  position: relative;
-  z-index: 2;
+  margin: -36px -2px 10px;
+  padding: 0 2px;
 }
 .sec-title {
-  display: inline-flex;
-  align-items: center;
-  height: 32px;
-  padding: 0 24px 0 14px;
-  font-size: 15px;
-  font-weight: 800;
-  color: #fff;
-  background: linear-gradient(90deg, #ff4b3a, #ff8a3d);
-  border-radius: 0 0 16px 0;
-  letter-spacing: 0.5px;
-  box-shadow: 0 2px 6px rgba(255, 75, 58, 0.2);
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  background: transparent;
+  box-shadow: none;
+  height: auto;
+  padding: 0;
+  letter-spacing: 0;
+  border-radius: 0;
 }
 .sec-more {
-  font-size: 12px;
-  color: #999;
+  font-size: 13px;
+  color: #969799;
 }
 
 /* 平台授权大卡片（在顶部渐变区内） */
@@ -751,15 +745,8 @@ onMounted(() => {
 
 /* ========== 活动跑马灯 ========== */
 .act-section {
-  border-top-color: #7c5cff;
-  border-left-color: #7c5cff;
-  border-right-color: #7c5cff;
-  border-bottom-color: #7c5cff;
+  border-color: #7c5cff;
   box-shadow: 0 4px 12px rgba(124, 92, 255, 0.15);
-}
-.act-section .sec-title {
-  background: linear-gradient(90deg, #5b3dff, #9b7fff);
-  box-shadow: 0 2px 6px rgba(124, 92, 255, 0.2);
 }
 .act-marquee {
   margin: 0 -14px;
@@ -880,32 +867,8 @@ onMounted(() => {
 
 /* ========== 好物推荐 ========== */
 .rank-section {
-  border-top: 2px solid #fff;
-  border-left: 2px solid #fff;
-  border-right: 2px solid #fff;
-  border-bottom: 2px solid #fff;
+  border-color: #fff;
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-  margin-top: 24px;
-  padding-top: 12px;
-}
-.rank-section .sec-head {
-  margin: -36px -2px 8px;
-  padding: 0 2px;
-}
-.rank-section .sec-title {
-  background: transparent;
-  color: #1a1a1a;
-  box-shadow: none;
-  font-size: 18px;
-  font-weight: 700;
-  height: auto;
-  padding: 0;
-  letter-spacing: 0;
-  border-radius: 0;
-}
-.rank-section .sec-more {
-  font-size: 13px;
-  color: #969799;
 }
 
 /* ========== 榜单 tabs ========== */
