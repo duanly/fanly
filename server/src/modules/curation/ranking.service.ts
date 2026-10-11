@@ -192,8 +192,8 @@ export class RankingService {
     const [allRows, total] = await this.goodsRepo
       .createQueryBuilder('g')
       .where('g.status = :status', { status: CuratedStatus.ON })
-      .orderBy('CAST(g.recommendScore AS INTEGER)', 'DESC')
-      .addOrderBy('CAST(g.sortWeight AS INTEGER)', 'DESC')
+      .orderBy('CAST(g.recommendScore AS DECIMAL)', 'DESC')
+      .addOrderBy('CAST(g.sortWeight AS DECIMAL)', 'DESC')
       .addOrderBy('g.id', 'DESC')
       .skip(0)
       .take(skip + fetchSize)
