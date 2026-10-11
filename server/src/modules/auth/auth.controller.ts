@@ -15,6 +15,10 @@ class LoginDto {
   @IsOptional() @IsString() deviceId?: string;
 }
 
+class BindInviterDto {
+  @IsString() @Length(4, 8) inviteCode: string;
+}
+
 @ApiTags('认证')
 @Controller('api/auth')
 export class AuthController {
@@ -33,4 +37,10 @@ export class AuthController {
   @Get('profile')
   @ApiOperation({ summary: '当前用户资料' })
   profile(@CurrentUser('sub') userId: number) { return this.auth.profile(userId); }
+
+  @Post('bind-inviter')
+  @ApiOperation({ summary: '绑定邀请人（仅未绑定时可操作）' })
+  bindInviter(@CurrentUser('sub') userId: number, @Body() dto: BindInviterDto) {
+    return this.auth.bindInviter(userId, dto.inviteCode);
+  }
 }

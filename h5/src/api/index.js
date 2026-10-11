@@ -33,6 +33,7 @@ export const api = {
   sendSms: (mobile) => http.post('/api/auth/sms', { mobile }),
   login: (data) => http.post('/api/auth/login', data),
   profile: () => http.get('/api/auth/profile'),
+  bindInviter: (inviteCode) => http.post('/api/auth/bind-inviter', { inviteCode }),
 
   recommend: (platform) => http.get('/api/goods/recommend', { params: { platform } }),
   // 首页流：后台选品池优先，池空时后端自动回落到平台榜单

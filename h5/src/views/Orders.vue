@@ -15,7 +15,7 @@
 
     <!-- 返利什么时候到账是客服问得最多的，直接写在列表顶上 -->
     <div class="tip-bar">
-      返利在订单<b>确认收货且平台结算</b>后入账，一般 15~30 天。退款或维权的订单会失效。
+      <b>可返利</b>：已付款待收货 → <b>返利中</b>：已签收待平台结算 → <b>已到账</b>：平台结算后入账。一般需要 15~30 天。
       <span class="claim-link" @click="$router.push('/claim')">买了没看到订单？去找回 ›</span>
     </div>
 
@@ -71,8 +71,8 @@ function back() {
 
 const tabs = [
   { label: '全部', status: undefined },
-  { label: '待收货', status: 1 },
-  { label: '已收货', status: 2 },
+  { label: '可返利', status: 1 },
+  { label: '返利中', status: 2 },
   { label: '已到账', status: 5 },
   { label: '已失效', status: 4 },
 ];
@@ -82,8 +82,8 @@ const page = ref(1);
 const loading = ref(false);
 const finished = ref(false);
 
-const statusText = (s) => ({ 1: '待收货', 2: '已收货', 3: '已结算', 4: '已失效', 5: '已到账' }[s] || '');
-const statusColor = (s) => ({ 4: '#c8c9cc', 5: '#07c160' }[s] || '#969799');
+const statusText = (s) => ({ 1: '可返利', 2: '返利中', 3: '结算中', 4: '已失效', 5: '已到账' }[s] || '');
+const statusColor = (s) => ({ 1: '#ff976a', 2: '#1989fa', 4: '#c8c9cc', 5: '#07c160' }[s] || '#969799');
 const fmt = (d) => (d ? new Date(d).toLocaleDateString('zh-CN') : '');
 
 function reset() {

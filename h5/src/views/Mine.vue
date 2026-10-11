@@ -29,7 +29,7 @@
       <div class="wallet-cols">
         <div>
           <div class="n">{{ money(p?.pending) }}</div>
-          <div class="sub">预估返利</div>
+          <div class="sub">返利中</div>
         </div>
         <div>
           <div class="n">{{ money(p?.frozen) }}</div>
@@ -53,7 +53,7 @@
         >提现</van-button>
         <van-button
           block round size="small"
-          style="background:rgba(255,255,255,.2);color:#fff;border:none;font-weight:500"
+          style="background:#fff;color:#ff3b30;border:none;font-weight:600"
           @click="$router.push('/withdraws')"
         >提现记录</van-button>
       </div>
@@ -68,10 +68,22 @@
       <van-cell title="我的订单" is-link icon="orders-o" to="/orders" />
       <van-cell title="签到领金币" is-link icon="gift-o" to="/checkin">
         <template #value>
-          <span style="color:#ff4b3a;font-weight:600">{{ p?.coins ?? 0 }} 金币</span>
+          <span style="color:#ff4b3a;font-weight:600">{{ coinCount }} 金币</span>
         </template>
       </van-cell>
       <van-cell title="我的邀请码" icon="friends-o" :value="p?.inviteCode" />
+      <van-cell
+        v-if="!p?.bindAgent"
+        title="填写邀请码"
+        is-link
+        icon="invition"
+        @click="showBindInviter = true"
+      >
+        <template #value><span class="muted">去填写</span></template>
+      </van-cell>
+      <van-cell v-else title="我的邀请人" icon="manager-o">
+        <template #value>{{ p.bindAgent.agentCode }}</template>
+      </van-cell>
     </van-cell-group>
 
     <van-cell-group inset>
@@ -91,6 +103,27 @@
       <van-button block round plain @click="logout">退出登录</van-button>
     </div>
 
+    <!-- 填写邀请码弹层 -->
+    <van-popup v-model:show="showBindInviter" position="bottom" round :style="{ padding: '20px 20px 30px' }">
+      <div style="font-size:17px;font-weight:700;margin-bottom:6px">填写邀请码</div>
+      <div class="muted" style="font-size:12px;margin-bottom:16px">绑定后不可修改，请确认邀请码正确</div>
+      <van-field
+        v-model="inviteCodeInput"
+        placeholder="请输入邀请码"
+        maxlength="8"
+        :border="false"
+        style="background:#f7f8fa;border-radius:10px;padding:0 12px;margin-bottom:16px"
+      />
+      <van-button
+        block
+        round
+        type="primary"
+        color="#ff4b3a"
+        :loading="bindingInviter"
+        @click="doBindInviter"
+      >确认绑定</van-button>
+    </van-popup>
+
     <BeianFooter />
     </template>
   </div>
@@ -107,6 +140,10 @@ import BeianFooter from '../components/BeianFooter.vue';
 const logged = ref(!!localStorage.getItem('token'));
 const p = ref(null);
 const s = ref(null);
+const coinInfo = ref(null);
+const showBindInviter = ref(false);
+const inviteCodeInput = ref('');
+const bindingInviter = ref(false);
 const router = useRouter();
 const money = (v) => (+(v || 0)).toFixed(2);
 
@@ -116,11 +153,16 @@ const avatarText = computed(() => {
   return name.slice(0, 3);
 });
 
+// 金币数：优先从 coinStatus 取，兜底用 profile
+const coinCount = computed(() => coinInfo.value?.coins ?? p.value?.coins ?? 0);
+
 async function load() {
   if (!logged.value) return;
   p.value = await api.profile();
   // 概览接口挂了不该让整个「我的」白屏，余额从 profile 里已经有了
   try { s.value = await api.summary(); } catch { s.value = null; }
+  // 金币单独查
+  try { coinInfo.value = await api.coinStatus(); } catch { coinInfo.value = null; }
 }
 
 async function apply() {
@@ -131,6 +173,21 @@ async function apply() {
   await api.agentApply('');
   showToast('已提交，等待审核');
   load();
+}
+
+async function doBindInviter() {
+  const code = inviteCodeInput.value.trim();
+  if (!code) return showToast('请输入邀请码');
+  bindingInviter.value = true;
+  try {
+    const r = await api.bindInviter(code);
+    showToast('绑定成功');
+    showBindInviter.value = false;
+    inviteCodeInput.value = '';
+    load();
+  } finally {
+    bindingInviter.value = false;
+  }
 }
 
 function logout() {

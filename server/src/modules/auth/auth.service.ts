@@ -136,4 +136,17 @@ export class AuthService {
       agentNeedPay: this.cfg.get('agent.need_pay') === '1',
     };
   }
+
+  /** 绑定邀请人，只有尚未绑定的用户才能绑，绑一次后不可改 */
+  async bindInviter(userId: number, inviteCode: string) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (user.agentId) throw new BadRequestException('已经绑定过邀请人了');
+    const agent = await this.agentRepo.findOneBy({ agentCode: inviteCode.toUpperCase() });
+    if (!agent || agent.status !== AgentStatus.ACTIVE) throw new BadRequestException('邀请码无效');
+    if (agent.userId === userId) throw new BadRequestException('不能绑定自己');
+    user.agentId = agent.id;
+    user.bindTime = new Date();
+    await this.userRepo.save(user);
+    return { ok: true, agentCode: agent.agentCode, realName: agent.realName };
+  }
 }
