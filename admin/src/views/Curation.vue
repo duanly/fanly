@@ -168,26 +168,6 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="标签" width="150">
-              <template #default="{ row }">
-                <el-select
-                  v-model="row.groupKey"
-                  size="small"
-                  filterable
-                  allow-create
-                  default-first-option
-                  @change="(v) => save(row, { groupKey: v })"
-                >
-                  <el-option
-                    v-for="g in GROUPS"
-                    :key="g.key"
-                    :label="`${g.name} (${g.key})`"
-                    :value="g.key"
-                  />
-                </el-select>
-              </template>
-            </el-table-column>
-
             <el-table-column label="权重" width="110">
               <template #default="{ row }">
                 <el-input-number
