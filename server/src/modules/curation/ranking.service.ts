@@ -58,11 +58,14 @@ export class RankingService {
     const realMap = new Map(realRows.map((r) => [`${r.platform}:${r.goodsId}`, r]));
 
     // 补位按平台销量降序
-    const pool = await this.goodsRepo.find({
-      where: { status: CuratedStatus.ON },
-      order: { salesVolume: 'DESC', commission: 'DESC', id: 'DESC' },
-      take: pageSize + skip + 50, // 多取一点，防止前面全是真订单导致补位不够
-    });
+    const pool = await this.goodsRepo
+      .createQueryBuilder('g')
+      .where('g.status = :status', { status: CuratedStatus.ON })
+      .orderBy('g.salesVolume', 'DESC')
+      .addOrderBy('CAST(g.commission AS DECIMAL)', 'DESC')
+      .addOrderBy('g.id', 'DESC')
+      .take(pageSize + skip + 50) // 多取一点，防止前面全是真订单导致补位不够
+      .getMany();
 
     // 合并：真订单的在前（按订单数降序），补位在后（按销量降序）
     const ordered: any[] = [...realRows];
@@ -135,12 +138,17 @@ export class RankingService {
   /** 返利榜：选品池里到手返利最高的（按佣金金额降序，等价于按返利降序） */
   async rebate(page = 1, pageSize = 20) {
     const skip = (page - 1) * pageSize;
-    const [rows, total] = await this.goodsRepo.findAndCount({
-      where: { status: CuratedStatus.ON },
-      order: { commission: 'DESC', id: 'DESC' },
-      skip,
-      take: pageSize,
-    });
+    // 注意：commission 是 decimal(SQLite 存 TEXT)，直接 DESC 会按字符串排（"9">"10"）
+    // 用 CAST 转成数值再排
+    const rows = await this.goodsRepo
+      .createQueryBuilder('g')
+      .where('g.status = :status', { status: CuratedStatus.ON })
+      .orderBy('CAST(g.commission AS DECIMAL)', 'DESC')
+      .addOrderBy('g.id', 'DESC')
+      .skip(skip)
+      .take(pageSize)
+      .getMany();
+    const total = await this.goodsRepo.count({ where: { status: CuratedStatus.ON } });
     return {
       list: rows.map((r) => this.toGoods(r)),
       total,
@@ -159,12 +167,15 @@ export class RankingService {
    */
   async pick(page = 1, pageSize = 20) {
     const skip = (page - 1) * pageSize;
-    const [rows, total] = await this.goodsRepo.findAndCount({
-      where: { status: CuratedStatus.ON },
-      order: { recommendScore: 'DESC', sortWeight: 'DESC', id: 'DESC' },
-      skip,
-      take: pageSize,
-    });
+    const [rows, total] = await this.goodsRepo
+      .createQueryBuilder('g')
+      .where('g.status = :status', { status: CuratedStatus.ON })
+      .orderBy('CAST(g.recommendScore AS INTEGER)', 'DESC')
+      .addOrderBy('CAST(g.sortWeight AS INTEGER)', 'DESC')
+      .addOrderBy('g.id', 'DESC')
+      .skip(skip)
+      .take(pageSize)
+      .getManyAndCount();
     return {
       list: rows.map((r) => ({ ...this.toGoods(r), recommendScore: r.recommendScore })),
       total,
