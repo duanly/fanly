@@ -92,11 +92,11 @@
     </div>
 
     <!-- 品类宫格 -->
-    <div class="section" ref="catsRef">
-      <div class="sec-head">
-        <span class="sec-title">📦 全部分类</span>
-        <span class="sec-more">共 {{ catGroups.length }} 个</span>
-      </div>
+    <div class="sec-head-wrap cats-head">
+      <span class="sec-title">全部分类 📦</span>
+      <span class="sec-more">共 {{ catGroups.length }} 个</span>
+    </div>
+    <div class="section cats-section" ref="catsRef">
       <div class="grid-card">
         <van-swipe
           :autoplay="catPages.length > 1 ? 5000 : 0"
@@ -121,11 +121,11 @@
     </div>
 
     <!-- 活动标签位（无缝跑马灯） -->
+    <div v-if="acts.length" class="sec-head-wrap act-head">
+      <span class="sec-title">限时活动 🔥</span>
+      <span class="sec-more">更多 ›</span>
+    </div>
     <div v-if="acts.length" class="section act-section">
-      <div class="sec-head">
-        <span class="sec-title">🔥 限时活动</span>
-        <span class="sec-more">更多 ›</span>
-      </div>
       <div class="act-marquee">
         <div class="am-track" :style="{ animationDuration: marqueeDuration + 's' }">
           <div
@@ -147,12 +147,11 @@
     </div>
 
     <!-- 好物推荐 -->
+    <div class="sec-head-wrap rank-head">
+      <span class="sec-title">好物推荐 🏆</span>
+      <span class="sec-more" @click="$router.push('/group/default')">全部 ›</span>
+    </div>
     <div class="section rank-section">
-      <div class="sec-head">
-        <span class="sec-title">🏆 好物推荐</span>
-        <span class="sec-more" @click="$router.push('/group/default')">全部 ›</span>
-      </div>
-
       <van-tabs class="rank-tabs" v-model:active="rankIdx" color="#ff4b3a" line-width="16" @change="resetRank">
         <van-tab v-for="r in RANKS" :key="r.type" :title="r.name" />
       </van-tabs>
@@ -446,7 +445,7 @@ onMounted(() => {
 /* ========== 顶部渐变区 ========== */
 .top-wrap {
   position: relative;
-  padding: 0 12px 14px;
+  padding: 0 12px 0;
 }
 .top-bg {
   position: absolute;
@@ -598,7 +597,7 @@ onMounted(() => {
 
 /* ========== 通用 section ========== */
 .section {
-  margin: 14px 12px 0;
+  margin: 8px 12px 0;
   background: #fff;
   border-radius: 14px;
   padding: 12px 14px 14px;
@@ -606,11 +605,13 @@ onMounted(() => {
   box-shadow: 0 4px 12px rgba(255, 107, 53, 0.12);
   overflow: hidden;
 }
-.sec-head {
+
+/* 标题在卡片外面 */
+.sec-head-wrap {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0 0 12px;
+  margin: 14px 12px 0;
 }
 .sec-title {
   font-size: 18px;
