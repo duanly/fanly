@@ -33,7 +33,11 @@ const routes = [
 const router = createRouter({
   history: createWebHashHistory(),
   routes,
-  scrollBehavior: () => ({ top: 0 }),
+  scrollBehavior(to, from, savedPosition) {
+    // 返回时记住滚动位置，前进或新打开时回到顶部
+    if (savedPosition) return savedPosition;
+    return { top: 0 };
+  },
 });
 
 router.beforeEach((to) => {

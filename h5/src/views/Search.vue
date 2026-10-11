@@ -27,10 +27,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { nextTick, onMounted, ref } from 'vue';
+import { onBeforeRouteLeave } from 'vue-router';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
 import { PLATFORMS } from '../utils/platform';
+
+const STORAGE_KEY = 'search_state';
 
 const platforms = [{ key: 'ALL', name: '全部' }, ...PLATFORMS];
 const sortOptions = [
@@ -75,4 +78,61 @@ async function load() {
     loading.value = false;
   }
 }
+
+function tryRestore() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (!s.keyword) return false;
+    keyword.value = s.keyword;
+    platformIdx.value = s.platformIdx || 0;
+    sort.value = s.sort || '';
+    if (Array.isArray(s.list) && s.list.length) {
+      list.value = s.list;
+      page.value = s.page || 2;
+      finished.value = !!s.finished;
+      loading.value = false;
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function saveState() {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      keyword: keyword.value,
+      platformIdx: platformIdx.value,
+      sort: sort.value,
+      list: list.value,
+      page: page.value,
+      finished: finished.value,
+      scrollY: window.scrollY,
+    }));
+  } catch { /* ignore */ }
+}
+
+onBeforeRouteLeave((to, from, next) => {
+  if (to.path.startsWith('/goods/')) {
+    saveState();
+  } else {
+    sessionStorage.removeItem(STORAGE_KEY);
+  }
+  next();
+});
+
+onMounted(() => {
+  const restored = tryRestore();
+  if (restored) {
+    nextTick(() => {
+      try {
+        const s = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
+        if (s.scrollY) window.scrollTo(0, s.scrollY);
+      } catch { /* ignore */ }
+    });
+  }
+});
 </script>

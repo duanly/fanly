@@ -181,15 +181,18 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { showToast } from 'vant';
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { api } from '../api';
+import { showToast } from 'vant';
 import GoodsCard from '../components/GoodsCard.vue';
 import BeianFooter from '../components/BeianFooter.vue';
 import { PLATFORMS as PLATS } from '../utils/platform';
 
 const router = useRouter();
+const route = useRoute();
+
+const STORAGE_KEY = 'home_rank_state';
 const auth = reactive({});
 
 const RANKS = [
@@ -428,9 +431,65 @@ async function loadSide() {
   }
 }
 
+/** 从详情页返回时恢复榜单状态（tab、列表数据、滚动位置） */
+function tryRestoreState() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (typeof s.rankIdx !== 'number') return false;
+    rankIdx.value = s.rankIdx;
+    if (Array.isArray(s.list) && s.list.length) {
+      list.value = s.list;
+      rankPage.value = s.rankPage || 2;
+      rankFinished.value = !!s.finished;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 离开去详情页之前保存榜单状态 */
+function saveState() {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      rankIdx: rankIdx.value,
+      list: list.value,
+      rankPage: rankPage.value,
+      finished: rankFinished.value,
+      scrollY: window.scrollY,
+    }));
+  } catch { /* storage 满了就算了 */ }
+}
+
+onBeforeRouteLeave((to, from, next) => {
+  // 只有去商品详情页才保存状态，去别的页面（如搜索、收藏夹）清空
+  if (to.path.startsWith('/goods/')) {
+    saveState();
+  } else {
+    sessionStorage.removeItem(STORAGE_KEY);
+  }
+  next();
+});
+
 onMounted(() => {
   loadSide();
-  loadRank();
+  const restored = tryRestoreState();
+  if (restored && list.value.length) {
+    // 数据已恢复，下一帧滚动到之前的位置
+    nextTick(() => {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        try {
+          const s = JSON.parse(raw);
+          if (s.scrollY) window.scrollTo(0, s.scrollY);
+        } catch { /* ignore */ }
+      }
+    });
+  } else {
+    loadRank();
+  }
 });
 </script>
 

@@ -108,8 +108,8 @@
 </template>
 
 <script setup>
-import { computed, onUnmounted, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
@@ -244,12 +244,77 @@ async function loadHomeBanners() {
   } catch { /* 没有就不用 */ }
 }
 
+function storageKey() {
+  return `topic_${route.params.slug}_state`;
+}
+
+function tryRestore() {
+  try {
+    const raw = sessionStorage.getItem(storageKey());
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (!Array.isArray(s.list) || !s.list.length) return false;
+    sort.value = s.sort || 'rebate';
+    list.value = s.list;
+    page.value = s.page || 1;
+    total.value = s.total || 0;
+    finished.value = !!s.finished;
+    loading.value = false;
+    if (s.topic) topic.value = s.topic;
+    startCountdown();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function saveState() {
+  try {
+    sessionStorage.setItem(storageKey(), JSON.stringify({
+      sort: sort.value,
+      list: list.value,
+      page: page.value,
+      total: total.value,
+      finished: finished.value,
+      topic: topic.value,
+      scrollY: window.scrollY,
+    }));
+  } catch { /* ignore */ }
+}
+
+onBeforeRouteLeave((to, from, next) => {
+  if (to.path.startsWith('/goods/')) {
+    saveState();
+  } else {
+    sessionStorage.removeItem(storageKey());
+  }
+  next();
+});
+
 onUnmounted(() => {
   if (countdownTimer) clearInterval(countdownTimer);
 });
 
 // 从一个专题直接跳另一个专题时，组件会复用，必须自己重置
-watch(() => route.params.slug, reset, { immediate: true });
+watch(() => route.params.slug, (slug, oldSlug) => {
+  if (oldSlug) sessionStorage.removeItem(`topic_${oldSlug}_state`);
+  reset();
+});
+
+// 挂载时先尝试恢复，没有就重新加载
+onMounted(() => {
+  const restored = tryRestore();
+  if (restored) {
+    nextTick(() => {
+      try {
+        const s = JSON.parse(sessionStorage.getItem(storageKey()) || '{}');
+        if (s.scrollY) window.scrollTo(0, s.scrollY);
+      } catch { /* ignore */ }
+    });
+  } else {
+    reset();
+  }
+});
 
 // 加载首页 banner 兜底
 loadHomeBanners();

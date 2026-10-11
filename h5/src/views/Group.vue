@@ -36,8 +36,8 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { nextTick, onMounted, ref, watch } from 'vue';
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
 import { groupMeta } from '../constants/groups';
@@ -92,15 +92,68 @@ async function load() {
   }
 }
 
-// 从一个专题跳到另一个专题时组件会复用，得跟着路由重新拉
-watch(() => route.params.key, (v) => {
+function storageKey() {
+  return `group_${key.value}_state`;
+}
+
+function tryRestore() {
+  try {
+    const raw = sessionStorage.getItem(storageKey());
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (!Array.isArray(s.list) || !s.list.length) return false;
+    platformIdx.value = s.platformIdx || 0;
+    list.value = s.list;
+    page.value = s.page || 2;
+    finished.value = !!s.finished;
+    loading.value = false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function saveState() {
+  try {
+    sessionStorage.setItem(storageKey(), JSON.stringify({
+      platformIdx: platformIdx.value,
+      list: list.value,
+      page: page.value,
+      finished: finished.value,
+      scrollY: window.scrollY,
+    }));
+  } catch { /* ignore */ }
+}
+
+onBeforeRouteLeave((to, from, next) => {
+  if (to.path.startsWith('/goods/')) {
+    saveState();
+  } else {
+    sessionStorage.removeItem(storageKey());
+  }
+  next();
+});
+
+// 从一个分组跳到另一个分组时组件会复用，得跟着路由重新拉
+watch(() => route.params.key, (v, oldV) => {
+  if (oldV) sessionStorage.removeItem(`group_${oldV}_state`);
   key.value = String(v || 'default');
   title.value = groupMeta(key.value).name;
   reset();
 });
 
 onMounted(() => {
-  loading.value = true;
-  load();
+  const restored = tryRestore();
+  if (!restored) {
+    loading.value = true;
+    load();
+  } else {
+    nextTick(() => {
+      try {
+        const s = JSON.parse(sessionStorage.getItem(storageKey()) || '{}');
+        if (s.scrollY) window.scrollTo(0, s.scrollY);
+      } catch { /* ignore */ }
+    });
+  }
 });
 </script>
