@@ -10,10 +10,13 @@
       <div style="background:#fff;padding:14px">
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
           <span class="price" style="font-size:28px">¥{{ g.couponPrice }}</span>
-          <span class="strike">原价 ¥{{ g.price }}</span>
+          <span v-if="g.price && g.price > g.couponPrice" class="strike">原价 ¥{{ g.price }}</span>
           <span class="ref-tag">{{ PLAT[g.platform]?.name }}参考价</span>
         </div>
-        <div style="margin-top:10px;font-size:15px;line-height:1.5">{{ g.title }}</div>
+        <div style="margin-top:10px;font-size:15px;line-height:1.5">
+          <span v-if="g.salesVolume > 1000" class="detail-hot-tag">🔥 热销</span>
+          {{ g.title }}
+        </div>
         <div class="muted" style="margin-top:8px">{{ g.shopName }} · 已售 {{ g.salesVolume }} 件</div>
 
         <!-- 卡片上低调，到了详情页必须说清楚：钱要付给谁、货从哪儿发 -->
@@ -206,5 +209,17 @@ onMounted(async () => {
   font-size: 15px;
   font-weight: 700;
   border-radius: 999px;
+}
+
+.detail-hot-tag {
+  display: inline-block;
+  padding: 2px 6px;
+  margin-right: 6px;
+  background: #fff0ec;
+  color: #ff4b3a;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 4px;
+  vertical-align: middle;
 }
 </style>

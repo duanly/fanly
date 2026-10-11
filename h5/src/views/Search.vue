@@ -22,7 +22,7 @@
       </div>
     </van-list>
 
-    <van-back-top right="16" bottom="80" />
+    <van-back-top right="16" bottom="110" />
   </div>
 </template>
 
