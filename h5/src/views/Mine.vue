@@ -9,9 +9,10 @@
     <template v-else>
     <div style="background:linear-gradient(135deg,#ff6a3d,#ff3b30);padding:20px 16px 28px">
       <div style="display:flex;align-items:center;gap:12px;color:#fff">
-        <van-image round width="56" height="56" :src="p?.avatar" fit="cover">
-          <template #default><div style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center"><van-icon name="user-o" size="28" color="#fff" /></div></template>
-        </van-image>
+        <div class="mine-avatar">
+          <img v-if="p?.avatar" :src="p.avatar" alt="" />
+          <span v-else>{{ avatarText }}</span>
+        </div>
         <div>
           <div style="font-size:18px;font-weight:700">{{ p?.nickname || '—' }}</div>
           <div style="opacity:.85;font-size:12px;margin-top:2px">
@@ -46,11 +47,13 @@
 
       <div style="display:flex;gap:10px;margin-top:12px">
         <van-button
-          block round size="small" style="color:#ff3b30;font-weight:600"
+          block round size="small"
+          style="background:#fff;color:#ff3b30;font-weight:600;border:none"
           @click="$router.push('/withdraw')"
         >提现</van-button>
         <van-button
-          block round size="small" plain style="color:#fff;border-color:rgba(255,255,255,.6)"
+          block round size="small"
+          style="background:rgba(255,255,255,.2);color:#fff;border:none;font-weight:500"
           @click="$router.push('/withdraws')"
         >提现记录</van-button>
       </div>
@@ -94,7 +97,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showConfirmDialog, showToast } from 'vant';
 import { api } from '../api';
@@ -106,6 +109,12 @@ const p = ref(null);
 const s = ref(null);
 const router = useRouter();
 const money = (v) => (+(v || 0)).toFixed(2);
+
+// 头像文字：没有头像时取昵称前三个字
+const avatarText = computed(() => {
+  const name = p.value?.nickname || p.value?.mobile || '';
+  return name.slice(0, 3);
+});
 
 async function load() {
   if (!logged.value) return;
@@ -132,3 +141,25 @@ function logout() {
 
 onMounted(load);
 </script>
+
+<style scoped>
+.mine-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+}
+.mine-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+</style>
