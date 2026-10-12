@@ -4,6 +4,7 @@ import { AggregatorProvider } from './providers/aggregator.provider';
 import { MockProvider } from './providers/mock.provider';
 import { PddProvider } from './providers/pdd.provider';
 import { JdProvider } from './providers/jd.provider';
+import { DingdanxiaProvider } from './providers/dingdanxia.provider';
 import { ConvertedLink, CpsProvider, GoodsPage, RecommendParams, SearchParams, UnifiedGoods, UnifiedOrder } from './cps.types';
 import { TtlCache } from '@/common/ttl-cache';
 import { explainParseFailure, parseShareContent } from '@/common/share-content';
@@ -78,6 +79,17 @@ export class CpsService implements OnModuleInit {
         }));
         used.push('PDD=direct');
         if (!pddPid) this.logger.warn('PDD_PID 为空，转链会失败——去多多进宝后台拿推广位 ID');
+        continue;
+      }
+      // 淘宝单独开口子：填了订单侠 API key 就走订单侠
+      if (p === 'TB' && this.config.get('DDX_API_KEY')) {
+        this.providers.set(p, new DingdanxiaProvider({
+          apiKey: this.config.get<string>('DDX_API_KEY', ''),
+          pid: this.config.get<string>('TB_PID', ''),
+          baseUrl: this.config.get<string>('DDX_BASE_URL', ''),
+        }));
+        used.push('TB=dingdanxia');
+        if (!this.config.get('TB_PID')) this.logger.warn('TB_PID 为空，淘宝转链会失败——去订单侠或淘宝联盟后台拿 PID');
         continue;
       }
       if (mode === 'aggregator') {
