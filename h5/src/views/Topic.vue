@@ -89,7 +89,9 @@
       description="这个专题还在备货，换个分区看看"
     />
 
-    <van-back-top right="16" bottom="110" />
+    <div v-show="showBackTop" class="back-top-fab" @click="scrollToTop">
+      <van-icon name="arrow-up" size="18" />
+    </div>
 
     <BeianFooter />
 
@@ -291,17 +293,16 @@ onBeforeRouteLeave((to, from, next) => {
   next();
 });
 
-onUnmounted(() => {
-  if (countdownTimer) clearInterval(countdownTimer);
-});
+// 返回顶部
+const showBackTop = ref(false);
+let scrollHandler = null;
+function onPageScroll() {
+  showBackTop.value = window.scrollY > 300;
+}
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
-// 从一个专题直接跳另一个专题时，组件会复用，必须自己重置
-watch(() => route.params.slug, (slug, oldSlug) => {
-  if (oldSlug) sessionStorage.removeItem(`topic_${oldSlug}_state`);
-  reset();
-});
-
-// 挂载时先尝试恢复，没有就重新加载
 onMounted(() => {
   const restored = tryRestore();
   if (restored) {
@@ -314,10 +315,21 @@ onMounted(() => {
   } else {
     reset();
   }
+  scrollHandler = onPageScroll;
+  window.addEventListener('scroll', scrollHandler, { passive: true });
 });
 
-// 加载首页 banner 兜底
-loadHomeBanners();
+onUnmounted(() => {
+  if (countdownTimer) clearInterval(countdownTimer);
+  if (scrollHandler) window.removeEventListener('scroll', scrollHandler);
+});
+
+// 从一个专题直接跳另一个专题时，组件会复用，必须自己重置
+watch(() => route.params.slug, (slug, oldSlug) => {
+  if (oldSlug) sessionStorage.removeItem(`topic_${oldSlug}_state`);
+  reset();
+});
+
 </script>
 
 <style scoped>
@@ -428,4 +440,27 @@ loadHomeBanners();
   background: #f5f6f8;
 }
 .share-tip { margin-top: 8px; }
+
+.back-top-fab {
+  position: fixed;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #fff;
+  color: #ff4b3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 200;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.back-top-fab:active {
+  transform: translateY(-50%) scale(0.92);
+  opacity: 0.8;
+}
 </style>

@@ -31,12 +31,14 @@
       </div>
     </van-empty>
 
-    <van-back-top right="16" bottom="110" />
+    <div v-show="showBackTop" class="back-top-fab" @click="scrollToTop">
+      <van-icon name="arrow-up" size="18" />
+    </div>
   </div>
 </template>
 
 <script setup>
-import { nextTick, onMounted, ref, watch } from 'vue';
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
@@ -135,6 +137,16 @@ onBeforeRouteLeave((to, from, next) => {
 });
 
 // 从一个分组跳到另一个分组时组件会复用，得跟着路由重新拉
+// 返回顶部
+const showBackTop = ref(false);
+let scrollHandler = null;
+function onPageScroll() {
+  showBackTop.value = window.scrollY > 300;
+}
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 watch(() => route.params.key, (v, oldV) => {
   if (oldV) sessionStorage.removeItem(`group_${oldV}_state`);
   key.value = String(v || 'default');
@@ -155,5 +167,36 @@ onMounted(() => {
       } catch { /* ignore */ }
     });
   }
+  scrollHandler = onPageScroll;
+  window.addEventListener('scroll', scrollHandler, { passive: true });
+});
+
+onUnmounted(() => {
+  if (scrollHandler) window.removeEventListener('scroll', scrollHandler);
 });
 </script>
+
+<style scoped>
+.back-top-fab {
+  position: fixed;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #fff;
+  color: #ff4b3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 200;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.back-top-fab:active {
+  transform: translateY(-50%) scale(0.92);
+  opacity: 0.8;
+}
+</style>

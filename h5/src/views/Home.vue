@@ -174,12 +174,15 @@
       <van-empty v-if="!rankLoading && !list.length" :description="emptyText" />
     </div>
 
-    <van-back-top right="16" bottom="110" />
+    <!-- 悬浮返回顶部 -->
+    <div v-show="showBackTop" class="back-top-fab" @click="scrollToTop">
+      <van-icon name="arrow-up" size="18" />
+    </div>
 
     <BeianFooter />
 
     <!-- 全部活动弹窗 -->
-    <van-popup v-model:show="showAllActs" position="bottom" round :style="{ height: '70%' }">
+    <van-popup v-model:show="showAllActs" position="bottom" round :style="{ maxHeight: '75%' }">
       <div class="all-acts">
         <div class="aa-head">
           <div class="aa-title">全部活动</div>
@@ -196,7 +199,6 @@
               {{ a.icon || '🎁' }}
             </div>
             <div class="aa-name">{{ a.title }}</div>
-            <div class="aa-sub">{{ a.subtitle || '限时特惠' }}</div>
           </div>
         </div>
       </div>
@@ -325,6 +327,16 @@ function stopMarquee() {
 
 // 全部活动弹窗
 const showAllActs = ref(false);
+
+// 返回顶部悬浮按钮
+const showBackTop = ref(false);
+function onScroll() {
+  showBackTop.value = window.scrollY > 300;
+}
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+let scrollHandler = null;
 
 // 品类宫格
 const catGroups = computed(() => {
@@ -561,10 +573,15 @@ onMounted(() => {
     measureMarquee();
     startMarquee();
   });
+  // 返回顶部按钮
+  scrollHandler = onScroll;
+  window.addEventListener('scroll', scrollHandler, { passive: true });
+  onScroll();
 });
 
 onUnmounted(() => {
   stopMarquee();
+  if (scrollHandler) window.removeEventListener('scroll', scrollHandler);
 });
 </script>
 
@@ -1021,6 +1038,30 @@ onUnmounted(() => {
   margin-bottom: 8px;
 }
 
+/* ========== 返回顶部悬浮按钮 ========== */
+.back-top-fab {
+  position: fixed;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #fff;
+  color: #ff4b3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 200;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.back-top-fab:active {
+  transform: translateY(-50%) scale(0.92);
+  opacity: 0.8;
+}
+
 /* ========== 商品列表 ========== */
 .goods-list {
   display: grid;
@@ -1030,7 +1071,6 @@ onUnmounted(() => {
 
 /* ========== 全部活动弹窗 ========== */
 .all-acts {
-  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -1038,21 +1078,19 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px 12px;
+  padding: 14px 16px 10px;
   border-bottom: 1px solid #f2f2f2;
 }
 .aa-title {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
   color: #1a1a1a;
 }
 .aa-grid {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
+  padding: 14px 12px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px 12px;
+  gap: 12px 8px;
 }
 .aa-item {
   display: flex;
@@ -1064,35 +1102,26 @@ onUnmounted(() => {
   transform: scale(0.95);
 }
 .aa-ico {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
-  font-size: 22px;
+  border-radius: 12px;
+  font-size: 20px;
   color: #fff;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .aa-name {
   font-size: 12px;
   font-weight: 500;
   color: #1a1a1a;
-  line-height: 1.3;
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   width: 100%;
-}
-.aa-sub {
-  font-size: 10px;
-  color: #ff4b3a;
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
 }
 </style>
