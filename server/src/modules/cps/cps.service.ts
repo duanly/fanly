@@ -148,6 +148,9 @@ export class CpsService implements OnModuleInit {
   /**
    * 商品详情。详情接口没权限或临时抽风时，回落到刚才列表里见过的那一份——
    * 数据略旧一点，总好过让后台加不进选品池。
+   *
+   * 返回 null 表示「商品确实不存在/已下架」；抛异常表示「接口错误，无法确认」。
+   * 调用方（如 refreshOne）需要区分这两种情况：前者可以下架，后者应该保留。
    */
   async getGoodsDetail(platform: string, id: string): Promise<UnifiedGoods | null> {
     if (!id) return null;
@@ -160,13 +163,17 @@ export class CpsService implements OnModuleInit {
       }
       const cached = this.seenGoods.get(key);
       if (cached) this.logger.warn(`${platform} 详情查不到 ${id}，用列表快照兜底`);
+      // 详情接口正常返回了"空"，说明商品真的不存在/下架了
+      // 有缓存就返回缓存（数据旧一点但能用），没有就返回 null
       return cached ?? null;
     } catch (e: any) {
       const cached = this.seenGoods.get(key);
       this.logger.warn(
         `${platform} 详情 ${id} 失败(${e.message})，${cached ? '用列表快照兜底' : '且无快照可用'}`,
       );
-      return cached ?? null;
+      if (cached) return cached;
+      // 接口报错 + 没有缓存 → 把异常抛出去，让上层知道是接口问题不是商品下架
+      throw e;
     }
   }
   convertLink(platform: string, id: string, pid: string): Promise<ConvertedLink> {

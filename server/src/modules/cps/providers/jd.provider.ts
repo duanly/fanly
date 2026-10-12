@@ -289,70 +289,85 @@ export class JdProvider implements CpsProvider {
 
   async getGoodsDetail(skuId: string): Promise<UnifiedGoods | null> {
     if (!skuId) return null;
-    try {
-      const data = await this.call<any>('jd.union.open.goods.bigfield.query', {
-        goodsReq: { skuIds: [Number(skuId)], sceneId: 1 },
-      });
-      const list = data?.data ?? data ?? [];
-      const hit = Array.isArray(list) ? list[0] : list;
-      return hit ? this.mapGoods(hit) : null;
-    } catch (e: any) {
-      // bigfield.query 的权限跟京粉精选是分开审批的，现在还没批下来。
-      // 这里不再自己去精选池里捞（白打一次 100 条的接口还多半捞不着），
-      // 交给 CpsService 用列表快照兜底。
-      this.logger.warn(`京东详情 ${skuId} 失败: ${e.message}`);
-      return null;
-    }
+    const data = await this.call<any>('jd.union.open.goods.bigfield.query', {
+      goodsReq: { skuIds: [Number(skuId)], sceneId: 1 },
+    });
+    const list = data?.data ?? data ?? [];
+    const hit = Array.isArray(list) ? list[0] : list;
+    return hit ? this.mapGoods(hit) : null;
   }
 
   async convertLink(skuId: string, positionId: string): Promise<ConvertedLink> {
     if (!this.opt.positionId) throw new Error('京东未配置推广位：请在 .env 填 JD_POSITION_ID');
 
-    // 导购媒体类型的账号用 bysubunionid 接口（不需要 siteId，用 subUnionId 做订单归属）
-    // 网站/APP 类型的账号用 common 接口（需要 siteId + positionId）
-    // 这里先试 bysubunionid，不行再 fallback 到 common
-    const tryBySubUnionId = async () => {
-      const data = await this.call<any>('jd.union.open.promotion.bysubunionid.get', {
-        promotionCodeReq: {
-          materialId: `https://item.jd.com/${skuId}.html`,
+    const materialId = `https://item.jd.com/${skuId}.html`;
+
+    const tryCall = async (method: string, params: Record<string, any>) => {
+      return this.call<any>(method, { promotionCodeReq: params });
+    };
+
+    // 按优先级依次尝试不同的转链接口，适配不同的媒体类型
+    const attempts: Array<{ name: string; method: string; params: Record<string, any> }> = [
+      // 1. 导购/工具媒体：bysubunionid（需要开通 subUnionId 权限）
+      {
+        name: 'bysubunionid',
+        method: 'jd.union.open.promotion.bysubunionid.get',
+        params: {
+          materialId,
           subUnionId: positionId,
           positionId: Number(this.opt.positionId),
         },
+      },
+      // 2. 网站/APP 媒体：common 不传 siteId（有些账号不需要）
+      {
+        name: 'common(no siteId)',
+        method: 'jd.union.open.promotion.common.get',
+        params: {
+          materialId,
+          positionId: Number(this.opt.positionId),
+          subUnionId: positionId,
+        },
+      },
+    ];
+
+    // 3. 网站类型：common 传 siteId（网站审核通过后才有用）
+    if (this.opt.siteId) {
+      attempts.push({
+        name: 'common(with siteId)',
+        method: 'jd.union.open.promotion.common.get',
+        params: {
+          materialId,
+          positionId: Number(this.opt.positionId),
+          siteId: Number(this.opt.siteId),
+          subUnionId: positionId,
+        },
       });
-      return data;
-    };
-
-    const tryCommon = async () => {
-      const params: any = {
-        materialId: `https://item.jd.com/${skuId}.html`,
-        positionId: Number(this.opt.positionId),
-        subUnionId: positionId,
-      };
-      if (this.opt.siteId) params.siteId = Number(this.opt.siteId);
-      return this.call<any>('jd.union.open.promotion.common.get', { promotionCodeReq: params });
-    };
-
-    let data: any;
-    try {
-      data = await tryBySubUnionId();
-    } catch (e: any) {
-      const msg = e.message || '';
-      // bysubunionid 没权限或不支持时，回退到 common 接口
-      // 常见错误：没有该接口权限 / subUnionId 相关错误
-      this.logger.warn(`京东 bysubunionid 转链失败(${msg})，回退到 common 接口`);
-      data = await tryCommon();
     }
 
-    const url = data?.shortURL || data?.clickURL || '';
-    if (!url) throw new Error('京东转链返回为空');
-    return {
-      platform: 'JD',
-      goodsId: skuId,
-      shortUrl: url,
-      deeplink: data?.clickURL || url,
-      password: '',
-      positionId,
-    };
+    let lastError: Error | null = null;
+    for (const att of attempts) {
+      try {
+        const data = await tryCall(att.method, att.params);
+        const url = data?.shortURL || data?.clickURL || '';
+        if (!url) throw new Error('京东转链返回为空');
+        if (att.name !== 'bysubunionid') {
+          this.logger.log(`京东转链使用 ${att.name} 成功`);
+        }
+        return {
+          platform: 'JD',
+          goodsId: skuId,
+          shortUrl: url,
+          deeplink: data?.clickURL || url,
+          password: '',
+          positionId,
+        };
+      } catch (e: any) {
+        lastError = e;
+        this.logger.warn(`京东转链 ${att.name} 失败: ${e.message}`);
+      }
+    }
+
+    throw lastError || new Error('京东转链全部失败');
   }
 
   async parseContent(text: string): Promise<UnifiedGoods | null> {
@@ -361,19 +376,69 @@ export class JdProvider implements CpsProvider {
   }
 
   async fetchOrders(start: Date, end: Date, page = 1): Promise<UnifiedOrder[]> {
-    // 京东订单行的时间格式是 yyyyMMddHH，精确到小时
-    const hh = (d: Date) => d.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
-      .replace('T', ' ').replace(/[-: ]/g, '').slice(0, 10);
+    // 京东订单行接口参数格式版本很多，不同账号/不同时期可能不一样。
+    // 这里按常见格式依次尝试，哪个成功用哪个。
+    const fmtYmdHms = (d: Date) => d.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
+      .replace('T', ' ').slice(0, 19); // yyyy-MM-dd HH:mm:ss
+    const fmtYmdH = (d: Date) => d.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
+      .replace('T', ' ').replace(/[-: ]/g, '').slice(0, 10); // yyyyMMddHH
 
-    const data = await this.call<any>('jd.union.open.order.row.query', {
-      orderReq: {
-        pageNo: page, pageSize: 100,
-        type: 3,                       // 3 = 按更新时间，拉增量用它
-        startTime: hh(start), endTime: hh(end),
+    const attempts: Array<{ name: string; biz: Record<string, any> }> = [
+      // 版本 1：orderReq 包裹 + yyyy-MM-dd HH:mm:ss + type
+      {
+        name: 'v1(orderReq, ymdHms, type)',
+        biz: {
+          orderReq: {
+            pageNo: page, pageSize: 100,
+            type: 3,
+            startTime: fmtYmdHms(start), endTime: fmtYmdHms(end),
+          },
+        },
       },
-    });
-    const list = data?.data ?? data ?? [];
-    return (Array.isArray(list) ? list : []).map((o: any) => this.mapOrder(o));
+      // 版本 2：orderReq 包裹 + yyyyMMddHH + type（旧文档）
+      {
+        name: 'v2(orderReq, ymdH, type)',
+        biz: {
+          orderReq: {
+            pageNo: page, pageSize: 100,
+            type: 3,
+            startTime: fmtYmdH(start), endTime: fmtYmdH(end),
+          },
+        },
+      },
+      // 版本 3：平铺参数 + yyyy-MM-dd HH:mm:ss
+      {
+        name: 'v3(flat, ymdHms)',
+        biz: {
+          pageNo: page, pageSize: 100,
+          type: 3,
+          startTime: fmtYmdHms(start), endTime: fmtYmdHms(end),
+        },
+      },
+    ];
+
+    // 如果配置了 unionId，给每个版本都加上
+    if (this.opt.unionId) {
+      for (const a of attempts) {
+        if (a.biz.orderReq) a.biz.orderReq.unionId = this.opt.unionId;
+        else a.biz.unionId = this.opt.unionId;
+      }
+    }
+
+    let lastError: Error | null = null;
+    for (const att of attempts) {
+      try {
+        const data = await this.call<any>('jd.union.open.order.row.query', att.biz);
+        const list = data?.data ?? data ?? [];
+        this.logger.log(`京东订单接口 ${att.name} 成功，返回 ${list.length} 条`);
+        return (Array.isArray(list) ? list : []).map((o: any) => this.mapOrder(o));
+      } catch (e: any) {
+        lastError = e;
+        this.logger.debug(`京东订单接口 ${att.name} 失败: ${e.message}`);
+      }
+    }
+
+    throw lastError || new Error('京东订单拉取失败');
   }
 
   /**
