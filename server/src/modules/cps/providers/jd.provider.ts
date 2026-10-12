@@ -37,11 +37,11 @@ const round2 = (v: number) => Math.round(v * 100) / 100;
  * ⚠️ 当前账号的权限状况（probe 实测，不是猜的）：
  *   ✅ 京粉精选 goods.jingfen.query —— 选品靠它
  *   ✅ 类目 category.goods.get
- *   ⚠️ 商品详情 bigfield.query —— 要 sceneId，参数还在调
+ *   ✅ 商品详情 selling.goods.query —— 工具商接口
  *   ❌ 关键词搜索 goods.query —— 无权限，回落到京粉精选本地过滤
- *   ⚠️ 转链 promotion.bysubunionid.get —— 导购媒体类型专用，优先用它
- *   ⚠️ 转链 promotion.common.get —— 网站/APP 类型用，需要 siteId
- *   ✅ 订单行 order.row.query —— v1 格式(orderReq+ymdHms)，单次查询不超过1小时
+ *   ✅ 转链 selling.promotion.get —— 工具商转链
+ *   ✅ 订单行 selling.order.row.query —— 工具商订单查询
+ * 工具商接口（selling.*）都需要 access_token（授权Key）
  * 所以现在京东**只能选品，不能转链和拉单**，转链和拉单会明确抛错，
  * 不静默返回空——假装成功比失败更糟。
  */
@@ -289,12 +289,41 @@ export class JdProvider implements CpsProvider {
 
   async getGoodsDetail(skuId: string): Promise<UnifiedGoods | null> {
     if (!skuId) return null;
-    const data = await this.call<any>('jd.union.open.goods.bigfield.query', {
-      goodsReq: { skuIds: [Number(skuId)], sceneId: 1 },
-    });
-    const list = data?.data ?? data ?? [];
-    const hit = Array.isArray(list) ? list[0] : list;
-    return hit ? this.mapGoods(hit) : null;
+    // 优先用 selling 接口（工具商/导购媒体已开通），失败再回落到 bigfield
+    const attempts = [
+      {
+        name: 'selling.goods.query',
+        method: 'jd.union.open.selling.goods.query',
+        wrapper: 'goodsReq',
+        params: { skuIds: [Number(skuId)] },
+      },
+      {
+        name: 'goods.bigfield.query',
+        method: 'jd.union.open.goods.bigfield.query',
+        wrapper: 'goodsReq',
+        params: { skuIds: [Number(skuId)], sceneId: 1 },
+      },
+    ];
+    let lastError: Error | null = null;
+    for (const att of attempts) {
+      try {
+        const data = await this.call<any>(att.method, { [att.wrapper]: att.params });
+        const list = data?.data ?? data ?? [];
+        const hit = Array.isArray(list) ? list[0] : list;
+        if (hit) {
+          if (att.name !== 'selling.goods.query') {
+            this.logger.log(`京东详情使用 ${att.name} 成功`);
+          }
+          return this.mapGoods(hit);
+        }
+      } catch (e: any) {
+        lastError = e;
+        this.logger.debug(`京东详情 ${att.name} 失败: ${e.message}`);
+      }
+    }
+    // 都失败了抛出去，让上层知道是接口问题不是商品下架
+    if (lastError) throw lastError;
+    return null;
   }
 
   async convertLink(skuId: string, positionId: string): Promise<ConvertedLink> {
@@ -302,16 +331,39 @@ export class JdProvider implements CpsProvider {
 
     const materialId = `https://item.jd.com/${skuId}.html`;
 
-    const tryCall = async (method: string, params: Record<string, any>) => {
-      return this.call<any>(method, { promotionCodeReq: params });
+    const tryCall = async (method: string, params: Record<string, any>, wrapper = 'promotionCodeReq') => {
+      return this.call<any>(method, { [wrapper]: params });
     };
 
     // 按优先级依次尝试不同的转链接口，适配不同的媒体类型
-    const attempts: Array<{ name: string; method: string; params: Record<string, any> }> = [
+    const attempts: Array<{ name: string; method: string; params: Record<string, any>; wrapper: string }> = [
+      // 0. 工具商/导购媒体：selling.promotion.get（截图里明确显示已开通）
+      //    工具商接口参数名可能不一样，先试 promotionReq，不行再试 promotionCodeReq
+      {
+        name: 'selling.promotion(promotionReq)',
+        method: 'jd.union.open.selling.promotion.get',
+        wrapper: 'promotionReq',
+        params: {
+          materialId,
+          subUnionId: positionId,
+          positionId: Number(this.opt.positionId),
+        },
+      },
+      {
+        name: 'selling.promotion(promotionCodeReq)',
+        method: 'jd.union.open.selling.promotion.get',
+        wrapper: 'promotionCodeReq',
+        params: {
+          materialId,
+          subUnionId: positionId,
+          positionId: Number(this.opt.positionId),
+        },
+      },
       // 1. 导购/工具媒体：bysubunionid（需要开通 subUnionId 权限）
       {
         name: 'bysubunionid',
         method: 'jd.union.open.promotion.bysubunionid.get',
+        wrapper: 'promotionCodeReq',
         params: {
           materialId,
           subUnionId: positionId,
@@ -322,6 +374,7 @@ export class JdProvider implements CpsProvider {
       {
         name: 'common(no siteId)',
         method: 'jd.union.open.promotion.common.get',
+        wrapper: 'promotionCodeReq',
         params: {
           materialId,
           positionId: Number(this.opt.positionId),
@@ -335,6 +388,7 @@ export class JdProvider implements CpsProvider {
       attempts.push({
         name: 'common(with siteId)',
         method: 'jd.union.open.promotion.common.get',
+        wrapper: 'promotionCodeReq',
         params: {
           materialId,
           positionId: Number(this.opt.positionId),
@@ -347,7 +401,7 @@ export class JdProvider implements CpsProvider {
     let lastError: Error | null = null;
     for (const att of attempts) {
       try {
-        const data = await tryCall(att.method, att.params);
+        const data = await tryCall(att.method, att.params, att.wrapper);
         const url = data?.shortURL || data?.clickURL || '';
         if (!url) throw new Error('京东转链返回为空');
         if (att.name !== 'bysubunionid') {
@@ -406,10 +460,24 @@ export class JdProvider implements CpsProvider {
       });
     }
 
-    const attempts: Array<{ name: string; biz: Record<string, any> }> = [
+    const attempts: Array<{ name: string; method: string; biz: Record<string, any> }> = [
+      // 版本 0：selling 接口（工具商/导购媒体类型），带 access_token
+      // 对应 jd.union.open.selling.order.row.query
+      {
+        name: 'v0(selling order.row, orderReq, ymdHms)',
+        method: 'jd.union.open.selling.order.row.query',
+        biz: {
+          orderReq: {
+            pageNo: page, pageSize: 100,
+            type: 3,
+            startTime: fmtYmdHms(start), endTime: fmtYmdHms(end),
+          },
+        },
+      },
       // 版本 1：orderReq 包裹 + yyyy-MM-dd HH:mm:ss + type
       {
         name: 'v1(orderReq, ymdHms, type)',
+        method: 'jd.union.open.order.row.query',
         biz: {
           orderReq: {
             pageNo: page, pageSize: 100,
@@ -421,6 +489,7 @@ export class JdProvider implements CpsProvider {
       // 版本 2：orderReq 包裹 + yyyyMMddHH + type（旧文档）
       {
         name: 'v2(orderReq, ymdH, type)',
+        method: 'jd.union.open.order.row.query',
         biz: {
           orderReq: {
             pageNo: page, pageSize: 100,
@@ -432,6 +501,7 @@ export class JdProvider implements CpsProvider {
       // 版本 3：平铺参数 + yyyy-MM-dd HH:mm:ss
       {
         name: 'v3(flat, ymdHms)',
+        method: 'jd.union.open.order.row.query',
         biz: {
           pageNo: page, pageSize: 100,
           type: 3,
@@ -454,7 +524,7 @@ export class JdProvider implements CpsProvider {
     let lastError: Error | null = null;
     for (const att of attempts) {
       try {
-        const data = await this.call<any>('jd.union.open.order.row.query', att.biz);
+        const data = await this.call<any>(att.method, att.biz);
         const list = data?.data ?? data ?? [];
         this.logger.log(`京东订单接口 ${att.name} 成功，返回 ${list.length} 条`);
         return (Array.isArray(list) ? list : []).map((o: any) => this.mapOrder(o));
