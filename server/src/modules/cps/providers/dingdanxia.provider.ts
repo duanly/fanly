@@ -312,16 +312,17 @@ export class DingdanxiaProvider implements CpsProvider {
 
   async getGoodsDetail(goodsId: string): Promise<UnifiedGoods | null> {
     if (!goodsId) return null;
-    // 订单侠的详情接口待定，先用搜索接口按 item_id 查（很多聚合平台支持这种方式）
-    // 如果有专门的 detail 接口再换
-    try {
-      const data = await this.call<any>('/tbk/item_detail', { item_id: goodsId });
-      const item = data?.list?.[0] ?? data?.item ?? data;
-      return item ? this.mapGoods(item) : null;
-    } catch (e: any) {
-      this.logger.warn(`订单侠详情接口失败(${e.message})，暂无兜底`);
-      return null;
+    // 订单侠详情接口不太稳定，物料精选返回的加密 item_id 可能也不兼容
+    // 先尝试用 item_detail 查，失败就抛异常，让上层 CpsService 用列表快照兜底
+    const data = await this.call<any>('/tbk/item_detail', { item_id: goodsId });
+    const item = data?.list?.[0] ?? data?.item ?? data?.result ?? null;
+    // 如果返回空或不是有效商品，返回 null（表示商品不存在/已下架）
+    if (!item || !item.item_id || !item.title) {
+      // 也可能是返回结构不一样，判断一下是不是空
+      if (data && typeof data === 'object' && Object.keys(data).length === 0) return null;
+      if (!item) return null;
     }
+    return item ? this.mapGoods(item) : null;
   }
 
   /**

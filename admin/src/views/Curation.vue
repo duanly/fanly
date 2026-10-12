@@ -610,6 +610,8 @@ const allTopics = ref([]);
 const goodsTags = ref({}); // { curatedId: [topicId, ...] }
 const poolSelected = ref([]);
 const loading = ref(false);
+const removingOff = ref(false);
+const refreshing = ref(false);
 
 const q = reactive({
   topicId: null,
@@ -890,8 +892,9 @@ async function confirmAddWithTags() {
   try {
     if (!alreadyPending) {
       // 还不在库里，先加进待上架
-      // 京东的详情接口（bigfield.query）一般没权限，直接带商品数据入库
-      if (f.platform === 'JD') {
+      // 京东/淘宝的详情接口经常没权限或不稳定，直接带列表里的商品数据入库，
+      // 后续自动刷新时再用详情接口更新
+      if (f.platform === 'JD' || f.platform === 'TB') {
         await api.curationAddWithGoods({
           platform: f.platform,
           goodsId: g.goodsId,
