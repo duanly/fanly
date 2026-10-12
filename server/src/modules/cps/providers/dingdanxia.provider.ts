@@ -104,8 +104,8 @@ export class DingdanxiaProvider implements CpsProvider {
 
   /**
    * 商品搜索。
-   * 订单侠的搜索接口（物料精选/超级搜索）都是 POST，参数名跟淘宝联盟有点不一样。
-   * 先用 material_recommend（物料精选），有搜索词时走搜索，没有走推荐。
+   * - 有关键词：走超级搜索 super_search_material
+   * - 无关键词：走物料精选 material_recommend + material_id
    */
   async searchGoodsPage(p: SearchParams): Promise<GoodsPage> {
     const page = Math.max(p.page ?? 1, 1);
@@ -116,18 +116,15 @@ export class DingdanxiaProvider implements CpsProvider {
       price: 'price_des',
     };
 
-    const params: Record<string, any> = {
-      page_no: page,
-      page_size: pageSize,
-      sort: sortMap[p.sort ?? ''] ?? 'tk_total_sales_des',
-    };
-    if (p.keyword) params.q = p.keyword;
-
-    // 有搜索词用搜索接口，没有用物料精选
-    const path = p.keyword ? '/tbk/super_search_material' : '/tbk/material_recommend';
-
-    try {
-      const data = await this.call<any>(path, params);
+    if (p.keyword) {
+      // 有搜索词：超级搜索
+      const params: Record<string, any> = {
+        q: p.keyword,
+        page_no: page,
+        page_size: pageSize,
+        sort: sortMap[p.sort ?? ''] ?? 'tk_total_sales_des',
+      };
+      const data = await this.call<any>('/tbk/super_search_material', params);
       const list = (data?.list ?? data?.result_list ?? data ?? []).map((r: any) => this.mapGoods(r));
       const total = Number(data?.total_count ?? data?.total ?? 0);
       return {
@@ -136,14 +133,30 @@ export class DingdanxiaProvider implements CpsProvider {
         page,
         hasMore: list.length === pageSize,
       };
-    } catch (e: any) {
-      // 搜索接口失败时，回退到物料精选（如果本来就是搜索的话）
-      if (p.keyword && /not exist|接口不存在|no such/i.test(e.message || '')) {
-        this.logger.warn(`订单侠搜索接口 ${path} 不可用(${e.message})，回退到物料精选`);
-        return this.recommendGoodsPage({ page, pageSize, channel: 'coupon' });
-      }
-      throw e;
     }
+
+    // 无搜索词：物料精选（不同 channel 对应不同 material_id）
+    const materialMap: Record<string, number> = {
+      hot: 1,       // 实时热销榜
+      earn: 2,      // 高佣榜单
+      cheap: 3,     // 大额券
+      coupon: 1,    // 默认用热销榜
+      pick: 1,
+      all: 1,
+    };
+    const materialId = materialMap[p.sort ?? ''] ?? materialMap.coupon;
+    const data = await this.call<any>('/tbk/material_recommend', {
+      material_id: materialId,
+      page_no: page,
+      page_size: pageSize,
+    });
+    const list = (data?.list ?? data?.result_list ?? data ?? []).map((r: any) => this.mapGoods(r));
+    return {
+      list,
+      total: list.length,
+      page,
+      hasMore: list.length === pageSize,
+    };
   }
 
   async recommendGoods(p: RecommendParams = {}): Promise<UnifiedGoods[]> {
@@ -151,24 +164,34 @@ export class DingdanxiaProvider implements CpsProvider {
   }
 
   /**
-   * 榜单推荐：走物料精选的不同分类/排序。
-   * 订单侠物料精选有 material_id（物料ID）区分不同榜单：
-   *   1=好券直播 2=品牌好货 3=实时热销榜 等等
-   * 这里先按 channel 映射不同的排序方式，简单够用。
+   * 榜单推荐：走物料精选的不同 material_id。
+   * hot=热销 earn=高佣 cheap=大额券
    */
   async recommendGoodsPage(p: RecommendParams = {}): Promise<GoodsPage> {
-    const channelMap: Record<string, string> = {
-      hot: 'total_sales_des',
-      earn: 'tk_rate_des',
-      cheap: 'price_asc',
-      coupon: 'tk_total_sales_des',
-      pick: 'tk_total_sales_des',
+    const materialMap: Record<string, number> = {
+      hot: 1,       // 实时热销榜
+      earn: 2,      // 高佣榜单
+      cheap: 3,     // 大额券
+      coupon: 1,
+      pick: 1,
+      all: 1,
     };
-    return this.searchGoodsPage({
-      page: p.page,
-      pageSize: p.pageSize,
-      sort: channelMap[p.channel ?? 'coupon'] ?? 'tk_total_sales_des',
+    const materialId = materialMap[p.channel ?? 'hot'] ?? 1;
+    const page = Math.max(p.page ?? 1, 1);
+    const pageSize = Math.min(Math.max(p.pageSize ?? 20, 1), 100);
+
+    const data = await this.call<any>('/tbk/material_recommend', {
+      material_id: materialId,
+      page_no: page,
+      page_size: pageSize,
     });
+    const list = (data?.list ?? data?.result_list ?? data ?? []).map((r: any) => this.mapGoods(r));
+    return {
+      list,
+      total: list.length,
+      page,
+      hasMore: list.length === pageSize,
+    };
   }
 
   async getGoodsDetail(goodsId: string): Promise<UnifiedGoods | null> {

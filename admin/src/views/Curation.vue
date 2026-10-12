@@ -278,20 +278,22 @@
             </el-button>
 
             <el-divider direction="vertical" />
-            <span class="hint">加入到</span>
+            <span class="hint">导入时打标签</span>
             <el-select
-              v-model="f.groupKey"
-              style="width:170px"
-              filterable
-              allow-create
-              default-first-option
-              placeholder="分类组"
+              v-model="f.importTopicIds"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="选择标签（可选）"
+              size="default"
+              style="width:220px"
             >
               <el-option
-                v-for="g in GROUPS"
-                :key="g.key"
-                :label="`${g.name} (${g.key})`"
-                :value="g.key"
+                v-for="t in allTopics"
+                :key="t.id"
+                :label="t.name"
+                :value="t.id"
+                :disabled="t.status !== 1"
               />
             </el-select>
             <el-input-number v-model="f.sortWeight" :min="-999" :max="999" style="width:110px" />
@@ -780,12 +782,12 @@ const f = reactive({
   platform: 'PDD',
   keyword: '',
   channel: 'all',
-  groupKey: 'default',
   sortWeight: 0,
   page: 1,
   hasMore: false,
   importCount: 100,
   targetStatus: 3, // 3=待上架，1=直接上架
+  importTopicIds: [], // 导入时打的标签
 });
 
 async function load(append = false) {
@@ -875,7 +877,8 @@ const addDlgLoading = ref(false);
 
 function openAddWithTags(g, alreadyPending = false) {
   addDlgGoods.value = { g, alreadyPending };
-  addDlgTags.value = [];
+  // 预设顶部选的标签，用户可以再改
+  addDlgTags.value = [...(f.importTopicIds || [])];
   addDlg.value = true;
 }
 
@@ -900,14 +903,14 @@ async function confirmAddWithTags() {
           commissionRate: g.commissionRate,
           commission: g.commission,
           salesVolume: g.salesVolume || 0,
-          groupKey: f.groupKey || 'default',
+          groupKey: 'default',
           sortWeight: f.sortWeight || 0,
         });
       } else {
         await api.curationAdd({
           platform: f.platform,
           goodsId: g.goodsId,
-          groupKey: f.groupKey || 'default',
+          groupKey: 'default',
           sortWeight: f.sortWeight || 0,
         });
       }
