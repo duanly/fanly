@@ -39,7 +39,8 @@ const round2 = (v: number) => Math.round(v * 100) / 100;
  *   ✅ 类目 category.goods.get
  *   ⚠️ 商品详情 bigfield.query —— 要 sceneId，参数还在调
  *   ❌ 关键词搜索 goods.query —— 无权限，回落到京粉精选本地过滤
- *   ⚠️ 通用转链 promotion.common.get —— 不能传 siteId（报 2001701），不传可用
+ *   ⚠️ 转链 promotion.bysubunionid.get —— 导购媒体类型专用，优先用它
+ *   ⚠️ 转链 promotion.common.get —— 网站/APP 类型用，需要 siteId
  *   ⚠️ 订单行 order.row.query —— 参数还没对上
  * 所以现在京东**只能选品，不能转链和拉单**，转链和拉单会明确抛错，
  * 不静默返回空——假装成功比失败更糟。
@@ -307,35 +308,39 @@ export class JdProvider implements CpsProvider {
   async convertLink(skuId: string, positionId: string): Promise<ConvertedLink> {
     if (!this.opt.positionId) throw new Error('京东未配置推广位：请在 .env 填 JD_POSITION_ID');
 
-    const baseParams: any = {
-      materialId: `https://item.jd.com/${skuId}.html`,
-      positionId: Number(this.opt.positionId),
-      // subUnionId 要单独申请权限；没权限时京东会忽略这个字段，
-      // 归属就只能靠 positionId
-      subUnionId: positionId,
+    // 导购媒体类型的账号用 bysubunionid 接口（不需要 siteId，用 subUnionId 做订单归属）
+    // 网站/APP 类型的账号用 common 接口（需要 siteId + positionId）
+    // 这里先试 bysubunionid，不行再 fallback 到 common
+    const tryBySubUnionId = async () => {
+      const data = await this.call<any>('jd.union.open.promotion.bysubunionid.get', {
+        promotionCodeReq: {
+          materialId: `https://item.jd.com/${skuId}.html`,
+          subUnionId: positionId,
+          positionId: Number(this.opt.positionId),
+        },
+      });
+      return data;
     };
 
-    const tryCall = async (withSiteId: boolean) => {
-      const params = withSiteId && this.opt.siteId
-        ? { ...baseParams, siteId: Number(this.opt.siteId) }
-        : baseParams;
+    const tryCommon = async () => {
+      const params: any = {
+        materialId: `https://item.jd.com/${skuId}.html`,
+        positionId: Number(this.opt.positionId),
+        subUnionId: positionId,
+      };
+      if (this.opt.siteId) params.siteId = Number(this.opt.siteId);
       return this.call<any>('jd.union.open.promotion.common.get', { promotionCodeReq: params });
     };
 
     let data: any;
     try {
-      // 先不传 siteId 试一下
-      data = await tryCall(false);
+      data = await tryBySubUnionId();
     } catch (e: any) {
       const msg = e.message || '';
-      // 报"siteId不能为空"说明是网站类型账号，必须传——带上重试
-      if (/siteId.*不能为空|缺少.*siteId|siteId.*required/i.test(msg) && this.opt.siteId) {
-        this.logger.log(`京东转链需要 siteId，带上重试: ${msg}`);
-        data = await tryCall(true);
-      } else {
-        // 其他错误（比如 2001701 不支持siteId、网站未审核通过等）直接抛
-        throw e;
-      }
+      // bysubunionid 没权限或不支持时，回退到 common 接口
+      // 常见错误：没有该接口权限 / subUnionId 相关错误
+      this.logger.warn(`京东 bysubunionid 转链失败(${msg})，回退到 common 接口`);
+      data = await tryCommon();
     }
 
     const url = data?.shortURL || data?.clickURL || '';
