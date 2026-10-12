@@ -156,12 +156,14 @@ export class CurationService {
     groupKey?: string;
     sortWeight?: number;
     targetStatus?: number;
+    topicIds?: number[];
   }): Promise<{ fetched: number; added: number; skipped: number; errors: number }> {
     const platform = (opts.platform || 'PDD').toUpperCase();
     const target = Math.min(Math.max(opts.count ?? 100, 1), 500);
     const groupKey = opts.groupKey || 'default';
     const sortWeight = opts.sortWeight ?? 0;
     const targetStatus = opts.targetStatus ?? CuratedStatus.PENDING;
+    const topicIds = (opts.topicIds ?? []).filter(Boolean);
     const MAX_PAGES = 10;
 
     const seen = new Set<string>();
@@ -209,9 +211,25 @@ export class CurationService {
 
     let added = 0, skipped = 0, errors = 0;
     for (const g of candidates) {
-      if (!(g.commission > 0)) { skipped++; continue; }
+      // 淘宝物料精选接口列表不返回佣金，跳过校验——这些商品基本都有返利，
+      // 后续自动刷新时用详情接口再验证，没佣金的会被自动下架。
+      const needCommissionCheck = platform !== 'TB';
+      if (needCommissionCheck && !(g.commission > 0)) { skipped++; continue; }
       try {
-        await this.upsert(g, groupKey, sortWeight, targetStatus);
+        const saved = await this.upsert(g, groupKey, sortWeight, targetStatus);
+        // 导入时顺便打标签
+        if (topicIds.length && saved?.curatedId) {
+          // 先查已有的关联，避免重复插入报错
+          const existRels = await this.relRepo.find({
+            where: { curatedId: saved.curatedId },
+            select: ['topicId'],
+          });
+          const existIds = new Set(existRels.map((r) => r.topicId));
+          const newRels = topicIds
+            .filter((tid) => !existIds.has(tid))
+            .map((tid) => this.relRepo.create({ curatedId: saved.curatedId, topicId: tid, sortWeight }));
+          if (newRels.length) await this.relRepo.save(newRels);
+        }
         added++;
       } catch (e: any) {
         errors++;

@@ -196,7 +196,7 @@
 
             <el-table-column label="标签" width="220">
               <template #default="{ row }">
-                <div v-if="!goodsTags[row.curatedId]?.length" class="no-tags" @click="addFirstTag(row)">
+                <div v-if="goodsTags[row.curatedId] == null" class="no-tags" @click="addFirstTag(row)">
                   <el-tag type="warning" size="small" effect="dark" style="cursor:pointer">未打标签 · 点击添加</el-tag>
                 </div>
                 <el-select
@@ -856,6 +856,7 @@ async function importBatch() {
       groupKey: f.groupKey || 'default',
       sortWeight: f.sortWeight || 0,
       targetStatus: f.targetStatus,
+      topicIds: f.importTopicIds?.length ? f.importTopicIds : undefined,
     });
     const to = f.targetStatus === 1 ? '上架' : '待上架';
     ElMessage.success(

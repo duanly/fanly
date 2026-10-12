@@ -110,7 +110,7 @@ export class CurationController {
     @Body() body: {
       platform?: string; channel?: string; keyword?: string;
       count?: number; groupKey?: string; sortWeight?: number;
-      targetStatus?: number;
+      targetStatus?: number; topicIds?: number[];
     },
   ) {
     return this.curation.importBatch(body);
