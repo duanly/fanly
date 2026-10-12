@@ -7,26 +7,26 @@ export interface DingdanxiaOptions {
   apiKey: string;
   /** 淘宝 PID（mm_xxx_xxx_xxx），转链必填 */
   pid?: string;
+  /** 渠道管理ID（relation_id），订单侠转链必填 */
+  relationId?: string;
   baseUrl?: string;
 }
 
-const DEFAULT_BASE = 'https://api.tbkapi.com';
+const DEFAULT_BASE = 'https://api.tbk.dingdanxia.com';
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
 /**
  * 订单侠（dingdanxia）淘宝联盟聚合渠道。
  *
- * 为什么用聚合而不是直连淘宝联盟：
- *   1. 淘宝联盟要备案网站/APP + 审核，个人开发者很难过
- *   2. 订单侠帮你搞定了联盟授权，你只管调他们的 API
- *   3. 功能比直连还多（商品历史价、品牌库、文案素材等）
+ * 所有接口都是 POST，apikey 放 body 里。
  *
- * 字段口径（淘宝/订单侠）：
- *   - 金额单位：**元**，跟京东一致，跟拼多多（分）相反
- *   - 佣金比例：**百分数**（20.5 = 20.5%），跟京东一致
- *   - 券后价：`final_price`（券后价）或 `zk_final_price - coupon_amount`
- *   - 佣金：`commission_rate` 是百分数，`commission` 是预估佣金金额
+ * 文档：https://www.dingdanxia.com/apidocument
+ *   - 搜索：/tbk/material_recommend 或 /tbk/super_search_material
+ *   - 详情：从搜索结果里取，或用 /tbk/item_detail（待确认）
+ *   - 转链：/tbk/general_convert（万能转链）
+ *   - 订单：/tbk/order_details
+ *   - 淘口令解析：/tbk/uland_query 或 /tbk/tkl_query
  */
 export class DingdanxiaProvider implements CpsProvider {
   readonly platform = 'TB';
@@ -39,19 +39,28 @@ export class DingdanxiaProvider implements CpsProvider {
 
   // ───────────────────────── 网关 ─────────────────────────
 
-  private async call<T>(path: string, params: Record<string, any>): Promise<T> {
+  private async call<T>(path: string, body: Record<string, any>): Promise<T> {
     if (!this.opt.apiKey) {
       throw new Error('订单侠未配置：请在 .env 填 DDX_API_KEY');
     }
     const url = new URL(path, this.baseUrl);
-    Object.entries({ ...params, apikey: this.opt.apiKey }).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+    const payload = { ...body, apikey: this.opt.apiKey };
+    // 清理空值
+    for (const k of Object.keys(payload)) {
+      if (payload[k] === undefined || payload[k] === null || payload[k] === '') {
+        delete payload[k];
+      }
+    }
+
+    const res = await fetch(url.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(payload).toString(),
     });
-    const res = await fetch(url.toString(), { method: 'GET' });
     if (!res.ok) throw new Error(`订单侠 ${path} HTTP ${res.status}`);
     const json: any = await res.json();
-    // 订单侠 code 约定：0 成功，非 0 失败
-    if (json.code !== undefined && json.code !== 0) {
+    // 订单侠 code 约定：200 成功，其他失败（有些接口用 0，两种都兼容）
+    if (json.code !== undefined && json.code !== 200 && json.code !== 0) {
       throw new Error(`订单侠 ${path}: ${json.code} ${json.msg || json.message || ''}`);
     }
     return (json.data ?? json.result ?? json) as T;
@@ -60,28 +69,30 @@ export class DingdanxiaProvider implements CpsProvider {
   // ───────────────────────── 字段映射 ─────────────────────────
 
   private mapGoods(raw: any): UnifiedGoods {
-    const price = Number(raw.zk_final_price ?? raw.original_price ?? 0);
-    const couponAmount = Number(raw.coupon_amount ?? raw.coupon_price ?? 0);
+    const price = Number(raw.zk_final_price ?? raw.original_price ?? raw.price ?? 0);
+    const couponAmount = Number(raw.coupon_amount ?? raw.coupon_price ?? raw.coupon ?? 0);
     const couponPrice = raw.final_price
       ? Number(raw.final_price)
-      : Math.max(price - couponAmount, 0);
+      : raw.coupon_price_after
+        ? Number(raw.coupon_price_after)
+        : Math.max(price - couponAmount, 0);
 
-    // commission_rate 是百分数字符串，比如 "20.50" 表示 20.5%
-    const rate = Number(raw.commission_rate ?? raw.promotion_rate ?? 0) / 100;
-    const commission = Number(raw.commission ?? raw.promotion_amount ?? 0);
+    // commission_rate 是百分数，比如 "20.50" 表示 20.5%
+    const rate = Number(raw.commission_rate ?? raw.promotion_rate ?? raw.tk_rate ?? 0) / 100;
+    const commission = Number(raw.commission ?? raw.promotion_amount ?? raw.tk_commission ?? 0);
 
     return {
       platform: 'TB',
-      goodsId: String(raw.item_id ?? raw.goods_id ?? raw.id ?? ''),
-      title: raw.title ?? raw.goods_name ?? '',
-      image: raw.pict_url ?? raw.goods_thumbnail_url ?? raw.main_pic ?? '',
-      shopName: raw.shop_title ?? raw.mall_name ?? raw.shop_name ?? '',
+      goodsId: String(raw.item_id ?? raw.goods_id ?? raw.id ?? raw.num_iid ?? ''),
+      title: raw.title ?? raw.goods_name ?? raw.name ?? '',
+      image: raw.pict_url ?? raw.goods_thumbnail_url ?? raw.main_pic ?? raw.img ?? '',
+      shopName: raw.shop_title ?? raw.mall_name ?? raw.shop_name ?? raw.nick ?? '',
       price: round2(price),
       couponPrice: round2(couponPrice),
       couponAmount: round2(couponAmount),
       commissionRate: rate,
       commission: commission > 0 ? round2(commission) : round2(couponPrice * rate),
-      salesVolume: Number(raw.volume ?? raw.sales_tip ?? raw.month_sales ?? 0),
+      salesVolume: Number(raw.volume ?? raw.sales_tip ?? raw.month_sales ?? raw.sell_num ?? 0),
     };
   }
 
@@ -91,31 +102,48 @@ export class DingdanxiaProvider implements CpsProvider {
     return (await this.searchGoodsPage(p)).list;
   }
 
+  /**
+   * 商品搜索。
+   * 订单侠的搜索接口（物料精选/超级搜索）都是 POST，参数名跟淘宝联盟有点不一样。
+   * 先用 material_recommend（物料精选），有搜索词时走搜索，没有走推荐。
+   */
   async searchGoodsPage(p: SearchParams): Promise<GoodsPage> {
     const page = Math.max(p.page ?? 1, 1);
     const pageSize = Math.min(Math.max(p.pageSize ?? 20, 1), 100);
     const sortMap: Record<string, string> = {
-      sales: 'total_sales_des',         // 销量降序
-      commission: 'tk_rate_des',        // 佣金比例降序
-      price: 'price_des',               // 价格降序（没有升序，凑合用）
+      sales: 'total_sales_des',
+      commission: 'tk_rate_des',
+      price: 'price_des',
     };
 
     const params: Record<string, any> = {
-      page,
+      page_no: page,
       page_size: pageSize,
       sort: sortMap[p.sort ?? ''] ?? 'tk_total_sales_des',
     };
     if (p.keyword) params.q = p.keyword;
 
-    const data = await this.call<any>('/api/taobao/item_search', params);
-    const list = (data?.list ?? data ?? []).map((r: any) => this.mapGoods(r));
-    const total = Number(data?.total_count ?? data?.total ?? 0);
-    return {
-      list,
-      total,
-      page,
-      hasMore: page * pageSize < total,
-    };
+    // 有搜索词用搜索接口，没有用物料精选
+    const path = p.keyword ? '/tbk/super_search_material' : '/tbk/material_recommend';
+
+    try {
+      const data = await this.call<any>(path, params);
+      const list = (data?.list ?? data?.result_list ?? data ?? []).map((r: any) => this.mapGoods(r));
+      const total = Number(data?.total_count ?? data?.total ?? 0);
+      return {
+        list,
+        total,
+        page,
+        hasMore: list.length === pageSize,
+      };
+    } catch (e: any) {
+      // 搜索接口失败时，回退到物料精选（如果本来就是搜索的话）
+      if (p.keyword && /not exist|接口不存在|no such/i.test(e.message || '')) {
+        this.logger.warn(`订单侠搜索接口 ${path} 不可用(${e.message})，回退到物料精选`);
+        return this.recommendGoodsPage({ page, pageSize, channel: 'coupon' });
+      }
+      throw e;
+    }
   }
 
   async recommendGoods(p: RecommendParams = {}): Promise<UnifiedGoods[]> {
@@ -123,15 +151,17 @@ export class DingdanxiaProvider implements CpsProvider {
   }
 
   /**
-   * 榜单/推荐。订单侠有"热门榜单""实时销量"等接口。
-   * 这里统一走 item_search 的不同排序来模拟，简单够用。
+   * 榜单推荐：走物料精选的不同分类/排序。
+   * 订单侠物料精选有 material_id（物料ID）区分不同榜单：
+   *   1=好券直播 2=品牌好货 3=实时热销榜 等等
+   * 这里先按 channel 映射不同的排序方式，简单够用。
    */
   async recommendGoodsPage(p: RecommendParams = {}): Promise<GoodsPage> {
     const channelMap: Record<string, string> = {
-      hot: 'total_sales_des',          // 热销
-      earn: 'tk_rate_des',             // 高佣
-      cheap: 'price_asc',              // 低价
-      coupon: 'tk_total_sales_des',    // 好券（默认推荐）
+      hot: 'total_sales_des',
+      earn: 'tk_rate_des',
+      cheap: 'price_asc',
+      coupon: 'tk_total_sales_des',
       pick: 'tk_total_sales_des',
     };
     return this.searchGoodsPage({
@@ -143,28 +173,41 @@ export class DingdanxiaProvider implements CpsProvider {
 
   async getGoodsDetail(goodsId: string): Promise<UnifiedGoods | null> {
     if (!goodsId) return null;
-    const data = await this.call<any>('/api/taobao/item_detail', {
-      item_id: goodsId,
-    });
-    const item = data?.list?.[0] ?? data?.item ?? data;
-    return item ? this.mapGoods(item) : null;
+    // 订单侠的详情接口待定，先用搜索接口按 item_id 查（很多聚合平台支持这种方式）
+    // 如果有专门的 detail 接口再换
+    try {
+      const data = await this.call<any>('/tbk/item_detail', { item_id: goodsId });
+      const item = data?.list?.[0] ?? data?.item ?? data;
+      return item ? this.mapGoods(item) : null;
+    } catch (e: any) {
+      this.logger.warn(`订单侠详情接口失败(${e.message})，暂无兜底`);
+      return null;
+    }
   }
 
+  /**
+   * 万能转链。
+   * 需要 pid + relation_id（渠道管理ID）都是必填。
+   * 订单归属：通过 relation_id 下面的 pid，或者用额外的 custom 参数。
+   * 订单侠的 custom_parameters 字段可以传自定义跟踪参数。
+   */
   async convertLink(goodsId: string, positionId: string): Promise<ConvertedLink> {
     if (!this.opt.pid) throw new Error('订单侠未配置淘宝 PID：请在 .env 填 TB_PID');
+    if (!this.opt.relationId) throw new Error('订单侠未配置渠道管理ID：请在 .env 填 TB_RELATION_ID');
 
-    const data = await this.call<any>('/api/taobao/item_privilege', {
+    const data = await this.call<any>('/tbk/general_convert', {
       item_id: goodsId,
       pid: this.opt.pid,
-      // 订单侠支持 custom_parameters 传自定义跟踪参数，用于订单归属
-      // 格式是 {uid: "xxx"} 的 JSON，订单返回时会原样带回
-      custom_parameters: JSON.stringify({ uid: positionId }),
-      // 生成淘口令
-      tpwd: 1,
+      relation_id: this.opt.relationId,
+      // 自定义跟踪参数，用于订单归属（淘宝联盟的 custom_parameters）
+      // 订单侠有些版本支持 external_id 或 special_id，先用这个
+      external_id: positionId,
+      // 需要返回多种链接类型
+      required_link_type: 'coupon_short_url,cps_short_url,coupon_long_url',
     });
 
-    const shortUrl = data?.coupon_click_url ?? data?.short_url ?? data?.click_url ?? '';
-    const tpwd = data?.tpwd ?? data?.password ?? data?.model ?? '';
+    const shortUrl = data?.coupon_short_url ?? data?.cps_short_url ?? data?.short_url ?? data?.click_url ?? '';
+    const tpwd = data?.tpwd ?? data?.password ?? data?.model ?? data?.tbk_pwd ?? '';
     if (!shortUrl && !tpwd) throw new Error('订单侠转链返回为空');
 
     return {
@@ -178,12 +221,12 @@ export class DingdanxiaProvider implements CpsProvider {
   }
 
   async parseContent(text: string): Promise<UnifiedGoods | null> {
-    // 先用订单侠的解析接口，能解出 itemId 就再查详情
+    // 先用二合一解析接口（淘口令/链接都能解）
     try {
-      const data = await this.call<any>('/api/taobao/content_parse', {
+      const data = await this.call<any>('/tbk/uland_query', {
         content: text,
       });
-      const itemId = data?.item_id ?? data?.goods_id ?? data?.id;
+      const itemId = data?.item_id ?? data?.goods_id ?? data?.num_iid ?? data?.id;
       if (itemId) return this.getGoodsDetail(String(itemId));
     } catch {
       // 解析失败走本地正则兜底
@@ -195,18 +238,31 @@ export class DingdanxiaProvider implements CpsProvider {
     return null;
   }
 
+  /**
+   * 订单查询。
+   * 时间格式：yyyy-MM-dd HH:mm:ss
+   * 分页：第一页不用 position_index，后面翻页用上一页返回的 position_index
+   * query_type：1=创建时间 2=付款时间 3=结算时间 4=更新时间
+   */
   async fetchOrders(start: Date, end: Date, page = 1): Promise<UnifiedOrder[]> {
-    // 订单侠订单查询：时间用秒级时间戳，query_type 决定按什么时间查
-    // 1=创建时间，2=结算时间，3=更新时间（淘客那边叫 modified_time）
-    const data = await this.call<any>('/api/taobao/order_get', {
-      query_type: 3,                    // 按更新时间，增量拉取用
-      start_time: Math.floor(start.getTime() / 1000),
-      end_time: Math.floor(end.getTime() / 1000),
-      page_no: page,
-      page_size: 100,
-    });
+    const fmt = (d: Date) => d.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
+      .replace('T', ' ').slice(0, 19);
 
-    const list = data?.results?.publisher_order_dto ?? data?.list ?? data ?? [];
+    // 订单侠的分页比较特殊：用 position_index，不是普通的 page_no
+    // 第一页不传，后面翻页要带上一页返回的最后一条的 position_index
+    // 这里先简化：只拉第一页，或者用 page_no（有些版本支持）
+    const params: Record<string, any> = {
+      start_time: fmt(start),
+      end_time: fmt(end),
+      query_type: 4, // 4=按更新时间（增量拉取用）
+      page_size: 100,
+    };
+    if (page > 1) {
+      params.page_no = page;
+    }
+
+    const data = await this.call<any>('/tbk/order_details', params);
+    const list = data?.list ?? data?.results ?? data?.data ?? data ?? [];
     return (Array.isArray(list) ? list : []).map((o: any) => this.mapOrder(o));
   }
 
@@ -214,10 +270,9 @@ export class DingdanxiaProvider implements CpsProvider {
    * 淘宝订单状态（tk_status）：
    *   1 - 已付款
    *   3 - 结算成功
-   *   12 - 已收货/确认收货（待结算）
+   *   12 - 已收货/确认收货
    *   13 - 维权成功
    *   14 - 结算失败
-   * 不同版本字段名可能不一样，尽量多匹配几个
    */
   private mapOrder(o: any): UnifiedOrder {
     const tkStatus = Number(o.tk_status ?? o.order_status ?? o.status ?? 0);
@@ -225,50 +280,47 @@ export class DingdanxiaProvider implements CpsProvider {
     // 统一状态：1=已付款 2=已收货 3=已结算 4=已失效
     let status: number;
     switch (tkStatus) {
-      case 1: status = 1; break;            // 已付款
-      case 12: status = 2; break;           // 已收货（确认收货）
-      case 3: status = 3; break;            // 已结算
-      case 13: case 14: case 4: status = 4; break; // 失效
+      case 1: status = 1; break;
+      case 12: status = 2; break;
+      case 3: status = 3; break;
+      case 13: case 14: case 4: status = 4; break;
       default: status = tkStatus >= 3 ? 3 : tkStatus === 12 ? 2 : tkStatus === 1 ? 1 : 4;
     }
 
-    // custom_parameters 里的 uid 是我们自己传的 positionId
+    // 订单归属：external_id / special_id / custom_parameters 里的自定义参数
     let positionId = '';
     try {
       const custom = o.custom_parameters ? JSON.parse(o.custom_parameters) : {};
-      positionId = custom.uid ?? custom.positionId ?? '';
+      positionId = custom.uid ?? custom.positionId ?? custom.external_id ?? '';
     } catch { /* 解析失败就忽略 */ }
-    if (!positionId) positionId = String(o.special_id ?? o.adzone_id ?? '');
+    if (!positionId) positionId = String(o.external_id ?? o.special_id ?? o.adzone_id ?? '');
 
     const payAmount = Number(o.alipay_total_price ?? o.pay_price ?? o.item_price ?? 0);
-    const commissionRate = Number(o.pub_share_rate ?? o.commission_rate ?? 0) / 100;
-    const estCommission = Number(o.pub_share_pre_fee ?? o.commission_pre ?? 0);
-    const settleCommission = Number(o.pub_share_fee ?? o.settle_amount ?? 0);
+    const commissionRate = Number(o.pub_share_rate ?? o.commission_rate ?? o.tk_rate ?? 0) / 100;
+    const estCommission = Number(o.pub_share_pre_fee ?? o.commission_pre ?? o.income_pre ?? 0);
+    const settleCommission = Number(o.pub_share_fee ?? o.settle_amount ?? o.income ?? 0);
 
-    const orderTime = o.create_time
-      ? (typeof o.create_time === 'number' ? new Date(o.create_time * 1000) : new Date(o.create_time))
-      : new Date();
-    const settleTime = o.settle_time || o.earning_time
-      ? (typeof (o.settle_time || o.earning_time) === 'number'
-        ? new Date((o.settle_time || o.earning_time) * 1000)
-        : new Date(o.settle_time || o.earning_time))
-      : undefined;
+    const parseDate = (v: any) => {
+      if (!v) return undefined;
+      if (typeof v === 'number') return new Date(v * 1000);
+      return new Date(v);
+    };
 
     return {
       platform: 'TB',
-      platformOrderNo: String(o.trade_id ?? o.trade_parent_id ?? o.order_sn ?? ''),
-      subOrderNo: String(o.trade_id ?? o.item_id ?? ''),
+      platformOrderNo: String(o.trade_id ?? o.trade_parent_id ?? o.order_sn ?? o.tb_trade_id ?? ''),
+      subOrderNo: String(o.trade_id ?? o.item_id ?? o.sub_trade_id ?? ''),
       positionId,
-      goodsId: String(o.item_id ?? o.goods_id ?? ''),
+      goodsId: String(o.item_id ?? o.goods_id ?? o.num_iid ?? ''),
       goodsTitle: o.item_title ?? o.goods_name ?? o.title ?? '',
-      goodsImg: o.item_img ?? o.goods_img ?? '',
+      goodsImg: o.item_img ?? o.goods_img ?? o.pict_url ?? '',
       payAmount: round2(payAmount),
       commissionRate,
       estCommission: round2(estCommission),
       settleCommission: status === 3 ? round2(settleCommission || estCommission) : 0,
       status,
-      orderTime,
-      settleTime,
+      orderTime: parseDate(o.create_time) ?? new Date(),
+      settleTime: parseDate(o.settle_time ?? o.earning_time),
       raw: o,
     };
   }

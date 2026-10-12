@@ -86,10 +86,12 @@ export class CpsService implements OnModuleInit {
         this.providers.set(p, new DingdanxiaProvider({
           apiKey: this.config.get<string>('DDX_API_KEY', ''),
           pid: this.config.get<string>('TB_PID', ''),
+          relationId: this.config.get<string>('TB_RELATION_ID', ''),
           baseUrl: this.config.get<string>('DDX_BASE_URL', ''),
         }));
         used.push('TB=dingdanxia');
         if (!this.config.get('TB_PID')) this.logger.warn('TB_PID 为空，淘宝转链会失败——去订单侠或淘宝联盟后台拿 PID');
+        if (!this.config.get('TB_RELATION_ID')) this.logger.warn('TB_RELATION_ID 为空，淘宝转链会失败——去订单侠后台拿渠道管理ID');
         continue;
       }
       if (mode === 'aggregator') {
