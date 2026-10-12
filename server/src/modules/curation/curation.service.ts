@@ -70,6 +70,42 @@ export class CurationService {
   }
 
   /**
+   * 直接带商品数据入库，不查详情接口。
+   *
+   * 适用场景：京东等平台的详情接口没权限，但搜索/推荐接口能拿到完整数据。
+   * 前端从搜索结果里把商品数据传过来，后端验证基本字段后直接入库。
+   * 后续定时刷新会用真实数据覆盖，所以这里的数据临时用一下没问题。
+   */
+  async addWithGoods(body: {
+    platform: string; goodsId: string; title: string; image: string;
+    shopName?: string; price: number; couponPrice: number; couponAmount?: number;
+    commissionRate: number; commission: number; salesVolume?: number;
+    groupKey?: string; sortWeight?: number;
+  }) {
+    const { platform, goodsId, title, image, price, couponPrice, commission, commissionRate } = body;
+    if (!platform || !goodsId || !title) {
+      throw new BadRequestException('缺少必要字段：platform / goodsId / title');
+    }
+    if (!(commission > 0)) {
+      throw new BadRequestException('这个商品没有佣金，加进来用户点了也没返利');
+    }
+    const g: UnifiedGoods = {
+      platform,
+      goodsId,
+      title,
+      image: image || '',
+      shopName: body.shopName || '',
+      price: Number(price),
+      couponPrice: Number(couponPrice),
+      couponAmount: Number(body.couponAmount ?? 0),
+      commissionRate: Number(commissionRate),
+      commission: Number(commission),
+      salesVolume: Number(body.salesVolume ?? 0),
+    };
+    return this.upsert(g, body.groupKey || 'default', body.sortWeight ?? 0, CuratedStatus.PENDING);
+  }
+
+  /**
    * 把一件已经拿到的商品写进池子。
    * add() 走它、批量导入也走它——批量导入手里已经有完整商品对象，
    * 没理由再为每一件多打一次详情接口。

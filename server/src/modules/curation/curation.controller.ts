@@ -82,6 +82,26 @@ export class CurationController {
     );
   }
 
+  @Post('add-with-goods')
+  @ApiOperation({ summary: '直接带商品数据加入选品池（京东等详情接口没权限时用）' })
+  addWithGoods(@Body() body: {
+    platform: string;
+    goodsId: string;
+    title: string;
+    image: string;
+    shopName?: string;
+    price: number;
+    couponPrice: number;
+    couponAmount?: number;
+    commissionRate: number;
+    commission: number;
+    salesVolume?: number;
+    groupKey?: string;
+    sortWeight?: number;
+  }) {
+    return this.curation.addWithGoods(body);
+  }
+
   @Post('import')
   @ApiOperation({ summary: '一键批量导入：拉取有佣金的商品进入待上架队列' })
   importBatch(

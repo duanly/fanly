@@ -867,12 +867,31 @@ async function confirmAddWithTags() {
   try {
     if (!alreadyPending) {
       // 还不在库里，先加进待上架
-      await api.curationAdd({
-        platform: f.platform,
-        goodsId: g.goodsId,
-        groupKey: f.groupKey || 'default',
-        sortWeight: f.sortWeight || 0,
-      });
+      // 京东的详情接口（bigfield.query）一般没权限，直接带商品数据入库
+      if (f.platform === 'JD') {
+        await api.curationAddWithGoods({
+          platform: f.platform,
+          goodsId: g.goodsId,
+          title: g.title,
+          image: g.image,
+          shopName: g.shopName || '',
+          price: g.price,
+          couponPrice: g.couponPrice,
+          couponAmount: g.couponAmount || 0,
+          commissionRate: g.commissionRate,
+          commission: g.commission,
+          salesVolume: g.salesVolume || 0,
+          groupKey: f.groupKey || 'default',
+          sortWeight: f.sortWeight || 0,
+        });
+      } else {
+        await api.curationAdd({
+          platform: f.platform,
+          goodsId: g.goodsId,
+          groupKey: f.groupKey || 'default',
+          sortWeight: f.sortWeight || 0,
+        });
+      }
     }
     // 查询完整信息（拿到 curatedId）
     const m = await api.curationExistsBatch([{ platform: f.platform, goodsId: g.goodsId }]);
