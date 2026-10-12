@@ -41,7 +41,7 @@ const round2 = (v: number) => Math.round(v * 100) / 100;
  *   ❌ 关键词搜索 goods.query —— 无权限，回落到京粉精选本地过滤
  *   ⚠️ 转链 promotion.bysubunionid.get —— 导购媒体类型专用，优先用它
  *   ⚠️ 转链 promotion.common.get —— 网站/APP 类型用，需要 siteId
- *   ⚠️ 订单行 order.row.query —— 参数还没对上
+ *   ✅ 订单行 order.row.query —— v1 格式(orderReq+ymdHms)，单次查询不超过1小时
  * 所以现在京东**只能选品，不能转链和拉单**，转链和拉单会明确抛错，
  * 不静默返回空——假装成功比失败更糟。
  */
@@ -378,10 +378,33 @@ export class JdProvider implements CpsProvider {
   async fetchOrders(start: Date, end: Date, page = 1): Promise<UnifiedOrder[]> {
     // 京东订单行接口参数格式版本很多，不同账号/不同时期可能不一样。
     // 这里按常见格式依次尝试，哪个成功用哪个。
+    // 注意：京东限制单次查询时间范围不超过 1 小时，如果超过需要分段查。
     const fmtYmdHms = (d: Date) => d.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
       .replace('T', ' ').slice(0, 19); // yyyy-MM-dd HH:mm:ss
     const fmtYmdH = (d: Date) => d.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
       .replace('T', ' ').replace(/[-: ]/g, '').slice(0, 10); // yyyyMMddHH
+
+    // 时间范围超过 1 小时的话，拆成 1 小时一段，每段独立查，结果合并
+    const spanMs = end.getTime() - start.getTime();
+    const ONE_HOUR = 60 * 60 * 1000;
+    if (spanMs > ONE_HOUR) {
+      const all: UnifiedOrder[] = [];
+      let cursor = new Date(start.getTime());
+      while (cursor < end) {
+        const segEnd = new Date(Math.min(cursor.getTime() + ONE_HOUR, end.getTime()));
+        const seg = await this.fetchOrders(cursor, segEnd, page);
+        all.push(...seg);
+        cursor = segEnd;
+      }
+      // 去重（按订单号 + 子订单）
+      const seen = new Set<string>();
+      return all.filter((o) => {
+        const k = `${o.platformOrderNo}_${o.subOrderNo}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    }
 
     const attempts: Array<{ name: string; biz: Record<string, any> }> = [
       // 版本 1：orderReq 包裹 + yyyy-MM-dd HH:mm:ss + type
@@ -425,6 +448,9 @@ export class JdProvider implements CpsProvider {
       }
     }
 
+    const isTimeRangeError = (msg: string) =>
+      /时间范围超过/.test(msg) || /查询时间/.test(msg) || /453/.test(msg);
+
     let lastError: Error | null = null;
     for (const att of attempts) {
       try {
@@ -434,6 +460,12 @@ export class JdProvider implements CpsProvider {
         return (Array.isArray(list) ? list : []).map((o: any) => this.mapOrder(o));
       } catch (e: any) {
         lastError = e;
+        // 如果是"时间范围超限"这种业务错误，说明格式是对的，直接往上抛，
+        // 不用再试其他格式了（其他格式更不可能对）
+        if (isTimeRangeError(e.message ?? '')) {
+          this.logger.debug(`京东订单接口 ${att.name} 时间范围超限，格式正确，直接抛出`);
+          throw e;
+        }
         this.logger.debug(`京东订单接口 ${att.name} 失败: ${e.message}`);
       }
     }

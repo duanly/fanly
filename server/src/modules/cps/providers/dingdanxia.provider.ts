@@ -254,9 +254,17 @@ export class DingdanxiaProvider implements CpsProvider {
       if (rawList[0].price_promotion_info) {
         this.logger.debug(`price_promotion_info keys=${Object.keys(rawList[0].price_promotion_info).join(',')}`);
       }
-      if (rawList[0].income_info) {
-        this.logger.debug(`income_info keys=${Object.keys(rawList[0].income_info).join(',')}`);
+      if (rawList[0].publish_info) {
+        this.logger.debug(`publish_info keys=${Object.keys(rawList[0].publish_info).join(',')}`);
       }
+      if (rawList[0].scope_info) {
+        this.logger.debug(`scope_info keys=${Object.keys(rawList[0].scope_info).join(',')}`);
+      }
+      if (rawList[0].presale_info) {
+        this.logger.debug(`presale_info keys=${Object.keys(rawList[0].presale_info).join(',')}`);
+      }
+      // 打印第一条完整数据（方便排查）
+      this.logger.debug(`第一条完整数据: ${JSON.stringify(rawList[0]).slice(0, 2000)}`);
     }
     const list = rawList.map((r: any) => this.mapGoods(r));
     return {
