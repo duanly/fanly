@@ -136,13 +136,15 @@ export class DingdanxiaProvider implements CpsProvider {
     }
 
     // 无搜索词：物料精选（不同 channel 对应不同 material_id）
+    // 物料ID来自淘宝联盟物料市场，会定期更新，需要时调整
+    // 注意：84xxx 段已弃用，更新为 96xxx 段
     const materialMap: Record<string, number> = {
-      hot: 1,       // 实时热销榜
-      earn: 2,      // 高佣榜单
-      cheap: 3,     // 大额券
-      coupon: 1,    // 默认用热销榜
-      pick: 1,
-      all: 1,
+      hot: 13366,     // 综合（热销）
+      earn: 96185,    // 高佣
+      cheap: 13368,   // 家居家装
+      coupon: 13366,  // 默认综合
+      pick: 13366,
+      all: 13366,
     };
     const materialId = materialMap[p.sort ?? ''] ?? materialMap.coupon;
     const data = await this.call<any>('/tbk/material_recommend', {
@@ -165,16 +167,16 @@ export class DingdanxiaProvider implements CpsProvider {
 
   /**
    * 榜单推荐：走物料精选的不同 material_id。
-   * hot=热销 earn=高佣 cheap=大额券
+   * 物料ID来自淘宝联盟物料市场，会定期更新。
    */
   async recommendGoodsPage(p: RecommendParams = {}): Promise<GoodsPage> {
     const materialMap: Record<string, number> = {
-      hot: 1,       // 实时热销榜
-      earn: 2,      // 高佣榜单
-      cheap: 3,     // 大额券
-      coupon: 1,
-      pick: 1,
-      all: 1,
+      hot: 13366,     // 综合（热销）
+      earn: 84230,    // 高佣
+      cheap: 13368,   // 家居家装
+      coupon: 13366,  // 默认综合
+      pick: 13366,
+      all: 13366,
     };
     const materialId = materialMap[p.channel ?? 'hot'] ?? 1;
     const page = Math.max(p.page ?? 1, 1);
