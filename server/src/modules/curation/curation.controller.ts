@@ -53,12 +53,14 @@ export class CurationController {
   @ApiOperation({ summary: '池内列表，含已下架的' })
   list(
     @Query('groupKey') groupKey?: string,
+    @Query('topicId') topicId?: string,
     @Query('status') status?: string,
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '20',
   ) {
     return this.curation.list({
       groupKey: groupKey || undefined,
+      topicId: topicId ? +topicId : undefined,
       status: status === undefined || status === '' ? undefined : +status,
       page: +page,
       pageSize: +pageSize,
@@ -103,11 +105,12 @@ export class CurationController {
   }
 
   @Post('import')
-  @ApiOperation({ summary: '一键批量导入：拉取有佣金的商品进入待上架队列' })
+  @ApiOperation({ summary: '一键批量导入：拉取有佣金的商品进入待上架或直接上架' })
   importBatch(
     @Body() body: {
       platform?: string; channel?: string; keyword?: string;
       count?: number; groupKey?: string; sortWeight?: number;
+      targetStatus?: number;
     },
   ) {
     return this.curation.importBatch(body);

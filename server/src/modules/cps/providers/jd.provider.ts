@@ -307,24 +307,36 @@ export class JdProvider implements CpsProvider {
   async convertLink(skuId: string, positionId: string): Promise<ConvertedLink> {
     if (!this.opt.positionId) throw new Error('京东未配置推广位：请在 .env 填 JD_POSITION_ID');
 
-    // 大部分账号的通用转链接口不能传 siteId（报 2001701 不支持siteId），
-    // 只有明确配置了 JD_SITE_ID_IN_PROMOTION=true 才传。
-    const params: any = {
+    const baseParams: any = {
       materialId: `https://item.jd.com/${skuId}.html`,
       positionId: Number(this.opt.positionId),
       // subUnionId 要单独申请权限；没权限时京东会忽略这个字段，
       // 归属就只能靠 positionId
       subUnionId: positionId,
     };
-    // siteId 默认为空，但配置里有值的话，有些接口可能需要；
-    // 转链这个接口大多数账号不需要，所以单独用一个开关控制
-    if ((this.opt as any).siteIdInPromotion && this.opt.siteId) {
-      params.siteId = Number(this.opt.siteId);
-    }
 
-    const data = await this.call<any>('jd.union.open.promotion.common.get', {
-      promotionCodeReq: params,
-    });
+    const tryCall = async (withSiteId: boolean) => {
+      const params = withSiteId && this.opt.siteId
+        ? { ...baseParams, siteId: Number(this.opt.siteId) }
+        : baseParams;
+      return this.call<any>('jd.union.open.promotion.common.get', { promotionCodeReq: params });
+    };
+
+    let data: any;
+    try {
+      // 先不传 siteId 试一下
+      data = await tryCall(false);
+    } catch (e: any) {
+      const msg = e.message || '';
+      // 报"siteId不能为空"说明是网站类型账号，必须传——带上重试
+      if (/siteId.*不能为空|缺少.*siteId|siteId.*required/i.test(msg) && this.opt.siteId) {
+        this.logger.log(`京东转链需要 siteId，带上重试: ${msg}`);
+        data = await tryCall(true);
+      } else {
+        // 其他错误（比如 2001701 不支持siteId、网站未审核通过等）直接抛
+        throw e;
+      }
+    }
 
     const url = data?.shortURL || data?.clickURL || '';
     if (!url) throw new Error('京东转链返回为空');

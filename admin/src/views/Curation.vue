@@ -98,12 +98,13 @@
       <el-tab-pane label="货架" name="pool">
         <el-card shadow="never">
           <div class="bar">
-            <el-select v-model="q.groupKey" placeholder="全部专题" clearable style="width:190px" @change="loadPool">
+            <el-select v-model="q.topicId" placeholder="全部标签" clearable style="width:190px" @change="loadPool">
               <el-option
-                v-for="g in groupOptions"
-                :key="g.key"
-                :label="g.label"
-                :value="g.key"
+                v-for="t in allTopics"
+                :key="t.id"
+                :label="t.name"
+                :value="t.id"
+                :disabled="t.status !== 1"
               />
             </el-select>
             <el-select v-model="q.status" placeholder="全部状态" clearable style="width:140px" @change="loadPool">
@@ -195,7 +196,11 @@
 
             <el-table-column label="标签" width="220">
               <template #default="{ row }">
+                <div v-if="!goodsTags[row.curatedId]?.length" class="no-tags" @click="addFirstTag(row)">
+                  <el-tag type="warning" size="small" effect="dark" style="cursor:pointer">未打标签 · 点击添加</el-tag>
+                </div>
                 <el-select
+                  v-else
                   v-model="goodsTags[row.curatedId]"
                   multiple
                   collapse-tags
@@ -261,11 +266,15 @@
             <el-button type="primary" :loading="finding" @click="find">查找</el-button>
 
             <el-divider direction="vertical" />
-            <span class="hint">批量导入</span>
+            <span class="hint">导入到</span>
+            <el-radio-group v-model="f.targetStatus" size="default">
+              <el-radio :label="3">待上架</el-radio>
+              <el-radio :label="1">直接上架</el-radio>
+            </el-radio-group>
             <el-input-number v-model="f.importCount" :min="20" :max="500" :step="20" style="width:110px" />
             <span class="hint">件</span>
             <el-button type="success" :loading="importing" @click="importBatch">
-              一键批量导入进待上架
+              {{ f.targetStatus === 1 ? '一键批量导入并上架' : '一键批量导入进待上架' }}
             </el-button>
 
             <el-divider direction="vertical" />
@@ -601,7 +610,7 @@ const poolSelected = ref([]);
 const loading = ref(false);
 
 const q = reactive({
-  groupKey: '',
+  topicId: null,
   status: '',
   page: 1,
   pageSize: 30,
@@ -634,7 +643,7 @@ async function loadPool() {
   loading.value = true;
   try {
     pool.value = await api.curationList({
-      groupKey: q.groupKey || undefined,
+      topicId: q.topicId || undefined,
       status: q.status === '' ? undefined : q.status,
       page: q.page,
       pageSize: q.pageSize,
@@ -701,6 +710,13 @@ async function removeOffShelf() {
 }
 
 // ── 标签编辑 ──
+/** 点击"未打标签"时初始化空数组，让 el-select 显示出来 */
+function addFirstTag(row) {
+  if (!goodsTags.value[row.curatedId]) {
+    goodsTags.value = { ...goodsTags.value, [row.curatedId]: [] };
+  }
+}
+
 /** 单个商品保存标签（直接调用 setGoodsTopics，整套替换） */
 async function saveTags(row, topicIds) {
   try {
@@ -769,6 +785,7 @@ const f = reactive({
   page: 1,
   hasMore: false,
   importCount: 100,
+  targetStatus: 3, // 3=待上架，1=直接上架
 });
 
 async function load(append = false) {
@@ -836,9 +853,11 @@ async function importBatch() {
       count: f.importCount,
       groupKey: f.groupKey || 'default',
       sortWeight: f.sortWeight || 0,
+      targetStatus: f.targetStatus,
     });
+    const to = f.targetStatus === 1 ? '上架' : '待上架';
     ElMessage.success(
-      `导入完成：拉到 ${r.fetched} 件，入待上架 ${r.added}，无佣金跳过 ${r.skipped}` +
+      `导入完成：拉到 ${r.fetched} 件，入${to} ${r.added}，无佣金跳过 ${r.skipped}` +
         `${r.errors ? `，失败 ${r.errors}` : ''}`,
     );
     loadPending();
@@ -950,6 +969,8 @@ onMounted(async () => {
 .card .c { font-size: 12px; color: #67c23a; margin: 4px 0 8px; }
 .card .c .m { margin-left: 6px; }
 .card-status { margin-bottom: 6px; text-align: center; }
+
+.no-tags { display: flex; align-items: center; height: 28px; }
 
 .tag-list { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 .tag-list .more-tag { margin-left: 2px; }

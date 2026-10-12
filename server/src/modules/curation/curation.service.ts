@@ -248,19 +248,28 @@ export class CurationService {
   }
 
   /** 后台列表：不过滤状态，下架的也要看得见 */
-  async list(q: { groupKey?: string; status?: number; page?: number; pageSize?: number }) {
+  async list(q: { groupKey?: string; topicId?: number; status?: number; page?: number; pageSize?: number }) {
     const page = Math.max(q.page ?? 1, 1);
     const pageSize = Math.min(q.pageSize ?? 20, 100);
+
+    const qb = this.repo.createQueryBuilder('c');
+
+    if (q.topicId) {
+      qb.innerJoin('goods_topic', 'gt', 'gt.curatedId = c.id AND gt.topicId = :topicId', { topicId: q.topicId });
+    }
+
     const where: any = {};
     if (q.groupKey) where.groupKey = q.groupKey;
     if (q.status !== undefined && q.status !== null) where.status = q.status;
+    if (Object.keys(where).length) qb.where(where);
 
-    const [rows, total] = await this.repo.findAndCount({
-      where,
-      order: { sortWeight: 'DESC', commission: 'DESC', id: 'DESC' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    });
+    qb.orderBy('c.sortWeight', 'DESC')
+      .addOrderBy('c.commission', 'DESC')
+      .addOrderBy('c.id', 'DESC')
+      .skip((page - 1) * pageSize)
+      .take(pageSize);
+
+    const [rows, total] = await qb.getManyAndCount();
     return {
       total,
       page,
