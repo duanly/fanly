@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import {
-  ConvertedLink, CpsProvider, RecommendParams, SearchParams, UnifiedGoods, UnifiedOrder,
+  ConvertedLink, CpsProvider, GoodsPage, RecommendParams, SearchParams, UnifiedGoods, UnifiedOrder,
 } from '../cps.types';
 
 export interface JdOptions {
@@ -39,7 +39,7 @@ const round2 = (v: number) => Math.round(v * 100) / 100;
  *   ✅ 类目 category.goods.get
  *   ⚠️ 商品详情 bigfield.query —— 要 sceneId，参数还在调
  *   ❌ 关键词搜索 goods.query —— 无权限，回落到京粉精选本地过滤
- *   ❌ 通用转链 —— 报「只支持网站/APP」，我们的媒体是导购媒体类型
+ *   ⚠️ 通用转链 promotion.common.get —— 不能传 siteId（报 2001701），不传可用
  *   ⚠️ 订单行 order.row.query —— 参数还没对上
  * 所以现在京东**只能选品，不能转链和拉单**，转链和拉单会明确抛错，
  * 不静默返回空——假装成功比失败更糟。
@@ -206,11 +206,45 @@ export class JdProvider implements CpsProvider {
    * 命中率远不如真搜索，权限批下来要第一时间换掉。
    */
   async searchGoods(p: SearchParams): Promise<UnifiedGoods[]> {
-    const size = Math.min(p.pageSize ?? 20, 100);
-    const pool = await this.recommendGoods({ pageSize: 100, channel: 'coupon' });
+    return (await this.searchGoodsPage(p)).list;
+  }
+
+  /**
+   * 带分页的关键词搜索。
+   * ⚠️ 由于 goods.query 没权限，这里是从京粉精选里本地过滤，不是真的平台关键词搜索。
+   * 为了支持「加载更多」，每次从第 1 页开始拉京粉精选，翻页累计，直到过滤结果凑够一页。
+   */
+  async searchGoodsPage(p: SearchParams): Promise<GoodsPage> {
+    const page = Math.max(p.page ?? 1, 1);
+    const pageSize = Math.min(Math.max(p.pageSize ?? 20, 10), 100);
     const kw = (p.keyword || '').trim();
-    const hit = kw ? pool.filter((g) => g.title.includes(kw)) : pool;
-    return hit.slice(0, size);
+
+    // 无关键词：走销量排序的榜单（相当于全品类浏览）
+    if (!kw) {
+      return this.recommendGoodsPage({ channel: 'coupon', page, pageSize });
+    }
+
+    // 有关键词：从京粉精选里本地过滤，多翻几页来凑够结果
+    // 最多翻 5 页京粉精选（每页 100 条），避免打太多接口
+    const MAX_JINGFEN_PAGES = 5;
+    const all: UnifiedGoods[] = [];
+    for (let i = 1; i <= MAX_JINGFEN_PAGES; i++) {
+      const jf = await this.recommendGoodsPage({ channel: 'coupon', page: i, pageSize: 100 });
+      const hit = jf.list.filter((g) => g.title.includes(kw));
+      all.push(...hit);
+      if (!jf.hasMore) break;
+      // 已经凑够至少 page * pageSize + 1 条，就不用继续翻了
+      if (all.length > page * pageSize) break;
+    }
+
+    const start = (page - 1) * pageSize;
+    const list = all.slice(start, start + pageSize);
+    return {
+      list,
+      total: all.length,
+      page,
+      hasMore: start + list.length < all.length,
+    };
   }
 
   /**
@@ -218,6 +252,16 @@ export class JdProvider implements CpsProvider {
    * eliteId 是频道号，probe 实测 1~30 都能返数据。
    */
   async recommendGoods(p: RecommendParams = {}): Promise<UnifiedGoods[]> {
+    const page = await this.recommendGoodsPage(p);
+    return page.list;
+  }
+
+  /**
+   * 带分页的京粉精选。
+   * hasMore 判断：返回数量等于 pageSize 就认为还有下一页。
+   * 京粉精选没有 total 字段，只能用这个近似判断。
+   */
+  async recommendGoodsPage(p: RecommendParams = {}): Promise<GoodsPage> {
     const CHANNEL: Record<string, number> = {
       coupon: 1,   // 好券商品
       hot: 2,      // 超级大牌
@@ -226,13 +270,20 @@ export class JdProvider implements CpsProvider {
       pick: 1,
     };
     const eliteId = CHANNEL[p.channel ?? 'coupon'] ?? 1;
+    const page = Math.max(p.page ?? 1, 1);
     const pageSize = Math.min(Math.max(p.pageSize ?? 20, 20), 100);
 
     const data = await this.call<any>('jd.union.open.goods.jingfen.query', {
-      goodsReq: { eliteId, pageIndex: Math.max(p.page ?? 1, 1), pageSize },
+      goodsReq: { eliteId, pageIndex: page, pageSize },
     });
-    const list = data?.data ?? data ?? [];
-    return (Array.isArray(list) ? list : []).map((r: any) => this.mapGoods(r));
+    const raw = data?.data ?? data ?? [];
+    const list = (Array.isArray(raw) ? raw : []).map((r: any) => this.mapGoods(r));
+    return {
+      list,
+      total: list.length,
+      page,
+      hasMore: list.length === pageSize,
+    };
   }
 
   async getGoodsDetail(skuId: string): Promise<UnifiedGoods | null> {
@@ -256,15 +307,23 @@ export class JdProvider implements CpsProvider {
   async convertLink(skuId: string, positionId: string): Promise<ConvertedLink> {
     if (!this.opt.positionId) throw new Error('京东未配置推广位：请在 .env 填 JD_POSITION_ID');
 
+    // 大部分账号的通用转链接口不能传 siteId（报 2001701 不支持siteId），
+    // 只有明确配置了 JD_SITE_ID_IN_PROMOTION=true 才传。
+    const params: any = {
+      materialId: `https://item.jd.com/${skuId}.html`,
+      positionId: Number(this.opt.positionId),
+      // subUnionId 要单独申请权限；没权限时京东会忽略这个字段，
+      // 归属就只能靠 positionId
+      subUnionId: positionId,
+    };
+    // siteId 默认为空，但配置里有值的话，有些接口可能需要；
+    // 转链这个接口大多数账号不需要，所以单独用一个开关控制
+    if ((this.opt as any).siteIdInPromotion && this.opt.siteId) {
+      params.siteId = Number(this.opt.siteId);
+    }
+
     const data = await this.call<any>('jd.union.open.promotion.common.get', {
-      promotionCodeReq: {
-        materialId: `https://item.jd.com/${skuId}.html`,
-        positionId: Number(this.opt.positionId),
-        // subUnionId 要单独申请权限；没权限时京东会忽略这个字段，
-        // 归属就只能靠 positionId
-        subUnionId: positionId,
-        ...(this.opt.siteId ? { siteId: Number(this.opt.siteId) } : {}),
-      },
+      promotionCodeReq: params,
     });
 
     const url = data?.shortURL || data?.clickURL || '';
