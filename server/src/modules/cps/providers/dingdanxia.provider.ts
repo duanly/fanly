@@ -68,32 +68,124 @@ export class DingdanxiaProvider implements CpsProvider {
 
   // ───────────────────────── 字段映射 ─────────────────────────
 
+  /**
+   * 订单侠返回的商品结构分两种：
+   * 1. 扁平结构（搜索接口）：title、pict_url、zk_final_price 都在顶层
+   * 2. 嵌套结构（物料精选接口）：item_basic_info、price_promotion_info、income_info 分开
+   * 这里两种都兼容，从所有可能的位置找。
+   */
   private mapGoods(raw: any): UnifiedGoods {
-    const price = Number(raw.zk_final_price ?? raw.original_price ?? raw.price ?? 0);
-    const couponAmount = Number(raw.coupon_amount ?? raw.coupon_price ?? raw.coupon ?? 0);
-    const couponPrice = raw.final_price
-      ? Number(raw.final_price)
-      : raw.coupon_price_after
-        ? Number(raw.coupon_price_after)
-        : Math.max(price - couponAmount, 0);
+    const basic = raw.item_basic_info ?? raw;
+    const priceInfo = raw.price_promotion_info ?? raw;
+    const incomeInfo = raw.income_info ?? raw;
+    const couponInfo = raw.coupon_info ?? raw;
 
-    // commission_rate 是百分数，比如 "20.50" 表示 20.5%
-    const rate = Number(raw.commission_rate ?? raw.promotion_rate ?? raw.tk_rate ?? 0) / 100;
-    const commission = Number(raw.commission ?? raw.promotion_amount ?? raw.tk_commission ?? 0);
+    // 价格：优先从 price_promotion_info 里取，再试顶层，再试 basic 里的
+    const price = Number(
+      priceInfo.zk_final_price
+        ?? raw.zk_final_price
+        ?? basic.zk_final_price
+        ?? priceInfo.final_price
+        ?? raw.final_price
+        ?? basic.original_price
+        ?? basic.price
+        ?? 0,
+    );
+
+    // 优惠券金额
+    const couponAmount = Number(
+      raw.coupon_amount
+        ?? couponInfo.coupon_amount
+        ?? raw.coupon_price
+        ?? raw.coupon
+        ?? couponInfo.coupon_price
+        ?? 0,
+    );
+
+    // 券后价：有 final_price 就用，没有就原价减券
+    let couponPrice = Number(raw.final_price ?? raw.coupon_price_after ?? couponInfo.final_price ?? 0);
+    if (!couponPrice) couponPrice = Math.max(price - couponAmount, 0);
+
+    // 佣金比例是百分数，比如 15.0 表示 15%
+    const rate = Number(
+      incomeInfo.income_rate
+        ?? raw.income_rate
+        ?? raw.commission_rate
+        ?? raw.promotion_rate
+        ?? raw.tk_rate
+        ?? incomeInfo.commission_rate
+        ?? 0,
+    ) / 100;
+
+    // 佣金金额：有就直接用，没有自己算
+    const commissionRaw = Number(
+      raw.commission
+        ?? raw.promotion_amount
+        ?? raw.tk_commission
+        ?? incomeInfo.income_amount
+        ?? incomeInfo.commission
+        ?? 0,
+    );
+    const commission = commissionRaw > 0 ? commissionRaw : round2(couponPrice * rate);
+
+    // 商品 ID：顶层 item_id 优先
+    const goodsId = String(
+      raw.item_id
+        ?? basic.item_id
+        ?? raw.goods_id
+        ?? basic.goods_id
+        ?? basic.id
+        ?? basic.num_iid
+        ?? '',
+    );
+
+    // 图片地址：淘宝的图是 //img.alicdn.com/... 这种相对协议，补 https:
+    const rawImg = basic.pict_url
+      ?? basic.goods_thumbnail_url
+      ?? basic.main_pic
+      ?? basic.img
+      ?? raw.pict_url
+      ?? raw.main_image
+      ?? '';
+    const image = rawImg && rawImg.startsWith('//') ? `https:${rawImg}` : rawImg;
 
     return {
       platform: 'TB',
-      goodsId: String(raw.item_id ?? raw.goods_id ?? raw.id ?? raw.num_iid ?? ''),
-      title: raw.title ?? raw.goods_name ?? raw.name ?? '',
-      image: raw.pict_url ?? raw.goods_thumbnail_url ?? raw.main_pic ?? raw.img ?? '',
-      shopName: raw.shop_title ?? raw.mall_name ?? raw.shop_name ?? raw.nick ?? '',
+      goodsId,
+      title: basic.title ?? basic.goods_name ?? basic.name ?? raw.title ?? '',
+      image,
+      shopName: basic.shop_title ?? basic.mall_name ?? basic.shop_name ?? basic.nick ?? raw.shop_title ?? '',
       price: round2(price),
       couponPrice: round2(couponPrice),
       couponAmount: round2(couponAmount),
       commissionRate: rate,
-      commission: commission > 0 ? round2(commission) : round2(couponPrice * rate),
-      salesVolume: Number(raw.volume ?? raw.sales_tip ?? raw.month_sales ?? raw.sell_num ?? 0),
+      commission: round2(commission),
+      salesVolume: Number(
+        basic.volume
+          ?? basic.sales_tip
+          ?? basic.month_sales
+          ?? basic.sell_num
+          ?? raw.volume
+          ?? raw.sales
+          ?? 0,
+      ),
     };
+  }
+
+  // ───────────────────────── 工具方法 ─────────────────────────
+
+  /**
+   * 从接口返回的 data 里提取商品列表数组。
+   * 订单侠不同接口返回结构不太一致，这里做多路径兜底。
+   */
+  private extractList(data: any): any[] {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.list)) return data.list;
+    if (Array.isArray(data.result_list)) return data.result_list;
+    if (data.result_list && Array.isArray(data.result_list.map_data)) return data.result_list.map_data;
+    if (Array.isArray(data.items)) return data.items;
+    return [];
   }
 
   // ───────────────────────── CpsProvider ─────────────────────────
@@ -125,7 +217,7 @@ export class DingdanxiaProvider implements CpsProvider {
         sort: sortMap[p.sort ?? ''] ?? 'tk_total_sales_des',
       };
       const data = await this.call<any>('/tbk/super_search_material', params);
-      const list = (data?.list ?? data?.result_list ?? data ?? []).map((r: any) => this.mapGoods(r));
+      const list = this.extractList(data).map((r: any) => this.mapGoods(r));
       const total = Number(data?.total_count ?? data?.total ?? 0);
       return {
         list,
@@ -152,7 +244,21 @@ export class DingdanxiaProvider implements CpsProvider {
       page_no: page,
       page_size: pageSize,
     });
-    const list = (data?.list ?? data?.result_list ?? data ?? []).map((r: any) => this.mapGoods(r));
+    const rawList = this.extractList(data);
+    // 调试：打印第一条数据结构，确认字段名
+    if (rawList.length > 0) {
+      this.logger.debug(`物料精选返回样例 keys=${Object.keys(rawList[0]).join(',')}`);
+      if (rawList[0].item_basic_info) {
+        this.logger.debug(`item_basic_info keys=${Object.keys(rawList[0].item_basic_info).join(',')}`);
+      }
+      if (rawList[0].price_promotion_info) {
+        this.logger.debug(`price_promotion_info keys=${Object.keys(rawList[0].price_promotion_info).join(',')}`);
+      }
+      if (rawList[0].income_info) {
+        this.logger.debug(`income_info keys=${Object.keys(rawList[0].income_info).join(',')}`);
+      }
+    }
+    const list = rawList.map((r: any) => this.mapGoods(r));
     return {
       list,
       total: list.length,
@@ -172,13 +278,13 @@ export class DingdanxiaProvider implements CpsProvider {
   async recommendGoodsPage(p: RecommendParams = {}): Promise<GoodsPage> {
     const materialMap: Record<string, number> = {
       hot: 13366,     // 综合（热销）
-      earn: 84230,    // 高佣
+      earn: 96185,    // 高佣
       cheap: 13368,   // 家居家装
       coupon: 13366,  // 默认综合
       pick: 13366,
       all: 13366,
     };
-    const materialId = materialMap[p.channel ?? 'hot'] ?? 1;
+    const materialId = materialMap[p.channel ?? 'hot'] ?? 13366;
     const page = Math.max(p.page ?? 1, 1);
     const pageSize = Math.min(Math.max(p.pageSize ?? 20, 1), 100);
 
@@ -187,7 +293,7 @@ export class DingdanxiaProvider implements CpsProvider {
       page_no: page,
       page_size: pageSize,
     });
-    const list = (data?.list ?? data?.result_list ?? data ?? []).map((r: any) => this.mapGoods(r));
+    const list = this.extractList(data).map((r: any) => this.mapGoods(r));
     return {
       list,
       total: list.length,
