@@ -12,7 +12,7 @@ export interface DingdanxiaOptions {
   baseUrl?: string;
 }
 
-const DEFAULT_BASE = 'https://api.tbk.dingdanxia.com';
+const DEFAULT_BASE = 'http://api.tbk.dingdanxia.com';
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
