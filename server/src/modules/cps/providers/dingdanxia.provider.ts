@@ -611,11 +611,18 @@ export class DingdanxiaJdProvider implements CpsProvider {
         delete payload[k];
       }
     }
-    const res = await fetch(url.toString(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(payload).toString(),
-    });
+    this.logger.debug(`京东请求: ${url.toString()}`);
+    let res: Response;
+    try {
+      res = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(payload).toString(),
+      });
+    } catch (e: any) {
+      this.logger.error(`京东请求失败: ${url.toString()}, error: ${e.message}, cause: ${e.cause?.message ?? e.cause ?? ''}`);
+      throw e;
+    }
     if (!res.ok) throw new Error(`订单侠京东 ${path} HTTP ${res.status}`);
     const json: any = await res.json();
     if (json.code !== undefined && json.code !== 200 && json.code !== 0) {
@@ -707,6 +714,7 @@ export class DingdanxiaJdProvider implements CpsProvider {
       keyword,
       pageIndex: page,
       pageSize,
+      eliteId: 22, // 频道ID，必填，22=实时热销榜（商品最全）
       sortName: sortName || undefined,
       sort: p.sort === 'price' ? 'asc' : 'desc',
     });
@@ -729,17 +737,20 @@ export class DingdanxiaJdProvider implements CpsProvider {
     const page = Math.max(p.page ?? 1, 1);
     const pageSize = Math.min(p.pageSize ?? 30, 50);
 
-    // 榜单 ID 映射：earn=佣金榜, hot=热销榜, cheap=低价榜
-    const eliteMap: Record<string, number> = {
-      earn: 1,    // 实时收益榜
-      hot: 2,     // 实时热销榜
-      cheap: 3,   // 实时榜单-
+    // 榜单 ID 映射：
+    // 200000=全部 200001=食品酒水 200002=家庭清洁 200003=个护美妆
+    // 200004=医药保健 200005=生鲜 200006=数码家电 200007=家居日用 200008=时尚生活
+    const rankMap: Record<string, number> = {
+      all: 200000,
+      earn: 200000,    // 收益榜用全品类
+      hot: 200000,     // 热销榜也用全品类（接口本身就是热销榜）
+      cheap: 200000,   // 便宜的也从全品类里找
     };
-    const eliteId = eliteMap[p.channel ?? 'earn'] ?? 1;
+    const rankId = rankMap[p.channel ?? 'hot'] ?? 200000;
 
     const data = await this.call<any>('/jd/query_goods_rank', {
-      eliteId,
-      sortType: 1, // 1=小时,2=24小时,3=3日,4=7日
+      rankId,
+      sortType: 1, // 排序类型 1=小时 2=24小时 3=3日 4=7日
       pageIndex: page,
       pageSize,
     });
