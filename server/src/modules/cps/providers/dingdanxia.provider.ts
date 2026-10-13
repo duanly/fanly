@@ -421,6 +421,7 @@ export class DingdanxiaProvider implements CpsProvider {
       const shortUrl = data?.coupon_click_url ?? data?.item_url ?? '';
       const tpwd = data?.coupon_tpwd ?? data?.item_tpwd ?? '';
       if (shortUrl || tpwd) {
+        this.logger.log(`淘宝转链成功: id_privilege, goodsId=${goodsId}`);
         return {
           platform: 'TB',
           goodsId: String(data?.item_id ?? goodsId),
@@ -459,6 +460,7 @@ export class DingdanxiaProvider implements CpsProvider {
     const tpwd = data?.tpwd ?? data?.password ?? data?.model ?? data?.tbk_pwd ?? '';
     if (!shortUrl && !tpwd) throw new Error('订单侠转链返回为空');
 
+    this.logger.log(`淘宝转链成功: wn_convert, goodsId=${goodsId}`);
     return {
       platform: 'TB',
       goodsId: String(data?.item_id ?? goodsId),
