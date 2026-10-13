@@ -435,17 +435,18 @@ export class DingdanxiaProvider implements CpsProvider {
       }
     }
 
-    // 方案2：万能转链 general_convert（只需要 pid）
+    // 方案2：万能转链 wn_convert（只需要 pid + 订单侠后台授权了淘宝账号）
     if (!this.opt.pid) throw new Error('订单侠未配置淘宝 PID：请在 .env 填 TB_PID');
 
-    const data = await this.call<any>('/tbk/general_convert', {
-      item_id: goodsId,
+    const reqBody = {
+      content: goodsId,
       pid: this.opt.pid,
       relation_id: this.opt.relationId || undefined,
       external_id: positionId,
-      // 需要返回多种链接类型
-      required_link_type: 'coupon_short_url,cps_short_url,coupon_long_url',
-    });
+    };
+    this.logger.log(`淘宝万能转链请求: content=${goodsId}, pid=${this.opt.pid}`);
+    const data = await this.call<any>('/tbk/wn_convert', reqBody);
+    this.logger.log(`淘宝万能转链响应: ${JSON.stringify(data).slice(0, 500)}`);
 
     const shortUrl = data?.coupon_short_url
       ?? data?.cps_short_url

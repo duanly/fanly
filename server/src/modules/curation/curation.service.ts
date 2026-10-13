@@ -389,6 +389,27 @@ export class CurationService {
     return { removed: r.affected ?? 0 };
   }
 
+  /**
+   * 清理已下架超过 N 天的商品。
+   * 只清 status=OFF(人工下架) 或 EXPIRED(自动下架)、且 updatedAt 在 days 天前的。
+   * 刚下架的留着，方便运营后悔/恢复。
+   */
+  async cleanOffShelf(days = 30): Promise<{ removed: number }> {
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const rows = await this.repo
+      .createQueryBuilder('c')
+      .where('c.status IN (:...statuses)', { statuses: [CuratedStatus.OFF, CuratedStatus.EXPIRED] })
+      .andWhere('c.updatedAt < :cutoff', { cutoff })
+      .select(['c.id'])
+      .getMany();
+    const ids = rows.map((r) => r.id);
+    if (!ids.length) return { removed: 0 };
+    await this.relRepo.delete({ curatedId: In(ids) });
+    const r = await this.repo.delete({ id: In(ids) });
+    this.logger.log(`清理 ${days} 天前下架商品 ${r.affected ?? 0} 件`);
+    return { removed: r.affected ?? 0 };
+  }
+
   /** 刷单件：查不到或佣金归零就自动下架 */
   async refreshOne(row: CuratedGoods): Promise<'ok' | 'expired' | 'error'> {
     try {

@@ -170,6 +170,12 @@ export class CurationController {
     return this.curation.removeOffShelf();
   }
 
+  @Post('clean-off-shelf')
+  @ApiOperation({ summary: '清理已下架超过 N 天的商品（默认 30 天）' })
+  cleanOffShelf(@Body() body: { days?: number }) {
+    return this.curation.cleanOffShelf(body.days ?? 30);
+  }
+
   @Post(':id')
   @ApiOperation({ summary: '改专题 / 权重 / 上下架' })
   update(

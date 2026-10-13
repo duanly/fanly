@@ -120,6 +120,9 @@
             <el-button type="danger" :loading="removingOff" @click="removeOffShelf">
               一键移除已下架
             </el-button>
+            <el-button :loading="cleaningOld" @click="cleanOffShelf">
+              清理历史下架
+            </el-button>
 
             <el-divider direction="vertical" />
             <el-button type="primary" :disabled="!poolSelected.length" @click="openBatchTag">
@@ -611,6 +614,7 @@ const goodsTags = ref({}); // { curatedId: [topicId, ...] }
 const poolSelected = ref([]);
 const loading = ref(false);
 const removingOff = ref(false);
+const cleaningOld = ref(false);
 const refreshing = ref(false);
 
 const q = reactive({
@@ -710,6 +714,29 @@ async function removeOffShelf() {
     loadPool();
   } finally {
     removingOff.value = false;
+  }
+}
+
+async function cleanOffShelf() {
+  const { value } = await ElMessageBox.prompt(
+    '清理多少天前下架的商品？只清已下架（人工/自动）且最后更新时间早于该天数的。',
+    '清理历史下架',
+    {
+      inputPattern: /^[1-9]\d*$/,
+      inputErrorMessage: '请输入正整数天数',
+      inputValue: '30',
+      confirmButtonText: '清理',
+      type: 'warning',
+    },
+  );
+  const days = parseInt(value, 10);
+  cleaningOld.value = true;
+  try {
+    const r = await api.curationCleanOffShelf({ days });
+    ElMessage.success(r.removed ? `已清理 ${r.removed} 件 ${days} 天前下架的商品` : `没有 ${days} 天前下架的商品`);
+    loadPool();
+  } finally {
+    cleaningOld.value = false;
   }
 }
 
