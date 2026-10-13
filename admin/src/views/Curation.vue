@@ -59,7 +59,7 @@
                   <img :src="row.image" />
                   <div>
                     <div class="t">{{ row.title }}</div>
-                    <div class="m">{{ row.platform }} · {{ row.shopName || '—' }} · 已售 {{ row.salesVolume }}</div>
+                    <div class="m">{{ row.platform }} · {{ row.shopName || '—' }}<span v-if="row.salesVolume"> · 已售 {{ row.salesVolume }}</span></div>
                   </div>
                 </div>
               </template>
@@ -154,7 +154,7 @@
                   <img :src="row.image" />
                   <div>
                     <div class="t">{{ row.title }}</div>
-                    <div class="m">{{ row.platform }} · {{ row.shopName || '—' }} · 已售 {{ row.salesVolume }}</div>
+                    <div class="m">{{ row.platform }} · {{ row.shopName || '—' }}<span v-if="row.salesVolume"> · 已售 {{ row.salesVolume }}</span></div>
                   </div>
                 </div>
               </template>
@@ -313,7 +313,7 @@
               </div>
               <div class="c">
                 佣金 <b>¥{{ g.commission }}</b>
-                <span class="m">{{ (g.commissionRate * 100).toFixed(1) }}% · 售 {{ g.salesVolume }}</span>
+                <span class="m">{{ (g.commissionRate * 100).toFixed(1) }}%<span v-if="g.salesVolume"> · 售 {{ g.salesVolume }}</span></span>
               </div>
               <div class="card-status">
                 <el-tag v-if="foundStatus[statusKey(g)]?.status === 1" type="success" size="small" effect="light">已上架</el-tag>

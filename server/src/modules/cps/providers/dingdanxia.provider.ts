@@ -260,27 +260,6 @@ export class DingdanxiaProvider implements CpsProvider {
       page_size: pageSize,
     });
     const rawList = this.extractList(data);
-    // 调试：打印第一条数据结构，确认字段名
-    if (rawList.length > 0) {
-      this.logger.debug(`物料精选返回样例 keys=${Object.keys(rawList[0]).join(',')}`);
-      if (rawList[0].item_basic_info) {
-        this.logger.debug(`item_basic_info keys=${Object.keys(rawList[0].item_basic_info).join(',')}`);
-      }
-      if (rawList[0].price_promotion_info) {
-        this.logger.debug(`price_promotion_info keys=${Object.keys(rawList[0].price_promotion_info).join(',')}`);
-      }
-      if (rawList[0].publish_info) {
-        this.logger.debug(`publish_info keys=${Object.keys(rawList[0].publish_info).join(',')}`);
-      }
-      if (rawList[0].scope_info) {
-        this.logger.debug(`scope_info keys=${Object.keys(rawList[0].scope_info).join(',')}`);
-      }
-      if (rawList[0].presale_info) {
-        this.logger.debug(`presale_info keys=${Object.keys(rawList[0].presale_info).join(',')}`);
-      }
-      // 打印第一条完整数据（方便排查）
-      this.logger.debug(`第一条完整数据: ${JSON.stringify(rawList[0]).slice(0, 2000)}`);
-    }
     const list = rawList.map((r: any) => this.mapGoods(r));
     return {
       list,
@@ -327,47 +306,126 @@ export class DingdanxiaProvider implements CpsProvider {
 
   async getGoodsDetail(goodsId: string): Promise<UnifiedGoods | null> {
     if (!goodsId) return null;
-    // 订单侠详情接口不太稳定，物料精选返回的加密 item_id 可能也不兼容
-    // 先尝试用 item_detail 查，失败就抛异常，让上层 CpsService 用列表快照兜底
-    const data = await this.call<any>('/tbk/item_detail', { item_id: goodsId });
-    const item = data?.list?.[0] ?? data?.item ?? data?.result ?? null;
-    // 如果返回空或不是有效商品，返回 null（表示商品不存在/已下架）
-    if (!item || !item.item_id || !item.title) {
-      // 也可能是返回结构不一样，判断一下是不是空
-      if (data && typeof data === 'object' && Object.keys(data).length === 0) return null;
-      if (!item) return null;
+    // 优先用高佣转链接口（id_privilege），它返回的详情最完整
+    // 需要 relation_id，没配置的话就用搜索接口兜底
+    if (this.opt.relationId) {
+      try {
+        const data = await this.call<any>('/tbk/id_privilege', {
+          id: goodsId,
+          relation_id: this.opt.relationId,
+          pid: this.opt.pid || undefined,
+        });
+        if (data && (data.item_id || data.itemInfo)) {
+          return this.mapPrivilegeDetail(data);
+        }
+      } catch (e: any) {
+        this.logger.debug(`淘宝详情(id_privilege)失败: ${e.message}`);
+      }
     }
-    return item ? this.mapGoods(item) : null;
+
+    // 兜底：用超级搜索接口，把 item_id 当搜索词传进去
+    const data = await this.call<any>('/tbk/super_search_material', {
+      q: goodsId,
+      page_no: 1,
+      page_size: 5,
+    });
+    const list = this.extractList(data);
+    const hit = list.find((r: any) => String(r.item_id ?? r.goods_id ?? r.id) === goodsId)
+      ?? list[0];
+    return hit ? this.mapGoods(hit) : null;
+  }
+
+  /**
+   * 把 id_privilege 接口返回的详情数据映射成统一格式。
+   * 这个接口返回的字段跟物料精选不一样：
+   * - 顶层有 item_id、max_commission_rate、coupon、item_url 等
+   * - 商品详情在 itemInfo 里（title、pict_url、volume、zk_final_price、qh_final_price 等）
+   */
+  private mapPrivilegeDetail(data: any): UnifiedGoods {
+    const info = data?.itemInfo ?? {};
+    const price = Number(info.zk_final_price ?? data.zk_final_price ?? info.reserve_price ?? 0);
+    const couponAmount = Number(data.coupon ?? data.coupon_amount ?? 0);
+    const couponPrice = Number(info.qh_final_price ?? data.qh_final_price ?? 0)
+      || Math.max(price - couponAmount, 0);
+    const rate = Number(data.max_commission_rate ?? info.commission_rate ?? 0) / 100;
+    const commission = Number(info.qh_final_commission ?? data.commission_amount ?? 0)
+      || round2(couponPrice * rate);
+
+    const rawImg = info.pict_url ?? data.pict_url ?? '';
+    const image = rawImg && rawImg.startsWith('//') ? `https:${rawImg}` : rawImg;
+
+    return {
+      platform: 'TB',
+      goodsId: String(data.item_id ?? info.item_id ?? ''),
+      title: info.title ?? data.title ?? '',
+      image,
+      shopName: info.nick ?? info.shop_title ?? data.shop_title ?? '',
+      price: round2(price),
+      couponPrice: round2(couponPrice),
+      couponAmount: round2(couponAmount),
+      commissionRate: rate,
+      commission: round2(commission),
+      salesVolume: Number(info.volume ?? data.volume ?? 0),
+    };
   }
 
   /**
    * 万能转链。
-   * 需要 pid + relation_id（渠道管理ID）都是必填。
-   * 订单归属：通过 relation_id 下面的 pid，或者用额外的 custom 参数。
-   * 订单侠的 custom_parameters 字段可以传自定义跟踪参数。
+   * 优先用 id_privilege（高佣转链，返回详情最全），需要 relation_id；
+   * 没有 relation_id 的话用 general_convert（万能转链），只需要 pid。
    */
   async convertLink(goodsId: string, positionId: string): Promise<ConvertedLink> {
+    // 方案1：高佣转链 id_privilege（需要 relation_id，返回详情最全）
+    if (this.opt.relationId) {
+      try {
+        const data = await this.call<any>('/tbk/id_privilege', {
+          id: goodsId,
+          relation_id: this.opt.relationId,
+          pid: this.opt.pid || undefined,
+          external_id: positionId,
+        });
+        const shortUrl = data?.coupon_click_url ?? data?.item_url ?? '';
+        const tpwd = data?.coupon_tpwd ?? data?.item_tpwd ?? '';
+        if (shortUrl || tpwd) {
+          return {
+            platform: 'TB',
+            goodsId: String(data?.item_id ?? goodsId),
+            shortUrl: shortUrl || tpwd,
+            deeplink: shortUrl,
+            password: tpwd,
+            positionId,
+            raw: data,
+          };
+        }
+      } catch (e: any) {
+        this.logger.warn(`淘宝高佣转链(id_privilege)失败: ${e.message}，回落到万能转链`);
+      }
+    }
+
+    // 方案2：万能转链 general_convert（只需要 pid）
     if (!this.opt.pid) throw new Error('订单侠未配置淘宝 PID：请在 .env 填 TB_PID');
-    if (!this.opt.relationId) throw new Error('订单侠未配置渠道管理ID：请在 .env 填 TB_RELATION_ID');
 
     const data = await this.call<any>('/tbk/general_convert', {
       item_id: goodsId,
       pid: this.opt.pid,
-      relation_id: this.opt.relationId,
-      // 自定义跟踪参数，用于订单归属（淘宝联盟的 custom_parameters）
-      // 订单侠有些版本支持 external_id 或 special_id，先用这个
+      relation_id: this.opt.relationId || undefined,
       external_id: positionId,
       // 需要返回多种链接类型
       required_link_type: 'coupon_short_url,cps_short_url,coupon_long_url',
     });
 
-    const shortUrl = data?.coupon_short_url ?? data?.cps_short_url ?? data?.short_url ?? data?.click_url ?? '';
+    const shortUrl = data?.coupon_short_url
+      ?? data?.cps_short_url
+      ?? data?.short_url
+      ?? data?.click_url
+      ?? data?.coupon_click_url
+      ?? '';
     const tpwd = data?.tpwd ?? data?.password ?? data?.model ?? data?.tbk_pwd ?? '';
     if (!shortUrl && !tpwd) throw new Error('订单侠转链返回为空');
 
     return {
       platform: 'TB',
-      goodsId,
+      goodsId: String(data?.item_id ?? goodsId),
       shortUrl: shortUrl || tpwd,
       deeplink: data?.deeplink ?? data?.schema ?? shortUrl,
       password: tpwd,
