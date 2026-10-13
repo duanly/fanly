@@ -394,7 +394,6 @@ export class DingdanxiaProvider implements CpsProvider {
             deeplink: shortUrl,
             password: tpwd,
             positionId,
-            raw: data,
           };
         }
       } catch (e: any) {
