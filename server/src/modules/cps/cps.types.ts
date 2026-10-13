@@ -3,7 +3,10 @@ export interface UnifiedGoods {
   platform: string;
   goodsId: string;
   title: string;
+  /** 主图 */
   image: string;
+  /** 多张图片（轮播图），有就返回，没有就是空数组 */
+  images?: string[];
   shopName: string;
   /** 原价 */
   price: number;

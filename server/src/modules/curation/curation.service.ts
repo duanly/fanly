@@ -27,6 +27,7 @@ export class CurationService {
     return {
       title: g.title,
       image: g.image,
+      images: JSON.stringify(g.images ?? []),
       shopName: g.shopName,
       price: String(g.price),
       couponPrice: String(g.couponPrice),
@@ -39,11 +40,14 @@ export class CurationService {
 
   /** 表行 → 前端要的形状，跟实时接口返回的字段保持一致 */
   private toGoods(r: CuratedGoods) {
+    let images: string[] = [];
+    try { images = JSON.parse(r.images || '[]'); } catch { /* ignore */ }
     return {
       platform: r.platform,
       goodsId: r.goodsId,
       title: r.title,
       image: r.image,
+      images,
       shopName: r.shopName,
       price: Number(r.price),
       couponPrice: Number(r.couponPrice),
@@ -78,6 +82,7 @@ export class CurationService {
    */
   async addWithGoods(body: {
     platform: string; goodsId: string; title: string; image: string;
+    images?: string[];
     shopName?: string; price: number; couponPrice: number; couponAmount?: number;
     commissionRate: number; commission: number; salesVolume?: number;
     groupKey?: string; sortWeight?: number;
@@ -94,6 +99,7 @@ export class CurationService {
       goodsId,
       title,
       image: image || '',
+      images: body.images ?? [],
       shopName: body.shopName || '',
       price: Number(price),
       couponPrice: Number(couponPrice),

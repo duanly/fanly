@@ -900,6 +900,7 @@ async function confirmAddWithTags() {
           goodsId: g.goodsId,
           title: g.title,
           image: g.image,
+          images: g.images || [],
           shopName: g.shopName || '',
           price: g.price,
           couponPrice: g.couponPrice,

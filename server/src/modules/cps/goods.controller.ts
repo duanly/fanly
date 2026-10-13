@@ -157,11 +157,14 @@ export class GoodsController {
     // 优先从选品池读，保证跟列表页价格一致，也更快
     const cached = await this.curatedRepo.findOneBy({ platform: p, goodsId });
     if (cached && cached.status !== 0) {
+      let images: string[] = [];
+      try { images = JSON.parse(cached.images || '[]'); } catch { /* ignore */ }
       const g = {
         platform: cached.platform,
         goodsId: cached.goodsId,
         title: cached.title,
         image: cached.image,
+        images,
         shopName: cached.shopName,
         price: Number(cached.price),
         couponPrice: Number(cached.couponPrice),

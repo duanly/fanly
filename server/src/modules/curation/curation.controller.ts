@@ -91,6 +91,7 @@ export class CurationController {
     goodsId: string;
     title: string;
     image: string;
+    images?: string[];
     shopName?: string;
     price: number;
     couponPrice: number;

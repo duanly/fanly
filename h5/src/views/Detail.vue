@@ -5,7 +5,12 @@
     <van-loading v-if="loading" style="padding:60px;text-align:center" />
 
     <template v-else-if="g">
-      <img :src="g.image" style="width:100%;aspect-ratio:1;object-fit:cover;display:block" />
+      <van-swipe :autoplay="3000" indicator-color="rgba(255,255,255,0.6)" v-if="g.images && g.images.length > 1">
+        <van-swipe-item v-for="(img, i) in g.images" :key="i">
+          <img :src="img" style="width:100%;aspect-ratio:1;object-fit:cover;display:block" />
+        </van-swipe-item>
+      </van-swipe>
+      <img v-else :src="g.image" style="width:100%;aspect-ratio:1;object-fit:cover;display:block" />
 
       <div style="background:#fff;padding:14px">
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">

@@ -163,11 +163,29 @@ export class DingdanxiaProvider implements CpsProvider {
       ?? '';
     const image = rawImg && rawImg.startsWith('//') ? `https:${rawImg}` : rawImg;
 
+    // 多张图：small_images 可能是 { string: [...] } 结构，也可能是数组
+    const smallImgs = basic.small_images ?? raw.small_images ?? null;
+    let images: string[] = [];
+    if (smallImgs) {
+      if (Array.isArray(smallImgs)) {
+        images = smallImgs;
+      } else if (Array.isArray(smallImgs.string)) {
+        images = smallImgs.string;
+      } else if (typeof smallImgs === 'string') {
+        images = [smallImgs];
+      }
+    }
+    // 主图也加进去（如果不在列表里）
+    if (image && !images.includes(image)) images.unshift(image);
+    // 相对协议补 https:
+    images = images.map((img) => (img && img.startsWith('//') ? `https:${img}` : img));
+
     return {
       platform: 'TB',
       goodsId,
       title: basic.title ?? basic.goods_name ?? basic.name ?? raw.title ?? '',
       image,
+      images,
       shopName: basic.shop_title ?? basic.mall_name ?? basic.shop_name ?? basic.nick ?? raw.shop_title ?? '',
       price: round2(price),
       couponPrice: round2(couponPrice),
@@ -354,11 +372,27 @@ export class DingdanxiaProvider implements CpsProvider {
     const rawImg = info.pict_url ?? data.pict_url ?? '';
     const image = rawImg && rawImg.startsWith('//') ? `https:${rawImg}` : rawImg;
 
+    // 多张图
+    const smallImgs = info.small_images ?? data.small_images ?? null;
+    let images: string[] = [];
+    if (smallImgs) {
+      if (Array.isArray(smallImgs)) {
+        images = smallImgs;
+      } else if (Array.isArray(smallImgs.string)) {
+        images = smallImgs.string;
+      } else if (typeof smallImgs === 'string') {
+        images = [smallImgs];
+      }
+    }
+    if (image && !images.includes(image)) images.unshift(image);
+    images = images.map((img) => (img && img.startsWith('//') ? `https:${img}` : img));
+
     return {
       platform: 'TB',
       goodsId: String(data.item_id ?? info.item_id ?? ''),
       title: info.title ?? data.title ?? '',
       image,
+      images,
       shopName: info.nick ?? info.shop_title ?? data.shop_title ?? '',
       price: round2(price),
       couponPrice: round2(couponPrice),
