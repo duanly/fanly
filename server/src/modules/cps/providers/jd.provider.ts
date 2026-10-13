@@ -69,7 +69,7 @@ export class JdProvider implements CpsProvider {
     return createHash('md5').update(raw, 'utf8').digest('hex').toUpperCase();
   }
 
-  private async call<T = any>(method: string, biz: Record<string, any>): Promise<T> {
+  private async call<T = any>(method: string, biz: Record<string, any>, withToken = false): Promise<T> {
     if (!this.opt.appKey || !this.opt.appSecret) {
       throw new Error('京东未配置：请在 .env 填 JD_APP_KEY / JD_APP_SECRET');
     }
@@ -82,7 +82,8 @@ export class JdProvider implements CpsProvider {
       v: '1.0',
       sign_method: 'md5',
     };
-    if (this.opt.accessToken) params.access_token = this.opt.accessToken;
+    // 只有明确需要 token 的接口才传，传错了反而报 "token不存在"
+    if (withToken && this.opt.accessToken) params.access_token = this.opt.accessToken;
 
     const mode = this.opt.paramMode || 'param_json';
     if (mode === '360buy') params['360buy_param_json'] = JSON.stringify(biz);
@@ -289,31 +290,33 @@ export class JdProvider implements CpsProvider {
 
   async getGoodsDetail(skuId: string): Promise<UnifiedGoods | null> {
     if (!skuId) return null;
-    // 优先用 selling 接口（工具商/导购媒体已开通），失败再回落到 bigfield
+    // 尝试不同的详情接口，从最可能的开始
     const attempts = [
+      // 1. 基础版 bigfield，不带 token（有些账号不需要 token）
       {
-        name: 'selling.goods.query',
-        method: 'jd.union.open.selling.goods.query',
-        wrapper: 'goodsReq',
-        params: { skuIds: [Number(skuId)] },
-      },
-      {
-        name: 'goods.bigfield.query',
+        name: 'goods.bigfield.query(no token)',
         method: 'jd.union.open.goods.bigfield.query',
         wrapper: 'goodsReq',
         params: { skuIds: [Number(skuId)], sceneId: 1 },
+        withToken: false,
+      },
+      // 2. bigfield 带 token
+      {
+        name: 'goods.bigfield.query(with token)',
+        method: 'jd.union.open.goods.bigfield.query',
+        wrapper: 'goodsReq',
+        params: { skuIds: [Number(skuId)], sceneId: 1 },
+        withToken: true,
       },
     ];
     let lastError: Error | null = null;
     for (const att of attempts) {
       try {
-        const data = await this.call<any>(att.method, { [att.wrapper]: att.params });
+        const data = await this.call<any>(att.method, { [att.wrapper]: att.params }, att.withToken);
         const list = data?.data ?? data ?? [];
         const hit = Array.isArray(list) ? list[0] : list;
         if (hit) {
-          if (att.name !== 'selling.goods.query') {
-            this.logger.log(`京东详情使用 ${att.name} 成功`);
-          }
+          this.logger.debug(`京东详情 ${att.name} 成功`);
           return this.mapGoods(hit);
         }
       } catch (e: any) {
@@ -336,41 +339,10 @@ export class JdProvider implements CpsProvider {
     };
 
     // 按优先级依次尝试不同的转链接口，适配不同的媒体类型
+    // selling 接口 v1.0 已停用，bysubunionid 没权限，目前只剩 common 可选
+    // 导购媒体类型的账号，common 接口会报"不支持siteId"，需要等网站审核通过
     const attempts: Array<{ name: string; method: string; params: Record<string, any>; wrapper: string }> = [
-      // 0. 工具商/导购媒体：selling.promotion.get（截图里明确显示已开通）
-      //    工具商接口参数名可能不一样，先试 promotionReq，不行再试 promotionCodeReq
-      {
-        name: 'selling.promotion(promotionReq)',
-        method: 'jd.union.open.selling.promotion.get',
-        wrapper: 'promotionReq',
-        params: {
-          materialId,
-          subUnionId: positionId,
-          positionId: Number(this.opt.positionId),
-        },
-      },
-      {
-        name: 'selling.promotion(promotionCodeReq)',
-        method: 'jd.union.open.selling.promotion.get',
-        wrapper: 'promotionCodeReq',
-        params: {
-          materialId,
-          subUnionId: positionId,
-          positionId: Number(this.opt.positionId),
-        },
-      },
-      // 1. 导购/工具媒体：bysubunionid（需要开通 subUnionId 权限）
-      {
-        name: 'bysubunionid',
-        method: 'jd.union.open.promotion.bysubunionid.get',
-        wrapper: 'promotionCodeReq',
-        params: {
-          materialId,
-          subUnionId: positionId,
-          positionId: Number(this.opt.positionId),
-        },
-      },
-      // 2. 网站/APP 媒体：common 不传 siteId（有些账号不需要）
+      // 1. 网站/APP 媒体：common 不传 siteId（导购媒体类型也可能能用？）
       {
         name: 'common(no siteId)',
         method: 'jd.union.open.promotion.common.get',
@@ -460,12 +432,12 @@ export class JdProvider implements CpsProvider {
       });
     }
 
-    const attempts: Array<{ name: string; method: string; biz: Record<string, any> }> = [
-      // 版本 0：selling 接口（工具商/导购媒体类型），带 access_token
-      // 对应 jd.union.open.selling.order.row.query
+    const attempts: Array<{ name: string; method: string; biz: Record<string, any>; withToken: boolean }> = [
+      // 版本 1：普通 order.row.query，不带 token，orderReq 包裹 + yyyy-MM-dd HH:mm:ss
       {
-        name: 'v0(selling order.row, orderReq, ymdHms)',
-        method: 'jd.union.open.selling.order.row.query',
+        name: 'v1(orderReq, ymdHms, no token)',
+        method: 'jd.union.open.order.row.query',
+        withToken: false,
         biz: {
           orderReq: {
             pageNo: page, pageSize: 100,
@@ -474,10 +446,11 @@ export class JdProvider implements CpsProvider {
           },
         },
       },
-      // 版本 1：orderReq 包裹 + yyyy-MM-dd HH:mm:ss + type
+      // 版本 2：普通 order.row.query，带 token
       {
-        name: 'v1(orderReq, ymdHms, type)',
+        name: 'v2(orderReq, ymdHms, with token)',
         method: 'jd.union.open.order.row.query',
+        withToken: true,
         biz: {
           orderReq: {
             pageNo: page, pageSize: 100,
@@ -486,26 +459,28 @@ export class JdProvider implements CpsProvider {
           },
         },
       },
-      // 版本 2：orderReq 包裹 + yyyyMMddHH + type（旧文档）
+      // 版本 3：平铺参数 + yyyy-MM-dd HH:mm:ss，不带 token
       {
-        name: 'v2(orderReq, ymdH, type)',
+        name: 'v3(flat, ymdHms, no token)',
         method: 'jd.union.open.order.row.query',
+        withToken: false,
+        biz: {
+          pageNo: page, pageSize: 100,
+          type: 3,
+          startTime: fmtYmdHms(start), endTime: fmtYmdHms(end),
+        },
+      },
+      // 版本 4：orderReq 包裹 + yyyyMMddHH（旧格式）
+      {
+        name: 'v4(orderReq, ymdH, no token)',
+        method: 'jd.union.open.order.row.query',
+        withToken: false,
         biz: {
           orderReq: {
             pageNo: page, pageSize: 100,
             type: 3,
             startTime: fmtYmdH(start), endTime: fmtYmdH(end),
           },
-        },
-      },
-      // 版本 3：平铺参数 + yyyy-MM-dd HH:mm:ss
-      {
-        name: 'v3(flat, ymdHms)',
-        method: 'jd.union.open.order.row.query',
-        biz: {
-          pageNo: page, pageSize: 100,
-          type: 3,
-          startTime: fmtYmdHms(start), endTime: fmtYmdHms(end),
         },
       },
     ];
@@ -524,7 +499,7 @@ export class JdProvider implements CpsProvider {
     let lastError: Error | null = null;
     for (const att of attempts) {
       try {
-        const data = await this.call<any>(att.method, att.biz);
+        const data = await this.call<any>(att.method, att.biz, att.withToken);
         const list = data?.data ?? data ?? [];
         this.logger.log(`京东订单接口 ${att.name} 成功，返回 ${list.length} 条`);
         return (Array.isArray(list) ? list : []).map((o: any) => this.mapOrder(o));

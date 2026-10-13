@@ -71,16 +71,18 @@ export class DingdanxiaProvider implements CpsProvider {
   /**
    * 订单侠返回的商品结构分两种：
    * 1. 扁平结构（搜索接口）：title、pict_url、zk_final_price 都在顶层
-   * 2. 嵌套结构（物料精选接口）：item_basic_info、price_promotion_info、income_info 分开
+   * 2. 嵌套结构（物料精选接口）：item_basic_info、price_promotion_info、publish_info 分开
+   *    - 佣金在 publish_info.income_rate（百分比字符串，如 "9.0"）
+   *    - income_info 是空数组，别用它
    * 这里两种都兼容，从所有可能的位置找。
    */
   private mapGoods(raw: any): UnifiedGoods {
     const basic = raw.item_basic_info ?? raw;
     const priceInfo = raw.price_promotion_info ?? raw;
-    const incomeInfo = raw.income_info ?? raw;
+    const publishInfo = raw.publish_info ?? raw;
     const couponInfo = raw.coupon_info ?? raw;
 
-    // 价格：优先从 price_promotion_info 里取，再试顶层，再试 basic 里的
+    // 价格：优先从 price_promotion_info 里取
     const price = Number(
       priceInfo.zk_final_price
         ?? raw.zk_final_price
@@ -103,32 +105,44 @@ export class DingdanxiaProvider implements CpsProvider {
     );
 
     // 券后价：有 final_price 就用，没有就原价减券
-    let couponPrice = Number(raw.final_price ?? raw.coupon_price_after ?? couponInfo.final_price ?? 0);
+    let couponPrice = Number(
+      priceInfo.final_promotion_price
+        ?? raw.final_price
+        ?? raw.coupon_price_after
+        ?? couponInfo.final_price
+        ?? 0,
+    );
     if (!couponPrice) couponPrice = Math.max(price - couponAmount, 0);
 
-    // 佣金比例是百分数，比如 15.0 表示 15%
-    const rate = Number(
-      incomeInfo.income_rate
-        ?? raw.income_rate
-        ?? raw.commission_rate
-        ?? raw.promotion_rate
-        ?? raw.tk_rate
-        ?? incomeInfo.commission_rate
-        ?? 0,
-    ) / 100;
+    // 佣金比例：
+    // - publish_info.income_rate 是百分比（字符串，如 "9.0" = 9%）
+    // - publish_info.income_info.commission_rate 是千分比（如 "900" = 9%）
+    //   注意：income_info 有时候是空数组（物料精选接口），要判断一下
+    const incomeInfoObj = publishInfo.income_info && !Array.isArray(publishInfo.income_info)
+      ? publishInfo.income_info
+      : null;
+
+    let rate = 0;
+    if (publishInfo.income_rate) {
+      rate = Number(publishInfo.income_rate) / 100;
+    } else if (incomeInfoObj?.commission_rate) {
+      rate = Number(incomeInfoObj.commission_rate) / 1000; // 千分比
+    } else if (raw.commission_rate) {
+      rate = Number(raw.commission_rate) / 100;
+    }
 
     // 佣金金额：有就直接用，没有自己算
     const commissionRaw = Number(
-      raw.commission
+      incomeInfoObj?.commission_amount
+        ?? publishInfo.commission_amount
+        ?? raw.commission
         ?? raw.promotion_amount
         ?? raw.tk_commission
-        ?? incomeInfo.income_amount
-        ?? incomeInfo.commission
         ?? 0,
     );
     const commission = commissionRaw > 0 ? commissionRaw : round2(couponPrice * rate);
 
-    // 商品 ID：顶层 item_id 优先
+    // 商品 ID：顶层 item_id 优先（物料精选返回的是加密字符串）
     const goodsId = String(
       raw.item_id
         ?? basic.item_id
@@ -209,21 +223,22 @@ export class DingdanxiaProvider implements CpsProvider {
     };
 
     if (p.keyword) {
-      // 有搜索词：超级搜索
+      // 有搜索词：超级搜索（page_size 最大 20）
+      const searchPageSize = Math.min(pageSize, 20);
       const params: Record<string, any> = {
         q: p.keyword,
         page_no: page,
-        page_size: pageSize,
+        page_size: searchPageSize,
         sort: sortMap[p.sort ?? ''] ?? 'tk_total_sales_des',
       };
       const data = await this.call<any>('/tbk/super_search_material', params);
       const list = this.extractList(data).map((r: any) => this.mapGoods(r));
-      const total = Number(data?.total_count ?? data?.total ?? 0);
+      const total = Number(data?.total_count ?? data?.total_results ?? data?.total ?? 0);
       return {
         list,
         total,
         page,
-        hasMore: list.length === pageSize,
+        hasMore: list.length === searchPageSize,
       };
     }
 
