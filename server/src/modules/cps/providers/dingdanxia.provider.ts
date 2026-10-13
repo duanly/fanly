@@ -409,42 +409,44 @@ export class DingdanxiaProvider implements CpsProvider {
    * 没有 relation_id 的话用 general_convert（万能转链），只需要 pid。
    */
   async convertLink(goodsId: string, positionId: string): Promise<ConvertedLink> {
-    // 方案1：高佣转链 id_privilege（需要 relation_id，返回详情最全）
-    if (this.opt.relationId) {
-      try {
-        const data = await this.call<any>('/tbk/id_privilege', {
-          id: goodsId,
-          relation_id: this.opt.relationId,
-          pid: this.opt.pid || undefined,
-          external_id: positionId,
-        });
-        const shortUrl = data?.coupon_click_url ?? data?.item_url ?? '';
-        const tpwd = data?.coupon_tpwd ?? data?.item_tpwd ?? '';
-        if (shortUrl || tpwd) {
-          return {
-            platform: 'TB',
-            goodsId: String(data?.item_id ?? goodsId),
-            shortUrl: shortUrl || tpwd,
-            deeplink: shortUrl,
-            password: tpwd,
-            positionId,
-          };
-        }
-      } catch (e: any) {
-        this.logger.warn(`淘宝高佣转链(id_privilege)失败: ${e.message}，回落到万能转链`);
+    // 方案1：高佣转链 id_privilege（有 relation_id 用 relation_id，没有也试试只传 pid）
+    try {
+      const params: Record<string, any> = {
+        id: goodsId,
+        pid: this.opt.pid || undefined,
+        external_id: positionId,
+      };
+      if (this.opt.relationId) params.relation_id = this.opt.relationId;
+      const data = await this.call<any>('/tbk/id_privilege', params);
+      const shortUrl = data?.coupon_click_url ?? data?.item_url ?? '';
+      const tpwd = data?.coupon_tpwd ?? data?.item_tpwd ?? '';
+      if (shortUrl || tpwd) {
+        return {
+          platform: 'TB',
+          goodsId: String(data?.item_id ?? goodsId),
+          shortUrl: shortUrl || tpwd,
+          deeplink: shortUrl,
+          password: tpwd,
+          positionId,
+        };
       }
+    } catch (e: any) {
+      this.logger.warn(`淘宝高佣转链(id_privilege)失败: ${e.message}，回落到万能转链`);
     }
 
-    // 方案2：万能转链 wn_convert（只需要 pid + 订单侠后台授权了淘宝账号）
+    // 方案2：万能转链 wn_convert（content 传商品详情链接，让接口自己解析转链）
     if (!this.opt.pid) throw new Error('订单侠未配置淘宝 PID：请在 .env 填 TB_PID');
 
+    // wn_convert 的 content 需要是淘口令/链接，纯商品ID会被当成口令解析报错。
+    // 传一个淘宝商品详情页链接，让接口自己去识别转链。
+    const content = `https://item.taobao.com/item.htm?id=${goodsId}`;
     const reqBody = {
-      content: goodsId,
+      content,
       pid: this.opt.pid,
       relation_id: this.opt.relationId || undefined,
       external_id: positionId,
     };
-    this.logger.log(`淘宝万能转链请求: content=${goodsId}, pid=${this.opt.pid}`);
+    this.logger.log(`淘宝万能转链请求: content=${content}, pid=${this.opt.pid}`);
     const data = await this.call<any>('/tbk/wn_convert', reqBody);
     this.logger.log(`淘宝万能转链响应: ${JSON.stringify(data).slice(0, 500)}`);
 
