@@ -4,7 +4,7 @@ import { AggregatorProvider } from './providers/aggregator.provider';
 import { MockProvider } from './providers/mock.provider';
 import { PddProvider } from './providers/pdd.provider';
 import { JdProvider } from './providers/jd.provider';
-import { DingdanxiaProvider } from './providers/dingdanxia.provider';
+import { DingdanxiaProvider, DingdanxiaJdProvider } from './providers/dingdanxia.provider';
 import { ConvertedLink, CpsProvider, GoodsPage, RecommendParams, SearchParams, UnifiedGoods, UnifiedOrder } from './cps.types';
 import { TtlCache } from '@/common/ttl-cache';
 import { explainParseFailure, parseShareContent } from '@/common/share-content';
@@ -54,21 +54,33 @@ export class CpsService implements OnModuleInit {
 
     const used: string[] = [];
     for (const p of PLATFORMS) {
-      // 京东跟拼多多一样单独开口子：填了 key 就直连，不跟全局 mode 走
-      if (p === 'JD' && this.config.get('JD_APP_KEY') && this.config.get('JD_APP_SECRET')) {
-        this.providers.set(p, new JdProvider({
-          appKey: this.config.get<string>('JD_APP_KEY', ''),
-          appSecret: this.config.get<string>('JD_APP_SECRET', ''),
-          unionId: this.config.get<string>('JD_UNION_ID', ''),
-          siteId: this.config.get<string>('JD_SITE_ID', ''),
-          positionId: this.config.get<string>('JD_POSITION_ID', ''),
-          accessToken: this.config.get<string>('JD_ACCESS_TOKEN', ''),
-          gateway: this.config.get<string>('JD_GATEWAY', ''),
-          // probe 探出来的业务参数字段名，不对的话所有接口都报「参数错误」
-          paramMode: this.config.get<string>('JD_PARAM_MODE', ''),
-        }));
-        used.push('JD=direct');
-        continue;
+      // 京东：优先走订单侠（同一个 apikey），没有的话再试官方直连
+      if (p === 'JD') {
+        if (this.config.get('DDX_API_KEY')) {
+          this.providers.set(p, new DingdanxiaJdProvider({
+            apiKey: this.config.get<string>('DDX_API_KEY', ''),
+            unionId: this.config.get<string>('JD_UNION_ID', ''),
+            positionId: this.config.get<string>('JD_POSITION_ID', ''),
+            baseUrl: this.config.get<string>('DDX_BASE_URL', ''),
+          }));
+          used.push('JD=dingdanxia');
+          if (!this.config.get('JD_UNION_ID')) this.logger.warn('JD_UNION_ID 为空，京东转链会失败——去京东联盟后台拿联盟ID');
+          continue;
+        }
+        if (this.config.get('JD_APP_KEY') && this.config.get('JD_APP_SECRET')) {
+          this.providers.set(p, new JdProvider({
+            appKey: this.config.get<string>('JD_APP_KEY', ''),
+            appSecret: this.config.get<string>('JD_APP_SECRET', ''),
+            unionId: this.config.get<string>('JD_UNION_ID', ''),
+            siteId: this.config.get<string>('JD_SITE_ID', ''),
+            positionId: this.config.get<string>('JD_POSITION_ID', ''),
+            accessToken: this.config.get<string>('JD_ACCESS_TOKEN', ''),
+            gateway: this.config.get<string>('JD_GATEWAY', ''),
+            paramMode: this.config.get<string>('JD_PARAM_MODE', ''),
+          }));
+          used.push('JD=direct');
+          continue;
+        }
       }
       if (p === 'PDD' && pddId && pddSecret) {
         this.providers.set(p, new PddProvider({

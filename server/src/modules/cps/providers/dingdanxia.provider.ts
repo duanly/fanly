@@ -325,20 +325,17 @@ export class DingdanxiaProvider implements CpsProvider {
   async getGoodsDetail(goodsId: string): Promise<UnifiedGoods | null> {
     if (!goodsId) return null;
     // 优先用高佣转链接口（id_privilege），它返回的详情最完整
-    // 需要 relation_id，没配置的话就用搜索接口兜底
-    if (this.opt.relationId) {
-      try {
-        const data = await this.call<any>('/tbk/id_privilege', {
-          id: goodsId,
-          relation_id: this.opt.relationId,
-          pid: this.opt.pid || undefined,
-        });
-        if (data && (data.item_id || data.itemInfo)) {
-          return this.mapPrivilegeDetail(data);
-        }
-      } catch (e: any) {
-        this.logger.debug(`淘宝详情(id_privilege)失败: ${e.message}`);
+    // 不需要 relation_id 也能调用（没有的话就只传 pid）
+    try {
+      const params: Record<string, any> = { id: goodsId };
+      if (this.opt.pid) params.pid = this.opt.pid;
+      if (this.opt.relationId) params.relation_id = this.opt.relationId;
+      const data = await this.call<any>('/tbk/id_privilege', params);
+      if (data && (data.item_id || data.itemInfo)) {
+        return this.mapPrivilegeDetail(data);
       }
+    } catch (e: any) {
+      this.logger.debug(`淘宝详情(id_privilege)失败: ${e.message}`);
     }
 
     // 兜底：用超级搜索接口，把 item_id 当搜索词传进去
@@ -572,6 +569,320 @@ export class DingdanxiaProvider implements CpsProvider {
       status,
       orderTime: parseDate(o.create_time) ?? new Date(),
       settleTime: parseDate(o.settle_time ?? o.earning_time),
+      raw: o,
+    };
+  }
+}
+
+// ───────────────────────── 京东（订单侠聚合） ─────────────────────────
+
+export interface DingdanxiaJdOptions {
+  apiKey: string;
+  /** 京东联盟 ID（UnionId），转链必填 */
+  unionId?: string;
+  /** 默认推广位 ID */
+  positionId?: string;
+  baseUrl?: string;
+}
+
+/**
+ * 订单侠京东联盟聚合渠道。
+ *
+ * 用同一个 apikey，接口前缀是 /jd/...
+ * 文档：https://www.dingdanxia.com/apidoc/jd
+ */
+export class DingdanxiaJdProvider implements CpsProvider {
+  readonly platform = 'JD';
+  private readonly logger = new Logger(DingdanxiaJdProvider.name);
+  private readonly baseUrl: string;
+
+  constructor(private readonly opt: DingdanxiaJdOptions) {
+    this.baseUrl = opt.baseUrl || DEFAULT_BASE;
+  }
+
+  private async call<T>(path: string, body: Record<string, any>): Promise<T> {
+    if (!this.opt.apiKey) {
+      throw new Error('订单侠未配置：请在 .env 填 DDX_API_KEY');
+    }
+    const url = new URL(path, this.baseUrl);
+    const payload = { ...body, apikey: this.opt.apiKey };
+    for (const k of Object.keys(payload)) {
+      if (payload[k] === undefined || payload[k] === null || payload[k] === '') {
+        delete payload[k];
+      }
+    }
+    const res = await fetch(url.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(payload).toString(),
+    });
+    if (!res.ok) throw new Error(`订单侠京东 ${path} HTTP ${res.status}`);
+    const json: any = await res.json();
+    if (json.code !== undefined && json.code !== 200 && json.code !== 0) {
+      throw new Error(`订单侠京东 ${path}: ${json.code} ${json.msg || json.message || ''}`);
+    }
+    return (json.data ?? json.result ?? json) as T;
+  }
+
+  // ───────────────────────── 字段映射 ─────────────────────────
+
+  private mapGoods(raw: any): UnifiedGoods {
+    // 订单侠京东接口的字段名比较乱，各种可能都试一下
+    const skuId = String(raw.skuId ?? raw.sku_id ?? raw.id ?? raw.goods_id ?? '');
+    const title = raw.skuName ?? raw.sku_name ?? raw.name ?? raw.goods_name ?? raw.title ?? '';
+    const image = raw.img ?? raw.pic ?? raw.image ?? raw.skuPic ?? raw.thumb_img ?? raw.pic_url ?? '';
+
+    let images: string[] = [];
+    const imgs = raw.imageList ?? raw.images ?? raw.imgs ?? raw.picList ?? raw.small_images ?? null;
+    if (imgs) {
+      if (Array.isArray(imgs)) {
+        images = imgs.map((i: any) => typeof i === 'string' ? i : (i.img ?? i.url ?? i.pic ?? ''));
+      }
+    }
+    if (image && !images.includes(image)) images.unshift(image);
+    images = images.filter(Boolean);
+
+    const shopName = raw.shopName ?? raw.shop_name ?? raw.shop ?? raw.shopTitle ?? '';
+
+    const price = Number(raw.price ?? raw.originalPrice ?? raw.oriPrice ?? raw.reservePrice ?? raw.jdPrice ?? 0);
+    const couponAmount = Number(raw.coupon ?? raw.couponAmount ?? raw.coupon_amount ?? raw.couponPrice ?? 0);
+    const couponPrice = Number(raw.couponPrice ?? raw.finalPrice ?? raw.realPrice ?? raw.promotionPrice ?? 0)
+      || Math.max(price - couponAmount, 0);
+
+    const commissionRate = Number(raw.commissionRate ?? raw.commission_rate ?? raw.ratio ?? 0) / 100;
+    const commission = Number(raw.commission ?? raw.commissionAmount ?? raw.fee ?? 0)
+      || round2(couponPrice * commissionRate);
+
+    const salesVolume = Number(raw.sales ?? raw.salesVolume ?? raw.sales_volume ?? raw.inOrderCount30Days ?? raw.monthSales ?? 0);
+
+    return {
+      platform: 'JD',
+      goodsId: skuId,
+      title,
+      image,
+      images,
+      shopName,
+      price: round2(price),
+      couponPrice: round2(couponPrice),
+      couponAmount: round2(couponAmount),
+      commissionRate,
+      commission: round2(commission),
+      salesVolume,
+    };
+  }
+
+  /** 从各种返回结构里提取 list 数组 */
+  private extractList(data: any): any[] {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.list)) return data.list;
+    if (Array.isArray(data.result)) return data.result;
+    if (Array.isArray(data.data)) return Array.isArray(data.data) ? data.data : this.extractList(data.data);
+    if (data.goodsList && Array.isArray(data.goodsList)) return data.goodsList;
+    if (data.skuList && Array.isArray(data.skuList)) return data.skuList;
+    if (data.rows && Array.isArray(data.rows)) return data.rows;
+    return [];
+  }
+
+  // ───────────────────────── 搜索 ─────────────────────────
+
+  async searchGoods(p: SearchParams): Promise<UnifiedGoods[]> {
+    const r = await this.searchGoodsPage(p);
+    return r.list;
+  }
+
+  async searchGoodsPage(p: SearchParams): Promise<GoodsPage> {
+    const page = Math.max(p.page ?? 1, 1);
+    const pageSize = Math.min(p.pageSize ?? 30, 50);
+    const keyword = p.keyword ?? '';
+
+    const sortMap: Record<string, string> = {
+      sales: 'sale',
+      commission: 'fee',
+      price: 'price',
+    };
+    const sortName = sortMap[p.sort || ''] || '';
+
+    const data = await this.call<any>('/jd/query_jingfen_goods', {
+      keyword,
+      pageIndex: page,
+      pageSize,
+      sortName: sortName || undefined,
+      sort: p.sort === 'price' ? 'asc' : 'desc',
+    });
+
+    const list = this.extractList(data).map((r: any) => this.mapGoods(r));
+    const total = Number(data.totalCount ?? data.total ?? list.length);
+    const hasMore = list.length >= pageSize;
+
+    return { list, total, page, hasMore };
+  }
+
+  // ───────────────────────── 榜单 / 推荐 ─────────────────────────
+
+  async recommendGoods(p: RecommendParams = {}): Promise<UnifiedGoods[]> {
+    const r = await this.recommendGoodsPage(p);
+    return r.list;
+  }
+
+  async recommendGoodsPage(p: RecommendParams = {}): Promise<GoodsPage> {
+    const page = Math.max(p.page ?? 1, 1);
+    const pageSize = Math.min(p.pageSize ?? 30, 50);
+
+    // 榜单 ID 映射：earn=佣金榜, hot=热销榜, cheap=低价榜
+    const eliteMap: Record<string, number> = {
+      earn: 1,    // 实时收益榜
+      hot: 2,     // 实时热销榜
+      cheap: 3,   // 实时榜单-
+    };
+    const eliteId = eliteMap[p.channel ?? 'earn'] ?? 1;
+
+    const data = await this.call<any>('/jd/query_goods_rank', {
+      eliteId,
+      sortType: 1, // 1=小时,2=24小时,3=3日,4=7日
+      pageIndex: page,
+      pageSize,
+    });
+
+    const list = this.extractList(data).map((r: any) => this.mapGoods(r));
+    const total = Number(data.totalCount ?? data.total ?? list.length);
+    const hasMore = list.length >= pageSize;
+
+    return { list, total, page, hasMore };
+  }
+
+  // ───────────────────────── 详情 ─────────────────────────
+
+  async getGoodsDetail(skuId: string): Promise<UnifiedGoods | null> {
+    if (!skuId) return null;
+    try {
+      const data = await this.call<any>('/jd/item_detail', { skuIds: skuId });
+      const list = this.extractList(data);
+      if (!list.length) return null;
+      return this.mapGoods(list[0]);
+    } catch (e: any) {
+      this.logger.debug(`京东详情(item_detail)失败: ${e.message}`);
+    }
+
+    // 兜底：搜索接口按 skuId 搜
+    try {
+      const data = await this.call<any>('/jd/query_jingfen_goods', {
+        keyword: skuId,
+        pageIndex: 1,
+        pageSize: 5,
+      });
+      const list = this.extractList(data);
+      const hit = list.find((r: any) => String(r.skuId ?? r.id ?? '') === skuId) ?? list[0];
+      return hit ? this.mapGoods(hit) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // ───────────────────────── 转链 ─────────────────────────
+
+  async convertLink(skuId: string, positionId: string): Promise<ConvertedLink> {
+    if (!this.opt.unionId) throw new Error('订单侠京东未配置 UnionId：请在 .env 填 JD_UNION_ID');
+
+    const data = await this.call<any>('/jd/by_unionid_promotion', {
+      materialId: `https://item.jd.com/${skuId}.html`,
+      unionId: this.opt.unionId,
+      positionId: positionId || this.opt.positionId || undefined,
+      couponUrl: undefined,
+    });
+
+    this.logger.debug(`京东转链响应: ${JSON.stringify(data).slice(0, 500)}`);
+
+    // 各种可能的返回字段
+    const shortUrl = data?.clickURL
+      ?? data?.click_url
+      ?? data?.shortUrl
+      ?? data?.short_url
+      ?? data?.couponClickUrl
+      ?? data?.coupon_click_url
+      ?? '';
+    const deeplink = data?.longURL ?? data?.long_url ?? shortUrl;
+    const password = data?.command ?? data?.pwd ?? data?.password ?? '';
+
+    if (!shortUrl) throw new Error('订单侠京东转链返回为空');
+
+    return {
+      platform: 'JD',
+      goodsId: skuId,
+      shortUrl,
+      deeplink,
+      password,
+      positionId,
+    };
+  }
+
+  // ───────────────────────── 解析（淘口令/链接） ─────────────────────────
+
+  async parseContent(text: string): Promise<UnifiedGoods | null> {
+    // 京东商品 ID 一般是 7-12 位数字
+    const m = text.match(/\b(\d{7,12})\b/);
+    if (!m) return null;
+    return this.getGoodsDetail(m[1]);
+  }
+
+  // ───────────────────────── 订单 ─────────────────────────
+
+  async fetchOrders(start: Date, end: Date, page = 1): Promise<UnifiedOrder[]> {
+    const fmt = (d: Date) => d.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
+      .replace('T', ' ').slice(0, 19);
+
+    const data = await this.call<any>('/jd/order_details2', {
+      pageIndex: page,
+      pageSize: 100,
+      startTime: fmt(start),
+      endTime: fmt(end),
+      type: 1, // 1=下单时间 2=更新时间
+    });
+
+    const list = this.extractList(data);
+    return list.map((o: any) => this.mapOrder(o));
+  }
+
+  private mapOrder(o: any): UnifiedOrder {
+    const payAmount = Number(o.actualPayPrice ?? o.pay_price ?? o.order_price ?? o.factPrice ?? 0);
+    const commissionRate = Number(o.feeRate ?? o.commission_rate ?? 0) / 100;
+    const estCommission = Number(o.estimateFee ?? o.estimate_fee ?? o.commission ?? o.fee ?? 0);
+    const settleCommission = Number(o.settleFee ?? o.settle_fee ?? 0);
+
+    // 京东订单状态：1=完成 2=付款确认 3=取消 4=申请退款 5=退款成功 6=已结算
+    let status = 1;
+    const rawStatus = String(o.validCode ?? o.status ?? o.order_status ?? '');
+    if (rawStatus === '17' || rawStatus === '已结算' || rawStatus.includes('结算')) {
+      status = 3;
+    } else if (rawStatus === '2' || rawStatus.includes('付款')) {
+      status = 1;
+    } else if (rawStatus === '3' || rawStatus === '4' || rawStatus === '5' || rawStatus.includes('取消') || rawStatus.includes('退款')) {
+      status = 4;
+    }
+
+    const positionId = String(o.positionId ?? o.position_id ?? o.subUnionId ?? o.unionId ?? '');
+
+    const parseDate = (s: string | number | undefined) => {
+      if (!s) return undefined;
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? undefined : d;
+    };
+
+    return {
+      platform: 'JD',
+      platformOrderNo: String(o.parentId ?? o.order_id ?? o.orderId ?? o.id ?? ''),
+      subOrderNo: String(o.id ?? o.sku_id ?? o.skuId ?? o.item_id ?? ''),
+      positionId,
+      goodsId: String(o.skuId ?? o.sku_id ?? o.goods_id ?? ''),
+      goodsTitle: o.skuName ?? o.sku_name ?? o.goods_name ?? o.title ?? '',
+      goodsImg: o.skuPic ?? o.pic ?? o.image ?? o.goods_img ?? '',
+      payAmount: round2(payAmount),
+      commissionRate,
+      estCommission: round2(estCommission),
+      settleCommission: status === 3 ? round2(settleCommission || estCommission) : 0,
+      status,
+      orderTime: parseDate(o.orderTime ?? o.create_time ?? o.order_time) ?? new Date(),
+      settleTime: parseDate(o.settleTime ?? o.settle_time ?? o.finish_time),
       raw: o,
     };
   }

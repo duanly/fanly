@@ -40,7 +40,7 @@
         -->
         <div class="price-note">
           实际价格以{{ PLAT[g.platform]?.name }}结算为准。平台的满减、补贴、会员价我们看不到，
-          <b>你实付通常只会更低</b>。返利按平台实际结算的佣金计算，不受这个价影响。
+          <b>到手价以你下单时为准</b>。返利按联盟实际结算的佣金计算，不受展示价影响。
         </div>
       </div>
 
@@ -48,19 +48,22 @@
       <div style="background:var(--brand-soft);margin:12px;border-radius:12px;padding:14px">
         <van-cell-group :border="false" style="background:transparent">
           <van-cell title="优惠券" :value="`-¥${g.couponAmount}`" :border="false" style="background:transparent" />
-          <van-cell title="预计返利" :border="false" style="background:transparent">
+          <van-cell title="预估返利" :border="false" style="background:transparent">
             <template #value>
-              <span class="price" style="font-size:18px">¥{{ g.rebate }}</span>
+              <span class="price" style="font-size:18px">约 ¥{{ g.rebate }}</span>
             </template>
           </van-cell>
           <van-cell
-            title="到手价"
+            title="预估到手价"
             :value="`约 ¥${(g.couponPrice - g.rebate).toFixed(2)}`"
             :border="false"
             style="background:transparent"
           />
         </van-cell-group>
-        <div class="muted" style="padding:0 16px">返利于订单确认收货、联盟结算后到账，退款则不返</div>
+        <div class="muted" style="padding:0 16px;line-height:1.6">
+          返利为预估金额，实际金额以联盟结算为准。<br/>
+          确认收货后联盟结算，退款则无返利。
+        </div>
       </div>
 
       <div class="buy-bar">
