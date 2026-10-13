@@ -601,6 +601,12 @@ export class DingdanxiaJdProvider implements CpsProvider {
   }
 
   private async call<T>(path: string, body: Record<string, any>): Promise<T> {
+    const json = await this.callRaw(path, body);
+    return (json.data ?? json.result ?? json) as T;
+  }
+
+  /** 返回完整响应（含 code/msg/total_results 等外层字段），分页时需要读 total */
+  private async callRaw(path: string, body: Record<string, any>): Promise<any> {
     if (!this.opt.apiKey) {
       throw new Error('订单侠未配置：请在 .env 填 DDX_API_KEY');
     }
@@ -628,39 +634,84 @@ export class DingdanxiaJdProvider implements CpsProvider {
     if (json.code !== undefined && json.code !== 200 && json.code !== 0) {
       throw new Error(`订单侠京东 ${path}: ${json.code} ${json.msg || json.message || ''}`);
     }
-    return (json.data ?? json.result ?? json) as T;
+    return json;
   }
 
   // ───────────────────────── 字段映射 ─────────────────────────
 
   private mapGoods(raw: any): UnifiedGoods {
-    // 订单侠京东接口的字段名比较乱，各种可能都试一下
-    const skuId = String(raw.skuId ?? raw.sku_id ?? raw.id ?? raw.goods_id ?? '');
-    const title = raw.skuName ?? raw.sku_name ?? raw.name ?? raw.goods_name ?? raw.title ?? '';
-    const image = raw.img ?? raw.pic ?? raw.image ?? raw.skuPic ?? raw.thumb_img ?? raw.pic_url ?? '';
+    // 订单侠京东两个主要接口字段不同，这里都兼容：
+    // 1. query_jingfen_goods（搜索）：嵌套结构 imageInfo/priceInfo/commissionInfo/couponInfo/shopInfo
+    // 2. query_goods_rank（榜单）：扁平 + 部分嵌套 imageUrl/imgList/purchasePriceInfo/couponList
 
+    const skuId = String(raw.skuId ?? raw.sku_id ?? raw.id ?? '');
+    const title = raw.skuName ?? raw.sku_name ?? raw.name ?? raw.title ?? '';
+
+    // 图片：榜单用 imageUrl + imgList(字符串数组)；搜索用 imageInfo.imageList(对象数组)
     let images: string[] = [];
-    const imgs = raw.imageList ?? raw.images ?? raw.imgs ?? raw.picList ?? raw.small_images ?? null;
-    if (imgs) {
-      if (Array.isArray(imgs)) {
-        images = imgs.map((i: any) => typeof i === 'string' ? i : (i.img ?? i.url ?? i.pic ?? ''));
-      }
+    const imgList = raw.imgList ?? raw.imageInfo?.imageList ?? raw.images ?? [];
+    if (Array.isArray(imgList)) {
+      images = imgList.map((i: any) => typeof i === 'string' ? i : (i.url ?? i.img ?? i.pic ?? ''));
     }
+    const image = raw.imageUrl
+      ?? images[0]
+      ?? raw.imageInfo?.whiteImage
+      ?? raw.img
+      ?? raw.pic
+      ?? '';
     if (image && !images.includes(image)) images.unshift(image);
     images = images.filter(Boolean);
 
-    const shopName = raw.shopName ?? raw.shop_name ?? raw.shop ?? raw.shopTitle ?? '';
+    const shopName = raw.shopInfo?.shopName ?? raw.shop_name ?? raw.shop ?? '';
 
-    const price = Number(raw.price ?? raw.originalPrice ?? raw.oriPrice ?? raw.reservePrice ?? raw.jdPrice ?? 0);
-    const couponAmount = Number(raw.coupon ?? raw.couponAmount ?? raw.coupon_amount ?? raw.couponPrice ?? 0);
-    const couponPrice = Number(raw.couponPrice ?? raw.finalPrice ?? raw.realPrice ?? raw.promotionPrice ?? 0)
-      || Math.max(price - couponAmount, 0);
+    // 价格：
+    //   搜索：priceInfo.price=原价, priceInfo.lowestCouponPrice=券后价
+    //   榜单：wlprice=基准价, purchasePriceInfo.purchasePrice=到手价
+    const priceInfo = raw.priceInfo ?? raw.price_info ?? {};
+    const purchaseInfo = raw.purchasePriceInfo ?? raw.purchase_price_info ?? {};
+    const price = Number(priceInfo.price ?? priceInfo.originalPrice ?? raw.wlprice ?? raw.price ?? 0);
+    const couponPriceRaw = Number(
+      priceInfo.lowestCouponPrice
+      ?? priceInfo.finalPrice
+      ?? purchaseInfo.purchasePrice
+      ?? raw.couponPrice
+      ?? 0
+    );
 
-    const commissionRate = Number(raw.commissionRate ?? raw.commission_rate ?? raw.ratio ?? 0) / 100;
-    const commission = Number(raw.commission ?? raw.commissionAmount ?? raw.fee ?? 0)
-      || round2(couponPrice * commissionRate);
+    // 优惠券：
+    //   搜索：couponInfo.couponList[].discount
+    //   榜单：couponList[].discount
+    let couponAmount = 0;
+    const couponList = raw.couponList
+      ?? raw.couponInfo?.couponList
+      ?? raw.coupon_list
+      ?? [];
+    if (Array.isArray(couponList) && couponList.length) {
+      const best = couponList.find((c: any) => c.isBest === 1) ?? couponList[0];
+      couponAmount = Number(best.discount ?? best.coupon_price ?? best.amount ?? 0);
+    }
+    const couponPrice = couponPriceRaw || Math.max(price - couponAmount, 0);
 
-    const salesVolume = Number(raw.sales ?? raw.salesVolume ?? raw.sales_volume ?? raw.inOrderCount30Days ?? raw.monthSales ?? 0);
+    // 佣金：
+    //   搜索：commissionInfo.commission / commissionShare
+    //   榜单：commission / commissionShare（顶层）
+    const commissionInfo = raw.commissionInfo ?? raw.commission_info ?? {};
+    const commission = Number(
+      commissionInfo.commission
+      ?? commissionInfo.fee
+      ?? raw.commission
+      ?? 0
+    );
+    const commissionRate = Number(
+      commissionInfo.commissionShare
+      ?? commissionInfo.rate
+      ?? raw.commissionShare
+      ?? raw.commissionRate
+      ?? 0
+    ) / 100;
+
+    // 销量
+    const salesVolume = Number(raw.inOrderCount30Days ?? raw.comments ?? raw.sales ?? raw.salesVolume ?? 0);
 
     return {
       platform: 'JD',
@@ -710,7 +761,7 @@ export class DingdanxiaJdProvider implements CpsProvider {
     };
     const sortName = sortMap[p.sort || ''] || '';
 
-    const data = await this.call<any>('/jd/query_jingfen_goods', {
+    const json = await this.callRaw('/jd/query_jingfen_goods', {
       keyword,
       pageIndex: page,
       pageSize,
@@ -719,8 +770,12 @@ export class DingdanxiaJdProvider implements CpsProvider {
       sort: p.sort === 'price' ? 'asc' : 'desc',
     });
 
-    const list = this.extractList(data).map((r: any) => this.mapGoods(r));
-    const total = Number(data.totalCount ?? data.total ?? list.length);
+    const rawList = this.extractList(json.data ?? json);
+    if (rawList.length) {
+      this.logger.debug(`京东搜索返回第一条原始数据: ${JSON.stringify(rawList[0]).slice(0, 800)}`);
+    }
+    const list = rawList.map((r: any) => this.mapGoods(r));
+    const total = Number(json.total_results ?? json.totalCount ?? json.total ?? list.length);
     const hasMore = list.length >= pageSize;
 
     return { list, total, page, hasMore };
@@ -748,15 +803,15 @@ export class DingdanxiaJdProvider implements CpsProvider {
     };
     const rankId = rankMap[p.channel ?? 'hot'] ?? 200000;
 
-    const data = await this.call<any>('/jd/query_goods_rank', {
+    const json = await this.callRaw('/jd/query_goods_rank', {
       rankId,
       sortType: 1, // 排序类型 1=小时 2=24小时 3=3日 4=7日
       pageIndex: page,
       pageSize,
     });
 
-    const list = this.extractList(data).map((r: any) => this.mapGoods(r));
-    const total = Number(data.totalCount ?? data.total ?? list.length);
+    const list = this.extractList(json.data ?? json).map((r: any) => this.mapGoods(r));
+    const total = Number(json.total_results ?? json.totalCount ?? json.total ?? list.length);
     const hasMore = list.length >= pageSize;
 
     return { list, total, page, hasMore };
