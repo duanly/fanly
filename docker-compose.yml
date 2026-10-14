@@ -85,6 +85,10 @@ services:
       TB_APP_KEY: ${TB_APP_KEY:-}
       TB_APP_SECRET: ${TB_APP_SECRET:-}
       TB_ADZONE_ID: ${TB_ADZONE_ID:-}
+      TB_PID: ${TB_PID:-}
+      DDX_API_KEY: ${DDX_API_KEY:-}
+      DDX_BASE_URL: ${DDX_BASE_URL:-}
+      TB_RELATION_ID: ${TB_RELATION_ID:-}
       DY_APP_KEY: ${DY_APP_KEY:-}
       DY_APP_SECRET: ${DY_APP_SECRET:-}
     expose:
