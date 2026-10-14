@@ -14,6 +14,9 @@ export interface DingdanxiaOptions {
 
 const DEFAULT_BASE = 'http://api.tbk.dingdanxia.com';
 
+/** 请求超时时间（毫秒）。订单侠接口在海外访问可能较慢，给 30 秒 */
+const FETCH_TIMEOUT_MS = 30000;
+
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
 /**
@@ -56,6 +59,7 @@ export class DingdanxiaProvider implements CpsProvider {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams(payload).toString(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`订单侠 ${path} HTTP ${res.status}`);
     const json: any = await res.json();
@@ -624,6 +628,7 @@ export class DingdanxiaJdProvider implements CpsProvider {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams(payload).toString(),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
     } catch (e: any) {
       this.logger.error(`京东请求失败: ${url.toString()}, error: ${e.message}, cause: ${e.cause?.message ?? e.cause ?? ''}`);
@@ -850,12 +855,14 @@ export class DingdanxiaJdProvider implements CpsProvider {
   async convertLink(skuId: string, positionId: string): Promise<ConvertedLink> {
     if (!this.opt.unionId) throw new Error('订单侠京东未配置 UnionId：请在 .env 填 JD_UNION_ID');
 
-    const data = await this.call<any>('/jd/by_unionid_promotion', {
+    const reqBody: Record<string, any> = {
       materialId: `https://item.jd.com/${skuId}.html`,
       unionId: this.opt.unionId,
       positionId: positionId || this.opt.positionId || undefined,
-      couponUrl: undefined,
-    });
+    };
+    this.logger.log(`京东转链请求: skuId=${skuId}, unionId=${this.opt.unionId}, positionId=${positionId}`);
+    const data = await this.call<any>('/jd/by_unionid_promotion', reqBody);
+    this.logger.log(`京东转链响应: ${JSON.stringify(data).slice(0, 500)}`);
 
     this.logger.debug(`京东转链响应: ${JSON.stringify(data).slice(0, 500)}`);
 

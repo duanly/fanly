@@ -31,8 +31,11 @@ export class CuratedGoods {
 
   @Column({ length: 255, default: '' }) title: string;
   @Column({ length: 512, default: '' }) image: string;
-  /** 多张图（JSON 字符串数组），有就存，没有就是空数组 */
-  @Column({ type: 'text', default: '[]' }) images: string;
+  /**
+   * 多张图（JSON 字符串数组），有就存，没有就是空数组。
+   * MySQL 下 TEXT 列不能有 DEFAULT，代码里兜底处理空值。
+   */
+  @Column({ type: 'text', nullable: true }) images: string | null;
   @Column({ length: 128, default: '' }) shopName: string;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 }) price: string;
