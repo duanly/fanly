@@ -85,7 +85,7 @@ export class Topic {
   @Column({ type: 'text', nullable: true }) banners: string | null;
 
   /** 活动规则/长文案，支持换行纯文本，专题页可展开查看 */
-  @Column({ type: 'text', default: '' }) description: string;
+  @Column({ type: 'text', nullable: true }) description: string | null;
 
   /** 分享海报图 URL，用户点分享时弹出来长按保存 */
   @Column({ length: 512, default: '' }) shareImage: string;
