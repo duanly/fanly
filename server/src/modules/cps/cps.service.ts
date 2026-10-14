@@ -61,7 +61,8 @@ export class CpsService implements OnModuleInit {
             apiKey: this.config.get<string>('DDX_API_KEY', ''),
             unionId: this.config.get<string>('JD_UNION_ID', ''),
             positionId: this.config.get<string>('JD_POSITION_ID', ''),
-            baseUrl: this.config.get<string>('DDX_BASE_URL', ''),
+            // 京东可以用独立的 baseUrl（如京东专线域名），没配就用通用的
+            baseUrl: this.config.get<string>('DDX_JD_BASE_URL') || this.config.get<string>('DDX_BASE_URL', ''),
           }));
           used.push('JD=dingdanxia');
           if (!this.config.get('JD_UNION_ID')) this.logger.warn('JD_UNION_ID 为空，京东转链会失败——去京东联盟后台拿联盟ID');

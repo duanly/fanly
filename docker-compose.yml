@@ -88,6 +88,7 @@ services:
       TB_PID: ${TB_PID:-}
       DDX_API_KEY: ${DDX_API_KEY:-}
       DDX_BASE_URL: ${DDX_BASE_URL:-}
+      DDX_JD_BASE_URL: ${DDX_JD_BASE_URL:-}
       TB_RELATION_ID: ${TB_RELATION_ID:-}
       DY_APP_KEY: ${DY_APP_KEY:-}
       DY_APP_SECRET: ${DY_APP_SECRET:-}
