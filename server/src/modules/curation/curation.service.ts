@@ -215,34 +215,175 @@ export class CurationService {
       }
     }
 
-    let added = 0, skipped = 0, errors = 0;
-    for (const g of candidates) {
-      // 淘宝物料精选接口列表不返回佣金，跳过校验——这些商品基本都有返利，
-      // 后续自动刷新时用详情接口再验证，没佣金的会被自动下架。
-      const needCommissionCheck = platform !== 'TB';
-      if (needCommissionCheck && !(g.commission > 0)) { skipped++; continue; }
-      try {
-        const saved = await this.upsert(g, groupKey, sortWeight, targetStatus);
-        // 导入时顺便打标签
-        if (topicIds.length && saved?.curatedId) {
-          // 先查已有的关联，避免重复插入报错
-          const existRels = await this.relRepo.find({
-            where: { curatedId: saved.curatedId },
-            select: ['topicId'],
-          });
-          const existIds = new Set(existRels.map((r) => r.topicId));
-          const newRels = topicIds
-            .filter((tid) => !existIds.has(tid))
-            .map((tid) => this.relRepo.create({ curatedId: saved.curatedId, topicId: tid, sortWeight }));
-          if (newRels.length) await this.relRepo.save(newRels);
-        }
-        added++;
-      } catch (e: any) {
-        errors++;
-        this.logger.warn(`批量导入 ${g.platform}/${g.goodsId} 失败: ${e.message}`);
+    // 淘宝物料精选接口列表不返回佣金，跳过校验——这些商品基本都有返利，
+    // 后续自动刷新时用详情接口再验证，没佣金的会被自动下架。
+    const needCommissionCheck = platform !== 'TB';
+    const validCandidates = candidates.filter((g) => {
+      if (needCommissionCheck && !(g.commission > 0)) return false;
+      return true;
+    });
+    const skipped = candidates.length - validCandidates.length;
+
+    // 一次查出所有已存在的，避免逐条查
+    const existRows = validCandidates.length
+      ? await this.repo.find({
+          where: validCandidates.map((g) => ({ platform, goodsId: g.goodsId })),
+          select: ['id', 'platform', 'goodsId', 'status'],
+        })
+      : [];
+    const existMap = new Map(existRows.map((r) => [`${r.platform}:${r.goodsId}`, r]));
+
+    const toInsert: Array<{ platform: string; goodsId: string } & ReturnType<CurationService['snapshot']> & {
+      groupKey: string; sortWeight: number; status: number; offReason: string; lastSyncAt: Date;
+    }> = [];
+    const toUpdatePending: Array<{ id: number } & ReturnType<CurationService['snapshot']> & {
+      groupKey: string; sortWeight: number; lastSyncAt: Date;
+    }> = [];
+    let skippedExisting = 0;
+
+    for (const g of validCandidates) {
+      const exist = existMap.get(`${platform}:${g.goodsId}`);
+      const snap = this.snapshot(g);
+      if (!exist) {
+        // 全新的，直接插入
+        toInsert.push({
+          platform,
+          goodsId: g.goodsId,
+          ...snap,
+          groupKey,
+          sortWeight,
+          status: targetStatus,
+          offReason: targetStatus === CuratedStatus.ON ? '' : '',
+          lastSyncAt: new Date(),
+        });
+      } else if (exist.status === CuratedStatus.PENDING) {
+        // PENDING 状态的刷新信息，状态保持 PENDING（不降级也不升级）
+        toUpdatePending.push({
+          id: exist.id,
+          ...snap,
+          groupKey,
+          sortWeight,
+          lastSyncAt: new Date(),
+        });
+      } else {
+        // 非 PENDING 的跳过（ON/OFF/EXPIRED 都不降级）
+        skippedExisting++;
       }
     }
-    return { fetched: candidates.length, added, skipped, errors };
+
+    let added = 0, errors = 0;
+
+    // 批量插入新增的
+    if (toInsert.length) {
+      try {
+        const BATCH = 200;
+        for (let i = 0; i < toInsert.length; i += BATCH) {
+          const chunk = toInsert.slice(i, i + BATCH);
+          const result = await this.repo
+            .createQueryBuilder()
+            .insert()
+            .into(CuratedGoods)
+            .values(chunk)
+            // 并发场景下的兜底：唯一键冲突就忽略（上面已经查过一次了）
+            .orIgnore()
+            .execute();
+          added += result.identifiers?.length ?? chunk.length;
+        }
+        this.logger.log(`批量导入新增 ${added} 件 [${platform}]`);
+      } catch (e: any) {
+        this.logger.warn(`批量导入新增失败: ${e.message}`);
+        errors += toInsert.length;
+      }
+    }
+
+    // 批量更新 PENDING 状态的
+    if (toUpdatePending.length) {
+      try {
+        const BATCH = 200;
+        for (let i = 0; i < toUpdatePending.length; i += BATCH) {
+          const chunk = toUpdatePending.slice(i, i + BATCH);
+          // 用 CASE 批量更新，一次 SQL 搞定
+          const ids = chunk.map((c) => c.id);
+          const fields = Object.keys(chunk[0]).filter((k) => k !== 'id');
+          const qb = this.repo.createQueryBuilder().update(CuratedGoods);
+          for (const f of fields) {
+            const whenClauses = chunk.map((c, idx) => `WHEN :id${idx} THEN :val${idx}_${f}`).join(' ');
+            const params: Record<string, any> = {};
+            chunk.forEach((c, idx) => {
+              params[`id${idx}`] = c.id;
+              params[`val${idx}_${f}`] = (c as any)[f];
+            });
+            qb.set({
+              [f]: () => `CASE id ${whenClauses} END`,
+            } as any);
+            Object.assign((qb as any).expressionMap.setParameters, params);
+          }
+          await qb.whereInIds(ids).execute();
+        }
+        added += toUpdatePending.length;
+        this.logger.log(`批量导入刷新 PENDING ${toUpdatePending.length} 件 [${platform}]`);
+      } catch (e: any) {
+        this.logger.warn(`批量导入刷新 PENDING 失败: ${e.message}`);
+        errors += toUpdatePending.length;
+      }
+    }
+
+    // 批量打标签
+    if (topicIds.length && (toInsert.length || toUpdatePending.length)) {
+      try {
+        // 重新查一遍所有 affected 的 id（新增的 + 更新的）
+        const allGoodsIds = [
+          ...toInsert.map((c) => c.goodsId),
+          ...toUpdatePending.map((c) => {
+            const exist = existRows.find((r) => r.id === c.id);
+            return exist?.goodsId ?? '';
+          }),
+        ].filter(Boolean);
+
+        const allRows = await this.repo.find({
+          where: allGoodsIds.map((gid) => ({ platform, goodsId: gid })),
+          select: ['id'],
+        });
+        const allCuratedIds = allRows.map((r) => r.id);
+
+        if (allCuratedIds.length) {
+          // 查已有标签关联
+          const existRels = await this.relRepo.find({
+            where: topicIds.flatMap((tid) =>
+              allCuratedIds.map((cid) => ({ curatedId: cid, topicId: tid })),
+            ),
+            select: ['curatedId', 'topicId'],
+          });
+          const existSet = new Set(existRels.map((r) => `${r.curatedId}:${r.topicId}`));
+
+          // 批量插入新关联
+          const newRels: Array<{ curatedId: number; topicId: number; sortWeight: number }> = [];
+          for (const cid of allCuratedIds) {
+            for (const tid of topicIds) {
+              if (!existSet.has(`${cid}:${tid}`)) {
+                newRels.push({ curatedId: cid, topicId: tid, sortWeight });
+              }
+            }
+          }
+          if (newRels.length) {
+            const BATCH = 500;
+            for (let i = 0; i < newRels.length; i += BATCH) {
+              await this.relRepo
+                .createQueryBuilder()
+                .insert()
+                .into(GoodsTopic)
+                .values(newRels.slice(i, i + BATCH))
+                .orIgnore()
+                .execute();
+            }
+          }
+        }
+      } catch (e: any) {
+        this.logger.warn(`批量导入打标签失败: ${e.message}`);
+      }
+    }
+
+    return { fetched: candidates.length, added, skipped: skipped + skippedExisting, errors };
   }
 
   /**

@@ -119,6 +119,7 @@ export class AuthService {
 
   async profile(userId: number) {
     const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new BadRequestException('用户不存在');
     const agent = await this.agentRepo.findOneBy({ userId });
     let bindAgent = null;
     if (user.agentId) {

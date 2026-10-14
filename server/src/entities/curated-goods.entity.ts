@@ -17,7 +17,7 @@ export enum CuratedStatus {
  *   2. 商品随时可能下架或佣金归零，用户点进去发现没返利最伤信任
  *   3. 首页放什么得由运营说了算，不能交给平台的推荐算法
  *
- * 价格和佣金是**快照**，由定时任务每小时刷一次，失效的自动下架。
+ * 价格和佣金是**快照**，由定时任务定期刷新（默认每 6 小时），失效的自动下架。
  */
 @Entity('curated_goods')
 @Unique('uk_curated_goods', ['platform', 'goodsId'])
