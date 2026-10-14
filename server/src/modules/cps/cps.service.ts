@@ -5,11 +5,12 @@ import { MockProvider } from './providers/mock.provider';
 import { PddProvider } from './providers/pdd.provider';
 import { JdProvider } from './providers/jd.provider';
 import { DingdanxiaProvider, DingdanxiaJdProvider } from './providers/dingdanxia.provider';
+import { DingdanxiaVipProvider } from './providers/dingdanxia.vip.provider';
 import { ConvertedLink, CpsProvider, GoodsPage, RecommendParams, SearchParams, UnifiedGoods, UnifiedOrder } from './cps.types';
 import { TtlCache } from '@/common/ttl-cache';
 import { explainParseFailure, parseShareContent } from '@/common/share-content';
 
-export const PLATFORMS = ['PDD', 'JD', 'TB', 'DY'] as const;
+export const PLATFORMS = ['PDD', 'JD', 'TB', 'VIP'] as const;
 
 /**
  * 渠道路由：业务层只跟它打交道，不认识任何具体服务商。
@@ -105,6 +106,17 @@ export class CpsService implements OnModuleInit {
         used.push('TB=dingdanxia');
         if (!this.config.get('TB_PID')) this.logger.warn('TB_PID 为空，淘宝转链会失败——去订单侠或淘宝联盟后台拿 PID');
         if (!this.config.get('TB_RELATION_ID')) this.logger.warn('TB_RELATION_ID 为空，淘宝转链会失败——去订单侠后台拿渠道管理ID');
+        continue;
+      }
+      // 唯品会：走订单侠聚合（跟淘宝京东共用同一个 apikey）
+      if (p === 'VIP' && this.config.get('DDX_API_KEY')) {
+        this.providers.set(p, new DingdanxiaVipProvider({
+          apiKey: this.config.get<string>('DDX_API_KEY', ''),
+          pid: this.config.get<string>('VIP_PID', ''),
+          baseUrl: this.config.get<string>('DDX_BASE_URL', ''),
+        }));
+        used.push('VIP=dingdanxia');
+        if (!this.config.get('VIP_PID')) this.logger.warn('VIP_PID 为空，唯品会转链会失败——去订单侠授权管理里拿唯品会推广位 PID');
         continue;
       }
       if (mode === 'aggregator') {

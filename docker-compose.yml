@@ -90,6 +90,7 @@ services:
       DDX_BASE_URL: ${DDX_BASE_URL:-}
       DDX_JD_BASE_URL: ${DDX_JD_BASE_URL:-}
       TB_RELATION_ID: ${TB_RELATION_ID:-}
+      VIP_PID: ${VIP_PID:-}
       DY_APP_KEY: ${DY_APP_KEY:-}
       DY_APP_SECRET: ${DY_APP_SECRET:-}
     expose:

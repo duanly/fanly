@@ -10,7 +10,7 @@
  * 比挨个平台瞎试快得多，报错也说得清。
  */
 
-export type SharePlatform = 'TB' | 'JD' | 'PDD' | 'DY';
+export type SharePlatform = 'TB' | 'JD' | 'PDD' | 'VIP';
 
 /** token 的形态：口令 / 链接 / 纯商品 ID */
 export type TokenKind = 'password' | 'url' | 'goodsId';
@@ -28,7 +28,7 @@ const PLATFORM_NAME: Record<SharePlatform, string> = {
   TB: '淘宝/天猫',
   JD: '京东',
   PDD: '拼多多',
-  DY: '抖音',
+  VIP: '唯品会',
 };
 
 export function platformName(p: string): string {
@@ -45,8 +45,8 @@ const URL_RULES: { re: RegExp; platform: SharePlatform }[] = [
   { re: /(?:item\.jd\.com|item\.m\.jd\.com|jd\.com\/product)\/\S+/i, platform: 'JD' },
   // 拼多多
   { re: /(?:mobile\.yangkeduo\.com|yangkeduo\.com|pinduoduo\.com|p\.pinduoduo\.com)\/\S+/i, platform: 'PDD' },
-  // 抖音
-  { re: /(?:v\.douyin\.com|haohuo\.jinritemai\.com|jinritemai\.com|douyin\.com)\/\S+/i, platform: 'DY' },
+  // 唯品会
+  { re: /(?:vip\.com|vipshop\.com|dwz\.cn)\/\S+/i, platform: 'VIP' },
 ];
 
 /** 口令格式 */
@@ -64,6 +64,9 @@ const GOODS_ID_RULES: { re: RegExp; platform: SharePlatform }[] = [
   { re: /item\.jd\.com\/(\d+)\.html/i, platform: 'JD' },
   { re: /item\.m\.jd\.com\/product\/(\d+)/i, platform: 'JD' },
   { re: /yangkeduo\.com\/goods\.html[^\s]*?[?&]goods_id=(\d+)/i, platform: 'PDD' },
+  // 唯品会：detail.vip.com/detail-xxx.html
+  { re: /detail\.vip\.com\/detail-([A-Za-z0-9_-]+)/i, platform: 'VIP' },
+  { re: /vip\.com\/detail\/([A-Za-z0-9_-]+)/i, platform: 'VIP' },
 ];
 
 /** 我们自己 Mock 渠道的商品号，方便本地联调 */
@@ -119,7 +122,7 @@ export function explainParseFailure(raw: string): string {
   const text = (raw || '').trim();
   if (!text) return '先复制商品链接或口令，再回来点一下';
   if (text.length > 500) return '内容太长了，只复制商品链接那一段试试';
-  if (/^https?:\/\//i.test(text)) return '这个链接不是淘宝/京东/拼多多/抖音的商品页';
+  if (/^https?:\/\//i.test(text)) return '这个链接不是淘宝/京东/拼多多/抖音/唯品会的商品页';
   if (!/[a-zA-Z0-9]/.test(text)) return '没找到商品链接或口令，复制完整的分享内容再试';
   return '没认出这个商品，确认复制的是商品分享内容，不是店铺或活动页';
 }

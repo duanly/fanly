@@ -6,7 +6,7 @@
           <el-option value="PDD" label="拼多多" />
           <el-option value="JD" label="京东" />
           <el-option value="TB" label="淘宝" />
-          <el-option value="DY" label="抖音" />
+          <el-option value="VIP" label="唯品会" />
         </el-select>
         <el-select v-model="status" placeholder="全部状态" clearable size="small" style="width:130px" @change="load">
           <el-option :value="1" label="已付款" />

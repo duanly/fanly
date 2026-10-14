@@ -76,7 +76,7 @@ import { api } from '../api';
 
 const STATUS = { 1: '待处理', 2: '已找回', 3: '已驳回' };
 const TAG = { 1: 'warning', 2: 'success', 3: 'info' };
-const platName = (p) => ({ PDD: '拼多多', JD: '京东', TB: '淘宝', DY: '抖音' }[p] || p);
+const platName = (p) => ({ PDD: '拼多多', JD: '京东', TB: '淘宝', VIP: '唯品会' }[p] || p);
 const fmt = (d) => (d ? new Date(d).toLocaleString('zh-CN', { hour12: false }) : '');
 
 const rows = ref([]);

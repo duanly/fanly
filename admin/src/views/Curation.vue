@@ -9,7 +9,7 @@
               <el-option label="拼多多" value="PDD" />
               <el-option label="京东" value="JD" />
               <el-option label="淘宝" value="TB" />
-              <el-option label="抖音" value="DY" />
+              <el-option label="唯品会" value="VIP" />
             </el-select>
             <el-input
               v-model="p.keyword"
@@ -251,7 +251,7 @@
               <el-option label="拼多多" value="PDD" />
               <el-option label="京东" value="JD" />
               <el-option label="淘宝" value="TB" />
-              <el-option label="抖音" value="DY" />
+              <el-option label="唯品会" value="VIP" />
             </el-select>
             <el-input
               v-model="f.keyword"
