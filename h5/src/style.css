@@ -14,20 +14,23 @@
 
 * { box-sizing: border-box; }
 
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+  /* 禁止 iOS 橡皮筋横向弹性滚动，避免页面能左右拽 */
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+}
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
 }
 
-html {
-  overflow-x: hidden;
-}
-
-#app { max-width: 640px; width: 100%; margin: 0 auto; min-height: 100vh; overflow-x: hidden; box-sizing: border-box; }
+#app { max-width: 640px; width: 100%; margin: 0 auto; min-height: 100vh; overflow-x: hidden; box-sizing: border-box; position: relative; }
 
 .page { padding-bottom: 8px; }
 .pad { padding: 12px; }
