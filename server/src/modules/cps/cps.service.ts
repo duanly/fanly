@@ -29,18 +29,26 @@ export class CpsService implements OnModuleInit {
   private readonly goodsCache = new TtlCache<UnifiedGoods[]>(10 * 60 * 1000, 300);
 
   /**
-   * 「见过的商品」快照，按 平台:商品ID 存 1 小时。
+   * 搜索结果缓存 2 小时。
    *
-   * 为什么要它：各平台的「商品详情」接口权限跟「搜索/榜单」是分开授权的，
-   * 京东的 bigfield.query 现在就没批下来。后台在搜索结果里点「加入选品池」，
-   * 服务端却要用详情接口再查一遍,结果查不到 → 报「商品不存在或已下架」,
-   * 可商品明明就在眼前。列表里已经拿到的字段跟详情返回的是同一套,
-   * 顺手存下来当兜底,比让运营干等平台审批实在。
-   *
-   * 不信任前端传过来的商品数据,是因为佣金率直接决定给用户看的返利金额,
-   * 那是钱,只能以平台返回的为准。
+   * 搜索是最费 API 调用的地方：用户切平台、翻页、换排序方式都会触发一次搜索。
+   * 同关键词短时间内反复搜的概率很高，缓存一下既能降 API 调用量，
+   * 前端响应也更快。2 小时内价格/佣金有点波动可以接受，真到下单转链时
+   * 走的是实时接口，钱不会错。
    */
-  private readonly seenGoods = new TtlCache<UnifiedGoods>(60 * 60 * 1000, 5000);
+  private readonly searchCache = new TtlCache<GoodsPage>(2 * 60 * 60 * 1000, 500);
+
+  /**
+   * 「见过的商品」快照，按 平台:商品ID 存 6 小时。
+   *
+   * 作用有两个：
+   * 1. 详情接口的主缓存——6 小时内同一个商品不重复调 API
+   * 2. 详情接口没权限或抽风时的兜底（比如京东 bigfield.query 没批下来）
+   *
+   * 不信任前端传过来的商品数据，因为佣金率直接决定给用户看的返利金额，
+   * 那是钱，只能以平台返回的为准。
+   */
+  private readonly seenGoods = new TtlCache<UnifiedGoods>(6 * 60 * 60 * 1000, 5000);
 
   constructor(private readonly config: ConfigService) {}
 
@@ -162,13 +170,16 @@ export class CpsService implements OnModuleInit {
 
   /** 带分页信息的搜索。渠道没实现 page 方法时，用 searchGoods 包一层（total=本页条数） */
   async searchGoodsPage(platform: string, p: SearchParams): Promise<GoodsPage> {
-    const provider = this.get(platform);
-    if (provider.searchGoodsPage) {
-      const page = await provider.searchGoodsPage(p);
-      return { ...page, list: this.remember(page.list) };
-    }
-    const list = this.remember(await provider.searchGoods(p));
-    return { list, total: list.length, page: p.page ?? 1, hasMore: false };
+    const key = `search|${platform}|${p.keyword ?? ''}|${p.page ?? 1}|${p.pageSize ?? 20}|${p.sort ?? ''}`;
+    return this.searchCache.wrap(key, async () => {
+      const provider = this.get(platform);
+      if (provider.searchGoodsPage) {
+        const page = await provider.searchGoodsPage(p);
+        return { ...page, list: this.remember(page.list) };
+      }
+      const list = this.remember(await provider.searchGoods(p));
+      return { list, total: list.length, page: p.page ?? 1, hasMore: false };
+    });
   }
 
   /** 带分页信息的榜单。渠道没实现就回落到 recommendGoods / searchGoods */
@@ -185,8 +196,8 @@ export class CpsService implements OnModuleInit {
   }
 
   /**
-   * 商品详情。详情接口没权限或临时抽风时，回落到刚才列表里见过的那一份——
-   * 数据略旧一点，总好过让后台加不进选品池。
+   * 商品详情。先读缓存，6 小时内同一个商品不重复调 API。
+   * 缓存没有才调平台接口，同时把结果存进缓存。
    *
    * 返回 null 表示「商品确实不存在/已下架」；抛异常表示「接口错误，无法确认」。
    * 调用方（如 refreshOne）需要区分这两种情况：前者可以下架，后者应该保留。
@@ -194,24 +205,22 @@ export class CpsService implements OnModuleInit {
   async getGoodsDetail(platform: string, id: string): Promise<UnifiedGoods | null> {
     if (!id) return null;
     const key = `${platform.toUpperCase()}:${id}`;
+
+    // 先查缓存，有就直接返回
+    const cached = this.seenGoods.get(key);
+    if (cached) return cached;
+
     try {
       const g = await this.get(platform).getGoodsDetail(id);
       if (g?.goodsId) {
         this.seenGoods.set(key, g);
         return g;
       }
-      const cached = this.seenGoods.get(key);
-      if (cached) this.logger.warn(`${platform} 详情查不到 ${id}，用列表快照兜底`);
       // 详情接口正常返回了"空"，说明商品真的不存在/下架了
-      // 有缓存就返回缓存（数据旧一点但能用），没有就返回 null
-      return cached ?? null;
+      return null;
     } catch (e: any) {
-      const cached = this.seenGoods.get(key);
-      this.logger.warn(
-        `${platform} 详情 ${id} 失败(${e.message})，${cached ? '用列表快照兜底' : '且无快照可用'}`,
-      );
-      if (cached) return cached;
-      // 接口报错 + 没有缓存 → 把异常抛出去，让上层知道是接口问题不是商品下架
+      this.logger.warn(`${platform} 详情 ${id} 失败: ${e.message}`);
+      // 接口报错 → 把异常抛出去，让上层知道是接口问题不是商品下架
       throw e;
     }
   }

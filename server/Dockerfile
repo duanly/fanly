@@ -16,11 +16,18 @@ COPY package*.json ./
 # 光 npm config set registry 不生效，要把锁文件一起替换
 RUN sed -i "s#https://registry.npmjs.org/#${NPM_REGISTRY}#g" package-lock.json \
   && npm config set registry "${NPM_REGISTRY}" \
-  && npm ci
+  && npm ci --ignore-scripts
+# 生产用 MySQL，better-sqlite3 不需要编译；--ignore-scripts 跳过原生模块编译，
+# 避免国内访问 nodejs.org 超时报错
 COPY . .
-# build = nest build + tsc-alias，后者把 @/ 别名改写成相对路径，
+# 直接用 tsc 构建，绕开 nest CLI 在某些环境下静默不输出的问题
+# build = tsc + tsc-alias，后者把 @/ 别名改写成相对路径，
 # 否则 node 直接跑 dist 会报 Cannot find module '@/entities'
-RUN npm run build
+RUN echo "=== tsc 前 /app 内容 ===" && ls -la /app && echo "=== src 目录 ===" && ls /app/src/ | head -10
+RUN npx tsc -p tsconfig.build.json --listFiles 2>&1 | head -20 || true
+RUN npx tsc -p tsconfig.build.json 2>&1 && echo "=== tsc 成功 ===" || echo "=== tsc 失败 ==="
+RUN npx tsc-alias -p tsconfig.build.json 2>&1 || true
+RUN echo "=== tsc 后 /app 内容 ===" && ls -la /app && echo "=== dist 目录 ===" && ls -la /app/dist 2>&1 || echo "dist 不存在"
 
 # ---- 运行阶段 ----
 # 生产用 MySQL，不装 better-sqlite3，也就不需要任何编译器
