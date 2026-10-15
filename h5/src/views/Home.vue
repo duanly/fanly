@@ -413,8 +413,8 @@ function goAuth(p) {
 
 function onPlatClick(p) {
   if (auth[p.key] === true) {
-    // 已开启 → 跳转到搜索页（后续可加平台筛选）
-    router.push('/search');
+    // 已开启 → 跳转到平台专属货架页
+    router.push(`/category/${p.key}`);
   } else {
     goAuth(p);
   }

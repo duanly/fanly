@@ -8,6 +8,7 @@ import './style.css';
 const routes = [
   { path: '/', component: () => import('./views/Home.vue') },
   { path: '/search', component: () => import('./views/Search.vue') },
+  { path: '/category/:platform', component: () => import('./views/Category.vue') },
   { path: '/group/:key', component: () => import('./views/Group.vue') },
   // 通用专题页：后台每建一个专题就多一个 /topic/xxx，不用改代码也不用发版
   { path: '/topic/:slug', component: () => import('./views/Topic.vue') },
