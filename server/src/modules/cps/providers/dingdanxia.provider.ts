@@ -898,6 +898,7 @@ export class DingdanxiaJdProvider implements CpsProvider {
     };
     this.logger.debug(`京东转链请求: goodsId=${goodsId}, materialId=${materialId}, baseUrl=${this.commonBaseUrl}`);
     const data = await this.call<any>('/jd/url_privilege', reqBody, true);
+    this.logger.debug(`京东转链响应: ${JSON.stringify(data).slice(0, 800)}`);
 
     // 各种可能的返回字段
     const shortUrl = data?.clickURL
