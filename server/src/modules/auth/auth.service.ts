@@ -103,6 +103,9 @@ export class AuthService {
 
     if (user.status !== 1) throw new BadRequestException('账号已被冻结');
 
+    // 老用户可能缺新平台的推广位（比如后来加的 VIP），补上
+    await this.ensurePositions(user.id);
+
     const agent = await this.agentRepo.findOneBy({ userId: user.id });
     const token = await this.jwt.signAsync({
       sub: user.id, mobile: user.mobile, agentId: agent?.id,
