@@ -746,15 +746,18 @@ async function cleanOffShelf() {
 
 async function doDedup() {
   await ElMessageBox.confirm(
-    '按「平台 + 商品ID」去重，保留最新一条，其余删除。已上架状态会合并到保留的那条上。\n\n建议先备份数据库再操作。',
+    '按「平台 + 商品ID + 标题相似度 + 价格相近」去重，保留最新一条，其余删除。已上架状态会合并到保留的那条上。\n\n建议先备份数据库再操作。',
     '一键去重',
     { type: 'warning', confirmButtonText: '开始去重' },
   );
   deduping.value = true;
   try {
     const r = await api.curationDedup();
-    if (r.removed > 0) {
-      ElMessage.success(`去重完成：${r.total} 组重复，移除了 ${r.removed} 件`);
+    const exact = r.totalGroups > 0 ? `精确去重 ${r.totalGroups} 组 / 移除 ${r.removed} 件` : '';
+    const fuzzy = r.fuzzyGroups > 0 ? `模糊去重 ${r.fuzzyGroups} 组 / 移除 ${r.fuzzyRemoved} 件` : '';
+    const msg = [exact, fuzzy].filter(Boolean).join('，');
+    if (msg) {
+      ElMessage.success(`去重完成：${msg}`);
     } else {
       ElMessage.info('没有发现重复商品');
     }

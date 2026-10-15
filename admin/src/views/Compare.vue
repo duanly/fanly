@@ -258,12 +258,12 @@ async function dropMember(group, m) {
 
 async function doAutoMatch() {
   const { value } = await ElMessageBox.prompt(
-    '设置相似度阈值（0-1），越高越严格。默认 0.4，建议先用默认值跑一次看看效果。',
+    '设置相似度阈值（0-1），越高越严格。默认 0.35，建议从低往高调。',
     '自动匹配比价组',
     {
       inputPattern: /^0\.[0-9]+$|^1$/,
-      inputErrorMessage: '请输入 0 到 1 之间的小数，比如 0.4',
-      inputValue: '0.4',
+      inputErrorMessage: '请输入 0 到 1 之间的小数，比如 0.35',
+      inputValue: '0.35',
       confirmButtonText: '开始匹配',
       type: 'info',
     },
@@ -271,7 +271,7 @@ async function doAutoMatch() {
   const threshold = parseFloat(value);
   matching.value = true;
   try {
-    const r = await api.compareAutoMatch({ similarityThreshold: threshold, maxGroups: 50 });
+    const r = await api.compareAutoMatch({ similarityThreshold: threshold, maxGroups: 100 });
     if (r.created > 0) {
       const names = r.groups.map((g, i) => `${i + 1}. ${g.name}（${g.items.map((it) => it.platform).join('/')}）`).join('\n');
       await ElMessageBox.alert(
@@ -280,7 +280,7 @@ async function doAutoMatch() {
         { type: 'success', confirmButtonText: '去看看' },
       );
     } else {
-      ElMessage.info('没有匹配到合适的跨平台同款，试试调低阈值？');
+      ElMessage.info(`没有匹配到合适的跨平台同款（扫描了 ${r.scanned} 件商品），试试调低阈值？`);
     }
     load();
   } finally {

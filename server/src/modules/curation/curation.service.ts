@@ -8,6 +8,73 @@ import { UnifiedGoods } from '../cps/cps.types';
 /** 刷新时每件商品之间的间隔，别把平台接口打限流了 */
 const REFRESH_GAP_MS = 120;
 
+/** 去重/相似度：噪音词，提取关键词时去掉 */
+const DEDUP_NOISE = [
+  '官方旗舰', '旗舰店', '官方', '正品', '包邮', '新款', '爆款', '热销',
+  '推荐', '网红', '同款', '抖音', '快手', '小红书', '淘宝', '京东',
+  '拼多多', '唯品会', '聚划算', '百亿补贴', '限时', '秒杀', '特惠',
+  '促销', '打折', '降价', '清仓', '捡漏', '福利', '赠品', '送礼',
+  '礼物', '学生', '大人', '男款', '女款',
+  '【', '】', '《', '》', '（', '）', '(', ')', '「', '」',
+  '·', '•', '|', '丨', '/', '\\', '-', '_', '—', '～', '~', '，', '。', '、',
+];
+
+/** 去重：提取标题关键词（用于相似度计算） */
+function dedupTokens(title: string): string[] {
+  if (!title) return [];
+  let s = title.toLowerCase();
+  for (const w of DEDUP_NOISE) s = s.split(w.toLowerCase()).join(' ');
+
+  const tokens: string[] = [];
+
+  // 字母数字串（型号）
+  const alnumRe = /[a-zA-Z0-9]+(?:[+\-][a-zA-Z0-9]+)*/g;
+  const alnums = s.match(alnumRe) || [];
+  for (const a of alnums) {
+    if (a.length >= 3 && !/^\d+$/.test(a)) tokens.push(a);
+  }
+
+  // 中文 2~4 字词
+  const chineseRe = /[一-龥]+/g;
+  const parts = s.match(chineseRe) || [];
+  for (const part of parts) {
+    if (part.length < 2) continue;
+    for (let i = 0; i <= part.length - 2; i++) {
+      tokens.push(part.slice(i, i + 2));
+    }
+    if (part.length >= 3) {
+      for (let i = 0; i <= part.length - 3; i++) {
+        tokens.push(part.slice(i, i + 3));
+      }
+    }
+  }
+
+  return [...new Set(tokens.filter((t) => t.length >= 2))];
+}
+
+/** 去重：判断两个商品是不是同一件（标题相似 + 价格相近） */
+function isSameProduct(a: { title: string; price: number | string }, b: { title: string; price: number | string }): boolean {
+  const pa = Number(a.price), pb = Number(b.price);
+  if (!pa || !pb) return false;
+
+  // 价格差在 5% 以内，或者绝对差在 5 块以内（便宜商品价格波动小）
+  const priceDiff = Math.abs(pa - pb);
+  const priceRatio = priceDiff / Math.max(pa, pb);
+  if (priceRatio > 0.08 && priceDiff > 10) return false; // 价格差超过 8% 且绝对差超 10 元，不算同款
+
+  const t1 = dedupTokens(a.title);
+  const t2 = dedupTokens(b.title);
+  if (t1.length < 3 || t2.length < 3) return false; // 关键词太少不可靠
+
+  const s1 = new Set(t1);
+  const s2 = new Set(t2);
+  const inter = new Set([...s1].filter((x) => s2.has(x)));
+  const union = new Set([...s1, ...s2]);
+  const sim = inter.size / union.size;
+
+  return sim >= 0.5; // 相似度 >= 50% 算同款
+}
+
 function statusName(s: number) {
   return { 0: 'OFF', 1: 'ON', 2: 'EXPIRED', 3: 'PENDING' }[s] || String(s);
 }
@@ -125,18 +192,30 @@ export class CurationService {
     // 1. 精确去重：platform + goodsId
     let exist = await this.repo.findOneBy({ platform: g.platform, goodsId: g.goodsId });
 
-    // 2. 近似去重：同平台 + 完全相同标题（goodsId 不一样可能是不同推广渠道的同一件商品）
-    //    只在精确查不到时才做，避免每个新增都多打一次 SQL
-    if (!exist && g.title?.length >= 10) {
-      const dupByTitle = await this.repo.findOne({
-        where: { platform: g.platform, title: g.title },
-        order: { id: 'DESC' },
-      });
-      if (dupByTitle) {
-        this.logger.log(
-          `近似去重命中 [${g.platform}]: 新 goodsId=${g.goodsId} 与已有 id=${dupByTitle.id} goodsId=${dupByTitle.goodsId} 标题相同`,
-        );
-        exist = dupByTitle;
+    // 2. 模糊去重：同平台 + 标题相似 + 价格相近（不同 goodsId 可能是不同推广渠道的同一件商品）
+    if (!exist && g.title?.length >= 10 && g.couponPrice > 0) {
+      // 先按前缀缩小范围（减少比较量），再逐个算相似度
+      const prefix = g.title.slice(0, 4);
+      const candidates = await this.repo
+        .createQueryBuilder('c')
+        .where('c.platform = :platform', { platform: g.platform })
+        .andWhere('c.title LIKE :prefix', { prefix: `${prefix}%` })
+        .andWhere('c.couponPrice BETWEEN :low AND :high', {
+          low: g.couponPrice * 0.85,
+          high: g.couponPrice * 1.15,
+        })
+        .select(['c.id', 'c.title', 'c.couponPrice', 'c.status', 'c.goodsId'])
+        .limit(20)
+        .getMany();
+
+      for (const c of candidates) {
+        if (isSameProduct({ title: g.title, price: g.couponPrice }, { title: c.title, price: c.couponPrice })) {
+          this.logger.log(
+            `模糊去重命中 [${g.platform}]: 新 ${g.goodsId} 与已有 id=${c.id} ${c.goodsId} 标题相似+价格相近`,
+          );
+          exist = c;
+          break;
+        }
       }
     }
 
@@ -250,17 +329,21 @@ export class CurationService {
       : [];
     const existMap = new Map(existRows.map((r) => [`${r.platform}:${r.goodsId}`, r]));
 
-    // 近似去重：本批次内标题相同的只留一件（不同 goodsId 但标题一样=同一件商品）
-    const seenTitles = new Set<string>();
+    // 批次内模糊去重：标题相似 + 价格相近的只留一件
     const dedupedCandidates: UnifiedGoods[] = [];
     for (const g of validCandidates) {
-      if (!g.title || g.title.length < 10) {
-        dedupedCandidates.push(g); // 标题太短的不靠标题去重，按 goodsId 来
+      if (!g.title || g.title.length < 10 || !g.couponPrice) {
+        dedupedCandidates.push(g); // 标题太短或没价格的，直接保留，靠 goodsId 去重
         continue;
       }
-      if (seenTitles.has(g.title)) continue;
-      seenTitles.add(g.title);
-      dedupedCandidates.push(g);
+      let dup = false;
+      for (const kept of dedupedCandidates) {
+        if (kept.title && kept.couponPrice && isSameProduct(g, kept)) {
+          dup = true;
+          break;
+        }
+      }
+      if (!dup) dedupedCandidates.push(g);
     }
     const intraBatchDedup = validCandidates.length - dedupedCandidates.length;
 
@@ -272,20 +355,12 @@ export class CurationService {
     }> = [];
     let skippedExisting = 0;
 
-    // 标题近似去重：收集所有要插入的标题，查一下库里有没有相同标题的
-    const insertTitles: string[] = [];
-    const insertTitleIdx: number[] = [];
-
     for (let i = 0; i < dedupedCandidates.length; i++) {
       const g = dedupedCandidates[i];
       const exist = existMap.get(`${platform}:${g.goodsId}`);
       const snap = this.snapshot(g);
       if (!exist) {
-        // 全新的，先暂存，后面统一做标题近似查重
-        if (g.title && g.title.length >= 10) {
-          insertTitles.push(g.title);
-          insertTitleIdx.push(toInsert.length);
-        }
+        // 全新的，先暂存，后面统一做模糊查重
         toInsert.push({
           platform,
           goodsId: g.goodsId,
@@ -311,46 +386,74 @@ export class CurationService {
       }
     }
 
-    // 标题近似去重：对要插入的新商品，查库里有没有同平台同标题的
+    // 模糊去重：检查要插入的新商品里有没有和库里已有的「标题相似+价格相近」
+    // 策略：先按价格范围缩小候选，再逐个算相似度
     let titleDupCount = 0;
-    if (insertTitles.length) {
-      const titleDupRows = await this.repo
-        .createQueryBuilder('c')
-        .where('c.platform = :platform', { platform })
-        .andWhere('c.title IN (:...titles)', { titles: insertTitles })
-        .select(['c.id', 'c.title', 'c.status'])
-        .getMany();
-      const titleDupMap = new Map(titleDupRows.map((r) => [r.title, r]));
-
-      // 从后往前删，索引不会乱
+    if (toInsert.length) {
       const toRemoveIdx = new Set<number>();
-      for (let i = 0; i < insertTitles.length; i++) {
-        const dup = titleDupMap.get(insertTitles[i]);
-        if (dup) {
-          toRemoveIdx.add(insertTitleIdx[i]);
-          titleDupCount++;
-          // 如果库里那条是 PENDING 状态，顺便刷新一下
-          if (dup.status === CuratedStatus.PENDING) {
-            const orig = toInsert[insertTitleIdx[i]];
-            toUpdatePending.push({
-              id: dup.id,
-              title: orig.title,
-              image: orig.image,
-              images: orig.images,
-              shopName: orig.shopName,
-              price: orig.price,
-              couponPrice: orig.couponPrice,
-              couponAmount: orig.couponAmount,
-              commissionRate: orig.commissionRate,
-              commission: orig.commission,
-              salesVolume: orig.salesVolume,
-              groupKey,
-              sortWeight,
-              lastSyncAt: new Date(),
-            });
+
+      // 分批查价格范围内的已有商品（防止 toInsert 太多）
+      const CHECK_BATCH = 50;
+      for (let i = 0; i < toInsert.length; i += CHECK_BATCH) {
+        const batch = toInsert.slice(i, i + CHECK_BATCH);
+        if (!batch.length) continue;
+
+        // 计算这批商品的价格范围
+        const prices = batch.map((b) => Number(b.couponPrice)).filter((p) => p > 0);
+        if (!prices.length) continue;
+        const minPrice = Math.min(...prices) * 0.85;
+        const maxPrice = Math.max(...prices) * 1.15;
+
+        // 拉取同价格范围内的所有已有商品（用来做相似度比较）
+        const poolRows = await this.repo
+          .createQueryBuilder('c')
+          .where('c.platform = :platform', { platform })
+          .andWhere('c.couponPrice BETWEEN :minP AND :maxP', { minP: minPrice, maxP: maxPrice })
+          .select(['c.id', 'c.title', 'c.couponPrice', 'c.status'])
+          .getMany();
+
+        if (!poolRows.length) continue;
+
+        // 逐个比较
+        for (let j = 0; j < batch.length; j++) {
+          const idx = i + j;
+          const item = batch[j];
+          if (!item.title || item.title.length < 10) continue;
+          if (!item.couponPrice) continue;
+
+          for (const pool of poolRows) {
+            if (!pool.title) continue;
+            if (isSameProduct(
+              { title: item.title, price: item.couponPrice },
+              { title: pool.title, price: pool.couponPrice },
+            )) {
+              toRemoveIdx.add(idx);
+              titleDupCount++;
+              // PENDING 的刷新一下
+              if (pool.status === CuratedStatus.PENDING) {
+                toUpdatePending.push({
+                  id: pool.id,
+                  title: item.title,
+                  image: item.image,
+                  images: item.images,
+                  shopName: item.shopName,
+                  price: item.price,
+                  couponPrice: item.couponPrice,
+                  couponAmount: item.couponAmount,
+                  commissionRate: item.commissionRate,
+                  commission: item.commission,
+                  salesVolume: item.salesVolume,
+                  groupKey,
+                  sortWeight,
+                  lastSyncAt: new Date(),
+                });
+              }
+              break;
+            }
           }
         }
       }
+
       if (toRemoveIdx.size) {
         const filtered = toInsert.filter((_, idx) => !toRemoveIdx.has(idx));
         toInsert.length = 0;
@@ -660,16 +763,80 @@ export class CurationService {
   }
 
   /**
-   * 一键去重：按 platform + goodsId 精确去重。
-   * 每组重复项里保留 id 最大（最新入库）的那条，其余删掉。
+   * 一键去重：
+   *  1. 精确去重：platform + goodsId 完全相同
+   *  2. 模糊去重：同平台、标题相似、价格相近（不同渠道的同款商品）
    *
-   * 为什么留最新的：最新的那条快照也是最新的，价格佣金更准。
-   * 如果最新那条是下架状态、旧的是上架，会把上架状态合并过来——
-   * 不能因为重复了就把正在卖的商品搞没了。
+   * 每组重复项里保留 id 最大（最新入库）的那条，其余删掉。
+   * 如果保留的那条状态不如旧的，会把更好的状态和权重合并过来——
+   * 不能因为去重就把正在卖的商品搞没了。
    */
-  async dedup(): Promise<{ total: number; removed: number }> {
-    // 先查出所有重复组
-    const dupGroups = await this.repo
+  async dedup(): Promise<{ totalGroups: number; removed: number; fuzzyGroups: number; fuzzyRemoved: number }> {
+    let totalGroups = 0;
+    let removed = 0;
+    let fuzzyGroups = 0;
+    let fuzzyRemoved = 0;
+
+    const statusRank = (s: number) => {
+      if (s === CuratedStatus.ON) return 4;
+      if (s === CuratedStatus.PENDING) return 3;
+      if (s === CuratedStatus.EXPIRED) return 2;
+      return 1; // OFF
+    };
+
+    const mergeAndRemove = async (groups: number[][]) => {
+      const toRemove: number[] = [];
+      const toPromote: Array<{ id: number; status: number; sortWeight: number }> = [];
+
+      for (const ids of groups) {
+        if (ids.length < 2) continue;
+        // 降序：id 大的在前（新的在前）
+        const sorted = ids.sort((a, b) => b - a);
+        const keepId = sorted[0];
+        const restIds = sorted.slice(1);
+
+        const allRows = await this.repo.find({
+          where: sorted.map((id) => ({ id })),
+          select: ['id', 'status', 'sortWeight', 'recommendScore', 'compareGroupId'],
+        });
+        const keepRow = allRows.find((r) => r.id === keepId);
+        if (!keepRow) continue;
+
+        const bestRow = allRows.reduce((best, r) =>
+          statusRank(r.status) > statusRank(best.status) ? r : best,
+        );
+
+        if (bestRow.id !== keepId && statusRank(bestRow.status) > statusRank(keepRow.status)) {
+          toPromote.push({
+            id: keepId,
+            status: bestRow.status,
+            sortWeight: Math.max(keepRow.sortWeight, bestRow.sortWeight),
+          });
+        }
+
+        // 如果有商品在比价组里，把比价组 id 移到保留的那条上
+        const compareMember = allRows.find((r) => r.compareGroupId && r.id !== keepId);
+        if (compareMember?.compareGroupId && !keepRow.compareGroupId) {
+          await this.repo.update(keepId, { compareGroupId: compareMember.compareGroupId })
+            .catch(() => {}); // 失败就算了，不是关键路径
+        }
+
+        toRemove.push(...restIds);
+      }
+
+      if (toRemove.length) {
+        await this.relRepo.delete({ curatedId: In(toRemove) });
+        await this.repo.delete({ id: In(toRemove) });
+      }
+      for (const p of toPromote) {
+        await this.repo.update(p.id, { status: p.status, sortWeight: p.sortWeight });
+      }
+
+      return toRemove.length;
+    };
+
+    // ── 第一轮：精确去重（goodsId 相同）──
+    const exactDupGroups = await this.repo
       .createQueryBuilder('c')
       .select('c.platform', 'platform')
       .addSelect('c.goodsId', 'goodsId')
@@ -679,62 +846,84 @@ export class CurationService {
       .having('COUNT(*) > 1')
       .getRawMany();
 
-    if (!dupGroups.length) return { total: 0, removed: 0 };
+    if (exactDupGroups.length) {
+      const groups = exactDupGroups.map((g) => String(g.ids).split(',').map(Number));
+      const n = await mergeAndRemove(groups);
+      totalGroups = exactDupGroups.length;
+      removed = n;
+    }
 
-    let total = 0;
-    const toRemove: number[] = [];
-    const toPromote: Array<{ id: number; status: number; sortWeight: number }> = [];
+    // ── 第二轮：模糊去重（标题相似 + 价格相近）──
+    // 按平台分批处理
+    const platforms = await this.repo
+      .createQueryBuilder('c')
+      .select('c.platform', 'platform')
+      .addSelect('COUNT(*)', 'cnt')
+      .groupBy('c.platform')
+      .getRawMany();
 
-    for (const g of dupGroups) {
-      const ids = String(g.ids).split(',').map(Number).sort((a, b) => b - a); // 降序，大的在前=新的在前
-      total += ids.length - 1;
+    for (const pf of platforms) {
+      const platform = pf.platform;
+      const all = await this.repo.find({
+        where: { platform },
+        select: ['id', 'title', 'couponPrice', 'status', 'sortWeight', 'compareGroupId'],
+        order: { id: 'DESC' },
+      });
+      if (all.length < 2) continue;
 
-      // 留最新的（id 最大）那条
-      const keepId = ids[0];
-      const restIds = ids.slice(1);
-
-      // 在要删的里面找有没有状态更好的（比如 ON > PENDING > EXPIRED > OFF）
-      const statusRank = (s: number) => {
-        if (s === CuratedStatus.ON) return 4;
-        if (s === CuratedStatus.PENDING) return 3;
-        if (s === CuratedStatus.EXPIRED) return 2;
-        return 1; // OFF
+      // 并查集聚类
+      const n = all.length;
+      const parent = new Array(n).fill(0).map((_, i) => i);
+      const find = (x: number): number => {
+        while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+        return x;
+      };
+      const union = (a: number, b: number) => {
+        const ra = find(a), rb = find(b);
+        if (ra !== rb) parent[ra] = rb;
       };
 
-      const allRows = await this.repo.find({
-        where: ids.map((id) => ({ id })),
-        select: ['id', 'status', 'sortWeight', 'recommendScore', 'compareGroupId'],
-      });
-      const keepRow = allRows.find((r) => r.id === keepId)!;
-      const bestRow = allRows.reduce((best, r) =>
-        statusRank(r.status) > statusRank(best.status) ? r : best,
-      );
+      // O(n^2)，几千件以内没问题
+      for (let i = 0; i < n; i++) {
+        if (!all[i].title || all[i].title.length < 10) continue;
+        if (!all[i].couponPrice) continue;
+        for (let j = i + 1; j < n; j++) {
+          if (!all[j].title || !all[j].couponPrice) continue;
+          // 价格差太远直接跳过，省得算相似度
+          const pa = Number(all[i].couponPrice), pb = Number(all[j].couponPrice);
+          if (Math.abs(pa - pb) / Math.max(pa, pb) > 0.15) continue;
+          if (Math.abs(pa - pb) > 20) continue;
 
-      // 如果保留的那条状态不如旧的，把状态和权重合并过来
-      if (bestRow.id !== keepId && statusRank(bestRow.status) > statusRank(keepRow.status)) {
-        toPromote.push({
-          id: keepId,
-          status: bestRow.status,
-          sortWeight: Math.max(keepRow.sortWeight, bestRow.sortWeight),
-        });
+          if (isSameProduct(
+            { title: all[i].title!, price: all[i].couponPrice },
+            { title: all[j].title!, price: all[j].couponPrice },
+          )) {
+            union(i, j);
+          }
+        }
       }
 
-      toRemove.push(...restIds);
+      // 收集重复组
+      const clusters = new Map<number, number[]>();
+      for (let i = 0; i < n; i++) {
+        const root = find(i);
+        if (!clusters.has(root)) clusters.set(root, []);
+        clusters.get(root)!.push(all[i].id);
+      }
+
+      const dupClusters = [...clusters.values()].filter((ids) => ids.length >= 2);
+      if (dupClusters.length) {
+        const nRemoved = await mergeAndRemove(dupClusters);
+        fuzzyGroups += dupClusters.length;
+        fuzzyRemoved += nRemoved;
+      }
     }
 
-    // 先删关联
-    if (toRemove.length) {
-      await this.relRepo.delete({ curatedId: In(toRemove) });
-      await this.repo.delete({ id: In(toRemove) });
-    }
+    this.logger.log(
+      `一键去重完成：精确去重 ${totalGroups} 组/移除 ${removed} 件，模糊去重 ${fuzzyGroups} 组/移除 ${fuzzyRemoved} 件`,
+    );
 
-    // 再合并状态
-    for (const p of toPromote) {
-      await this.repo.update(p.id, { status: p.status, sortWeight: p.sortWeight });
-    }
-
-    this.logger.log(`去重完成：共 ${dupGroups.length} 组重复，移除 ${toRemove.length} 件，合并状态 ${toPromote.length} 件`);
-    return { total: dupGroups.length, removed: toRemove.length };
+    return { totalGroups, removed, fuzzyGroups, fuzzyRemoved };
   }
 
   /** 刷单件：查不到或佣金归零就自动下架 */

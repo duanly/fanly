@@ -231,77 +231,131 @@ export class CompareService {
     '推荐', '网红', '同款', '抖音', '快手', '小红书', '淘宝', '京东',
     '拼多多', '唯品会', '聚划算', '百亿补贴', '限时', '秒杀', '特惠',
     '促销', '打折', '降价', '清仓', '捡漏', '福利', '赠品', '送礼',
-    '礼物', '男', '女', '学生', '大人', '儿童', '婴儿', '宝宝',
+    '礼物', '学生', '大人',
     '【', '】', '《', '》', '（', '）', '(', ')', '「', '」',
-    '·', '•', '|', '丨', '/', '\\', '-', '_', '—',
+    '·', '•', '|', '丨', '/', '\\', '-', '_', '—', '～', '~', '，', '。',
   ];
+
+  /**
+   * 常见品牌词（匹配到的话权重加倍）。
+   * 有共同品牌 + 共同型号/核心词的，基本就是同款。
+   */
+  private readonly BRAND_WORDS = new Set([
+    // 数码
+    '苹果', '华为', '小米', '荣耀', 'oppo', 'vivo', '三星', '魅族', '一加',
+    '联想', '戴尔', '惠普', '华硕', '宏碁', '微软',
+    // 家电
+    '美的', '格力', '海尔', '小米', '九阳', '苏泊尔', '飞利浦', '松下', '博世',
+    '西门子', '容声', '美菱', 'tcl', '创维', '康佳', '长虹',
+    // 美妆
+    '兰蔻', '雅诗兰黛', '资生堂', '欧莱雅', '玉兰油', '珀莱雅', '自然堂',
+    '完美日记', '花西子', 'colorkey', 'mac', '迪奥', '香奈儿', '圣罗兰',
+    // 食品
+    '三只松鼠', '良品铺子', '百草味', '卫龙', '旺旺', '统一', '康师傅',
+    '农夫山泉', '伊利', '蒙牛', '雀巢',
+    // 服饰运动
+    '耐克', '阿迪达斯', '李宁', '安踏', '优衣库', 'zara', 'hm',
+    // 母婴
+    '飞鹤', '伊利金领冠', '君乐宝', '惠氏', '美赞臣', '爱他美', 'a2',
+    '帮宝适', '好奇', '花王',
+    // 家居日用
+    '洁柔', '维达', '清风', '舒肤佳', '蓝月亮', '立白', '超能',
+  ]);
 
   /**
    * 从标题里提取关键词（粗粒度分词 + 去噪）。
    * 不做精确分词，只要能识别出「品牌+型号+核心属性」就行。
    */
-  private extractKeywords(title: string): string[] {
-    if (!title) return [];
-    let s = title;
+  private extractKeywords(title: string): { tokens: string[]; brands: string[]; models: string[] } {
+    if (!title) return { tokens: [], brands: [], models: [] };
+    let s = title.toLowerCase();
 
     // 去掉噪音词
     for (const w of this.NOISE_WORDS) {
-      s = s.split(w).join(' ');
+      s = s.split(w.toLowerCase()).join(' ');
     }
 
-    // 提取：字母数字混合串（型号/规格）、2 字以上中文词
     const tokens: string[] = [];
+    const brands: string[] = [];
+    const models: string[] = [];
 
     // 型号/规格：字母数字混合，至少 3 个字符
     const alnumRe = /[a-zA-Z0-9]+(?:[+\-][a-zA-Z0-9]+)*/g;
     const alnums = s.match(alnumRe) || [];
     for (const a of alnums) {
-      if (a.length >= 3 && !/^\d+$/.test(a)) { // 纯数字的不算（可能是价格、年份）
-        tokens.push(a.toLowerCase());
+      if (a.length >= 3 && !/^\d+$/.test(a)) {
+        tokens.push(a);
+        models.push(a);
       }
     }
 
-    // 中文：按 2-4 字切，简单粗暴但够用
+    // 中文：提取 2~6 字的词
     const chineseRe = /[一-龥]+/g;
     const chineseParts = s.match(chineseRe) || [];
     for (const part of chineseParts) {
-      if (part.length >= 2) {
-        // 整个短语作为一个关键词
-        tokens.push(part);
-        // 也切 2 字词，增加匹配命中
-        for (let i = 0; i <= part.length - 2; i++) {
-          const w = part.slice(i, i + 2);
-          if (w.length === 2) tokens.push(w);
+      if (part.length < 2) continue;
+      // 整个短语
+      if (part.length <= 8) tokens.push(part);
+      // 切 2 字词
+      for (let i = 0; i <= part.length - 2; i++) {
+        const w = part.slice(i, i + 2);
+        if (w.length === 2) tokens.push(w);
+      }
+      // 3 字词（更有辨识度）
+      for (let i = 0; i <= part.length - 3; i++) {
+        const w = part.slice(i, i + 3);
+        tokens.push(w);
+      }
+      // 识别品牌词
+      for (const brand of this.BRAND_WORDS) {
+        if (part.includes(brand)) {
+          brands.push(brand);
+          tokens.push(brand);
         }
       }
     }
 
-    // 去重 + 过滤太短的
-    return [...new Set(tokens.filter((t) => t.length >= 2))];
+    return {
+      tokens: [...new Set(tokens.filter((t) => t.length >= 2))],
+      brands: [...new Set(brands)],
+      models: [...new Set(models)],
+    };
   }
 
   /**
-   * 计算两个标题的相似度（Jaccard 系数：交集/并集）。
-   * 型号关键词权重更高——型号对了基本就是同款。
+   * 计算两个标题的相似度。
+   * 加权策略：
+   * - 基础：Jaccard 系数
+   * - 品牌词加分：有共同品牌 +0.15
+   * - 型号词加分：有共同型号（字母数字串）+0.2/个
+   * - 长词加分：共同的 4 字以上词更有辨识度
    */
   private titleSimilarity(t1: string, t2: string): number {
     if (!t1 || !t2) return 0;
     const k1 = this.extractKeywords(t1);
     const k2 = this.extractKeywords(t2);
-    if (!k1.length || !k2.length) return 0;
+    if (!k1.tokens.length || !k2.tokens.length) return 0;
 
-    const set1 = new Set(k1);
-    const set2 = new Set(k2);
+    const set1 = new Set(k1.tokens);
+    const set2 = new Set(k2.tokens);
     const intersection = new Set([...set1].filter((x) => set2.has(x)));
     const union = new Set([...set1, ...set2]);
 
-    // 型号词加权：有共同字母数字串的加分
-    const alnumRe = /[a-zA-Z0-9]/;
-    const modelIntersection = [...intersection].filter((w) => alnumRe.test(w[0]));
-    const modelBoost = modelIntersection.length * 0.1; // 每个共同型号词加 10%
+    let score = intersection.size / union.size;
 
-    const base = intersection.size / union.size;
-    return Math.min(1, base + modelBoost);
+    // 共同品牌加分
+    const commonBrands = k1.brands.filter((b) => k2.brands.includes(b));
+    if (commonBrands.length > 0) score += 0.15;
+
+    // 共同型号加分（字母数字串，对识别同款特别有用）
+    const commonModels = k1.models.filter((m) => k2.models.includes(m));
+    score += commonModels.length * 0.2;
+
+    // 长词加分：4 字以上的共同词更有辨识度
+    const longCommon = [...intersection].filter((t) => t.length >= 4);
+    score += longCommon.length * 0.05;
+
+    return Math.min(1, score);
   }
 
   /**
@@ -327,9 +381,9 @@ export class CompareService {
     skipped: number;
     groups: Array<{ name: string; items: Array<{ platform: string; title: string; curatedId: number }> }>;
   }> {
-    const threshold = opts.similarityThreshold ?? 0.4;
-    const maxGroups = opts.maxGroups ?? 50;
-    const onlyNew = opts.onlyNew ?? true;
+    const threshold = opts.similarityThreshold ?? 0.35;
+    const maxGroups = opts.maxGroups ?? 100;
+    const onlyNew = opts.onlyNew ?? false;
 
     // 拉取上架商品
     const where: any = { status: CuratedStatus.ON };
