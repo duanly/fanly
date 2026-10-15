@@ -123,6 +123,9 @@
             <el-button :loading="cleaningOld" @click="cleanOffShelf">
               清理历史下架
             </el-button>
+            <el-button type="warning" :loading="deduping" @click="doDedup">
+              一键去重
+            </el-button>
 
             <el-divider direction="vertical" />
             <el-button type="primary" :disabled="!poolSelected.length" @click="openBatchTag">
@@ -616,6 +619,7 @@ const loading = ref(false);
 const removingOff = ref(false);
 const cleaningOld = ref(false);
 const refreshing = ref(false);
+const deduping = ref(false);
 
 const q = reactive({
   topicId: null,
@@ -737,6 +741,26 @@ async function cleanOffShelf() {
     loadPool();
   } finally {
     cleaningOld.value = false;
+  }
+}
+
+async function doDedup() {
+  await ElMessageBox.confirm(
+    '按「平台 + 商品ID」去重，保留最新一条，其余删除。已上架状态会合并到保留的那条上。\n\n建议先备份数据库再操作。',
+    '一键去重',
+    { type: 'warning', confirmButtonText: '开始去重' },
+  );
+  deduping.value = true;
+  try {
+    const r = await api.curationDedup();
+    if (r.removed > 0) {
+      ElMessage.success(`去重完成：${r.total} 组重复，移除了 ${r.removed} 件`);
+    } else {
+      ElMessage.info('没有发现重复商品');
+    }
+    loadPool();
+  } finally {
+    deduping.value = false;
   }
 }
 

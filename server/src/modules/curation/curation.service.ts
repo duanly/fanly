@@ -122,7 +122,24 @@ export class CurationService {
    *   已上架的不能被自动拉品覆盖回待上架。
    */
   private async upsert(g: UnifiedGoods, groupKey: string, sortWeight: number, targetStatus = CuratedStatus.PENDING) {
-    const exist = await this.repo.findOneBy({ platform: g.platform, goodsId: g.goodsId });
+    // 1. 精确去重：platform + goodsId
+    let exist = await this.repo.findOneBy({ platform: g.platform, goodsId: g.goodsId });
+
+    // 2. 近似去重：同平台 + 完全相同标题（goodsId 不一样可能是不同推广渠道的同一件商品）
+    //    只在精确查不到时才做，避免每个新增都多打一次 SQL
+    if (!exist && g.title?.length >= 10) {
+      const dupByTitle = await this.repo.findOne({
+        where: { platform: g.platform, title: g.title },
+        order: { id: 'DESC' },
+      });
+      if (dupByTitle) {
+        this.logger.log(
+          `近似去重命中 [${g.platform}]: 新 goodsId=${g.goodsId} 与已有 id=${dupByTitle.id} goodsId=${dupByTitle.goodsId} 标题相同`,
+        );
+        exist = dupByTitle;
+      }
+    }
+
     // 已在池里（非 PENDING）的不降级；只有 PENDING 状态的会被刷新信息
     const finalStatus = exist && exist.status !== CuratedStatus.PENDING
       ? exist.status
@@ -163,7 +180,7 @@ export class CurationService {
     sortWeight?: number;
     targetStatus?: number;
     topicIds?: number[];
-  }): Promise<{ fetched: number; added: number; skipped: number; errors: number }> {
+  }): Promise<{ fetched: number; added: number; skipped: number; errors: number; intraBatchDedup: number; titleDupCount: number }> {
     const platform = (opts.platform || 'PDD').toUpperCase();
     const target = Math.min(Math.max(opts.count ?? 100, 1), 500);
     const groupKey = opts.groupKey || 'default';
@@ -233,6 +250,20 @@ export class CurationService {
       : [];
     const existMap = new Map(existRows.map((r) => [`${r.platform}:${r.goodsId}`, r]));
 
+    // 近似去重：本批次内标题相同的只留一件（不同 goodsId 但标题一样=同一件商品）
+    const seenTitles = new Set<string>();
+    const dedupedCandidates: UnifiedGoods[] = [];
+    for (const g of validCandidates) {
+      if (!g.title || g.title.length < 10) {
+        dedupedCandidates.push(g); // 标题太短的不靠标题去重，按 goodsId 来
+        continue;
+      }
+      if (seenTitles.has(g.title)) continue;
+      seenTitles.add(g.title);
+      dedupedCandidates.push(g);
+    }
+    const intraBatchDedup = validCandidates.length - dedupedCandidates.length;
+
     const toInsert: Array<{ platform: string; goodsId: string } & ReturnType<CurationService['snapshot']> & {
       groupKey: string; sortWeight: number; status: number; offReason: string; lastSyncAt: Date;
     }> = [];
@@ -241,11 +272,20 @@ export class CurationService {
     }> = [];
     let skippedExisting = 0;
 
-    for (const g of validCandidates) {
+    // 标题近似去重：收集所有要插入的标题，查一下库里有没有相同标题的
+    const insertTitles: string[] = [];
+    const insertTitleIdx: number[] = [];
+
+    for (let i = 0; i < dedupedCandidates.length; i++) {
+      const g = dedupedCandidates[i];
       const exist = existMap.get(`${platform}:${g.goodsId}`);
       const snap = this.snapshot(g);
       if (!exist) {
-        // 全新的，直接插入
+        // 全新的，先暂存，后面统一做标题近似查重
+        if (g.title && g.title.length >= 10) {
+          insertTitles.push(g.title);
+          insertTitleIdx.push(toInsert.length);
+        }
         toInsert.push({
           platform,
           goodsId: g.goodsId,
@@ -268,6 +308,53 @@ export class CurationService {
       } else {
         // 非 PENDING 的跳过（ON/OFF/EXPIRED 都不降级）
         skippedExisting++;
+      }
+    }
+
+    // 标题近似去重：对要插入的新商品，查库里有没有同平台同标题的
+    let titleDupCount = 0;
+    if (insertTitles.length) {
+      const titleDupRows = await this.repo
+        .createQueryBuilder('c')
+        .where('c.platform = :platform', { platform })
+        .andWhere('c.title IN (:...titles)', { titles: insertTitles })
+        .select(['c.id', 'c.title', 'c.status'])
+        .getMany();
+      const titleDupMap = new Map(titleDupRows.map((r) => [r.title, r]));
+
+      // 从后往前删，索引不会乱
+      const toRemoveIdx = new Set<number>();
+      for (let i = 0; i < insertTitles.length; i++) {
+        const dup = titleDupMap.get(insertTitles[i]);
+        if (dup) {
+          toRemoveIdx.add(insertTitleIdx[i]);
+          titleDupCount++;
+          // 如果库里那条是 PENDING 状态，顺便刷新一下
+          if (dup.status === CuratedStatus.PENDING) {
+            const orig = toInsert[insertTitleIdx[i]];
+            toUpdatePending.push({
+              id: dup.id,
+              title: orig.title,
+              image: orig.image,
+              images: orig.images,
+              shopName: orig.shopName,
+              price: orig.price,
+              couponPrice: orig.couponPrice,
+              couponAmount: orig.couponAmount,
+              commissionRate: orig.commissionRate,
+              commission: orig.commission,
+              salesVolume: orig.salesVolume,
+              groupKey,
+              sortWeight,
+              lastSyncAt: new Date(),
+            });
+          }
+        }
+      }
+      if (toRemoveIdx.size) {
+        const filtered = toInsert.filter((_, idx) => !toRemoveIdx.has(idx));
+        toInsert.length = 0;
+        toInsert.push(...filtered);
       }
     }
 
@@ -383,7 +470,14 @@ export class CurationService {
       }
     }
 
-    return { fetched: candidates.length, added, skipped: skipped + skippedExisting, errors };
+    return {
+      fetched: candidates.length,
+      added,
+      skipped: skipped + skippedExisting,
+      errors,
+      intraBatchDedup,
+      titleDupCount,
+    };
   }
 
   /**
@@ -563,6 +657,84 @@ export class CurationService {
     const r = await this.repo.delete({ id: In(ids) });
     this.logger.log(`清理 ${days} 天前下架商品 ${r.affected ?? 0} 件`);
     return { removed: r.affected ?? 0 };
+  }
+
+  /**
+   * 一键去重：按 platform + goodsId 精确去重。
+   * 每组重复项里保留 id 最大（最新入库）的那条，其余删掉。
+   *
+   * 为什么留最新的：最新的那条快照也是最新的，价格佣金更准。
+   * 如果最新那条是下架状态、旧的是上架，会把上架状态合并过来——
+   * 不能因为重复了就把正在卖的商品搞没了。
+   */
+  async dedup(): Promise<{ total: number; removed: number }> {
+    // 先查出所有重复组
+    const dupGroups = await this.repo
+      .createQueryBuilder('c')
+      .select('c.platform', 'platform')
+      .addSelect('c.goodsId', 'goodsId')
+      .addSelect('COUNT(*)', 'cnt')
+      .addSelect('GROUP_CONCAT(c.id ORDER BY c.id DESC)', 'ids')
+      .groupBy('c.platform, c.goodsId')
+      .having('COUNT(*) > 1')
+      .getRawMany();
+
+    if (!dupGroups.length) return { total: 0, removed: 0 };
+
+    let total = 0;
+    const toRemove: number[] = [];
+    const toPromote: Array<{ id: number; status: number; sortWeight: number }> = [];
+
+    for (const g of dupGroups) {
+      const ids = String(g.ids).split(',').map(Number).sort((a, b) => b - a); // 降序，大的在前=新的在前
+      total += ids.length - 1;
+
+      // 留最新的（id 最大）那条
+      const keepId = ids[0];
+      const restIds = ids.slice(1);
+
+      // 在要删的里面找有没有状态更好的（比如 ON > PENDING > EXPIRED > OFF）
+      const statusRank = (s: number) => {
+        if (s === CuratedStatus.ON) return 4;
+        if (s === CuratedStatus.PENDING) return 3;
+        if (s === CuratedStatus.EXPIRED) return 2;
+        return 1; // OFF
+      };
+
+      const allRows = await this.repo.find({
+        where: ids.map((id) => ({ id })),
+        select: ['id', 'status', 'sortWeight', 'recommendScore', 'compareGroupId'],
+      });
+      const keepRow = allRows.find((r) => r.id === keepId)!;
+      const bestRow = allRows.reduce((best, r) =>
+        statusRank(r.status) > statusRank(best.status) ? r : best,
+      );
+
+      // 如果保留的那条状态不如旧的，把状态和权重合并过来
+      if (bestRow.id !== keepId && statusRank(bestRow.status) > statusRank(keepRow.status)) {
+        toPromote.push({
+          id: keepId,
+          status: bestRow.status,
+          sortWeight: Math.max(keepRow.sortWeight, bestRow.sortWeight),
+        });
+      }
+
+      toRemove.push(...restIds);
+    }
+
+    // 先删关联
+    if (toRemove.length) {
+      await this.relRepo.delete({ curatedId: In(toRemove) });
+      await this.repo.delete({ id: In(toRemove) });
+    }
+
+    // 再合并状态
+    for (const p of toPromote) {
+      await this.repo.update(p.id, { status: p.status, sortWeight: p.sortWeight });
+    }
+
+    this.logger.log(`去重完成：共 ${dupGroups.length} 组重复，移除 ${toRemove.length} 件，合并状态 ${toPromote.length} 件`);
+    return { total: dupGroups.length, removed: toRemove.length };
   }
 
   /** 刷单件：查不到或佣金归零就自动下架 */

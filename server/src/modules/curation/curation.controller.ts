@@ -176,6 +176,12 @@ export class CurationController {
     return this.curation.cleanOffShelf(body.days ?? 30);
   }
 
+  @Post('dedup')
+  @ApiOperation({ summary: '一键去重：按 platform + goodsId 合并重复商品，保留最新那条' })
+  dedup() {
+    return this.curation.dedup();
+  }
+
   @Post(':id')
   @ApiOperation({ summary: '改专题 / 权重 / 上下架' })
   update(
