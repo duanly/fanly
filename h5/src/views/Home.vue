@@ -145,7 +145,7 @@
     <!-- 好物推荐 -->
     <div class="sec-head-wrap rank-head">
       <span class="sec-title">好物推荐 👍</span>
-      <span class="sec-more" @click="$router.push('/group/default')">全部 ›</span>
+      <span class="sec-more" @click="$router.push('/category/all')">全部 ›</span>
     </div>
     <div class="section rank-section">
       <van-tabs class="rank-tabs" v-model:active="rankIdx" color="#ff4b3a" line-width="16" @change="resetRank">
@@ -412,12 +412,8 @@ function goAuth(p) {
 }
 
 function onPlatClick(p) {
-  if (auth[p.key] === true) {
-    // 已开启 → 跳转到平台专属货架页
-    router.push(`/category/${p.key}`);
-  } else {
-    goAuth(p);
-  }
+  // 统一跳转到平台专属货架页
+  router.push(`/category/${p.key}`);
 }
 
 function openLink(a) {

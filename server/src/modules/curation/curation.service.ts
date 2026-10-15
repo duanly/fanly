@@ -459,15 +459,29 @@ export class CurationService {
     platform?: string;
     page?: number;
     pageSize?: number;
+    sort?: string;
   }) {
-    const { groupKey = 'default', platform, page = 1, pageSize = 20 } = opts;
+    const { groupKey = 'default', platform, page = 1, pageSize = 20, sort } = opts;
     const where: any = { groupKey, status: CuratedStatus.ON };
     if (platform) where.platform = platform;
     const skip = (page - 1) * pageSize;
     const take = Math.min(pageSize, 100);
+
+    // 排序方式：默认按运营权重，支持按价格 / 佣金 / 销量
+    let order: any = { sortWeight: 'DESC', commission: 'DESC', id: 'DESC' };
+    if (sort === 'price_asc') {
+      order = { couponPrice: 'ASC', id: 'DESC' };
+    } else if (sort === 'price_desc') {
+      order = { couponPrice: 'DESC', id: 'DESC' };
+    } else if (sort === 'commission_desc') {
+      order = { commission: 'DESC', id: 'DESC' };
+    } else if (sort === 'sales_desc') {
+      order = { salesVolume: 'DESC', id: 'DESC' };
+    }
+
     const [rows, total] = await this.repo.findAndCount({
       where,
-      order: { sortWeight: 'DESC', commission: 'DESC', id: 'DESC' },
+      order,
       skip,
       take,
     });

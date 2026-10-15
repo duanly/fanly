@@ -30,11 +30,12 @@
 
 <script setup>
 import { nextTick, onMounted, onUnmounted, ref } from 'vue';
-import { onBeforeRouteLeave } from 'vue-router';
+import { onBeforeRouteLeave, useRoute } from 'vue-router';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
 import { PLATFORMS } from '../utils/platform';
 
+const route = useRoute();
 const STORAGE_KEY = 'search_state';
 
 const platforms = [{ key: 'ALL', name: '全部' }, ...PLATFORMS];
@@ -135,6 +136,18 @@ onBeforeRouteLeave((to, from, next) => {
 });
 
 onMounted(() => {
+  // 如果 URL 带了 platform 参数，先切到对应 tab（会清空历史）
+  const qp = route.query.platform;
+  if (qp) {
+    const idx = platforms.findIndex((p) => p.key === String(qp).toUpperCase());
+    if (idx >= 0) {
+      platformIdx.value = idx;
+      sessionStorage.removeItem(STORAGE_KEY);
+      loading.value = true;
+      load();
+      return;
+    }
+  }
   const restored = tryRestore();
   if (restored) {
     nextTick(() => {

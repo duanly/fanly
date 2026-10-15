@@ -32,7 +32,8 @@
       <div v-if="g.couponAmount > 0" class="price-tip">实际价格以平台结算为准</div>
 
       <div class="foot">
-        <span class="sales">已售 {{ formatSales(g.salesVolume) }}</span>
+        <span v-if="g.salesVolume > 0" class="sales">已售 {{ formatSales(g.salesVolume) }}</span>
+        <span v-else class="sales-placeholder"></span>
         <div
           v-if="showRecommend"
           class="rec-btn"
@@ -266,6 +267,9 @@ async function doRecommend() {
 .sales {
   font-size: 11px;
   color: #999;
+}
+.sales-placeholder {
+  flex: 1;
 }
 .rec-btn {
   font-size: 11px;

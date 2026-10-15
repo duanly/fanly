@@ -101,6 +101,7 @@ export class GoodsController {
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '20',
     @Query('limit') limit?: string,
+    @Query('sort') sort?: string,
     @CurrentUser('sub') userId?: number,
   ) {
     // 兼容老参数 limit
@@ -114,6 +115,7 @@ export class GoodsController {
       platform,
       page: p,
       pageSize: size,
+      sort,
     });
     if (pageData.list.length) {
       return {
