@@ -197,26 +197,30 @@ export class DingdanxiaVipProvider implements CpsProvider {
     const pageSize = Math.min(p.pageSize ?? 30, 100);
     const keyword = p.keyword ?? '';
 
-    // 排序映射：
-    //   sales → 销量
-    //   commission → 佣金
-    //   price → 价格
+    // 排序映射（字段名大写）：
+    //   sales → 没找到对应字段，用 COMMISSION 代替
+    //   commission → COMMISSION（佣金）
+    //   price → PRICE（价格）
     const sortMap: Record<string, string> = {
-      sales: 'sales',
-      commission: 'commission',
-      price: 'price',
+      sales: 'COMMISSION',
+      commission: 'COMMISSION',
+      price: 'PRICE',
     };
-    const sortField = sortMap[p.sort || ''] || '';
-    const sortOrder = p.sort === 'price' ? 'asc' : 'desc';
+    const fieldName = sortMap[p.sort || ''] || '';
+    // 0=正序，1=逆序
+    const order = p.sort === 'price' ? 0 : 1;
+
+    // 唯品回用 offset 分页，不用 page。page=1 时 offset=0
+    const offset = (page - 1) * pageSize;
 
     const json = await this.callRaw('/vip/goodsList', {
       keyword: keyword || undefined,
       // 没有关键词时走频道模式（出单爆款），不然接口会报"频道类型不能为空"
-      channel: keyword ? undefined : 1,
-      page,
+      channelType: keyword ? undefined : 1,
+      offset,
       pageSize,
-      sortField: sortField || undefined,
-      sortOrder: sortField ? sortOrder : undefined,
+      fieldName: fieldName || undefined,
+      order: fieldName ? order : undefined,
     });
 
     const rawList = this.extractList(json.data ?? json);
@@ -225,7 +229,7 @@ export class DingdanxiaVipProvider implements CpsProvider {
     }
     const list = rawList.map((r: any) => this.mapGoods(r));
     const total = Number(json.total ?? json.totalCount ?? json.total_results ?? list.length);
-    const hasMore = list.length >= pageSize;
+    const hasMore = !!json.lastPage === false || list.length >= pageSize;
 
     return { list, total, page, hasMore };
   }
@@ -240,31 +244,32 @@ export class DingdanxiaVipProvider implements CpsProvider {
   async recommendGoodsPage(p: RecommendParams = {}): Promise<GoodsPage> {
     const page = Math.max(p.page ?? 1, 1);
     const pageSize = Math.min(p.pageSize ?? 30, 100);
+    const offset = (page - 1) * pageSize;
 
     // 唯品会 goodsList 没有单独的榜单接口，
-    // 不同 channel 用不同字段排序来模拟：
+    // 用不同排序字段来模拟：
     //   earn → 按佣金倒序（收益榜）
-    //   hot → 按销量倒序（热销榜）
+    //   hot → 按佣金倒序（热销榜，没有销量字段）
     //   cheap → 按价格升序（便宜榜）
-    const channelMap: Record<string, { sortField: string; sortOrder: string }> = {
-      earn: { sortField: 'commission', sortOrder: 'desc' },
-      hot: { sortField: 'sales', sortOrder: 'desc' },
-      cheap: { sortField: 'price', sortOrder: 'asc' },
-      pick: { sortField: 'sales', sortOrder: 'desc' },
+    const channelMap: Record<string, { fieldName: string; order: number }> = {
+      earn: { fieldName: 'COMMISSION', order: 1 },
+      hot: { fieldName: 'COMMISSION', order: 1 },
+      cheap: { fieldName: 'PRICE', order: 0 },
+      pick: { fieldName: 'COMMISSION', order: 1 },
     };
     const cfg = channelMap[p.channel ?? 'hot'] ?? channelMap.hot;
 
     const json = await this.callRaw('/vip/goodsList', {
-      channel: 1, // 出单爆款频道
-      page,
+      channelType: 1, // 出单爆款频道
+      offset,
       pageSize,
-      sortField: cfg.sortField,
-      sortOrder: cfg.sortOrder,
+      fieldName: cfg.fieldName,
+      order: cfg.order,
     });
 
     const list = this.extractList(json.data ?? json).map((r: any) => this.mapGoods(r));
     const total = Number(json.total ?? json.totalCount ?? json.total_results ?? list.length);
-    const hasMore = list.length >= pageSize;
+    const hasMore = !!json.lastPage === false || list.length >= pageSize;
 
     return { list, total, page, hasMore };
   }
