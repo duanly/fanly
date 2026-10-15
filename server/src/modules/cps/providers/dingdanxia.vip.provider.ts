@@ -210,7 +210,9 @@ export class DingdanxiaVipProvider implements CpsProvider {
     const sortOrder = p.sort === 'price' ? 'asc' : 'desc';
 
     const json = await this.callRaw('/vip/goodsList', {
-      keyword,
+      keyword: keyword || undefined,
+      // 没有关键词时走频道模式（出单爆款），不然接口会报"频道类型不能为空"
+      channel: keyword ? undefined : 1,
       page,
       pageSize,
       sortField: sortField || undefined,
@@ -253,6 +255,7 @@ export class DingdanxiaVipProvider implements CpsProvider {
     const cfg = channelMap[p.channel ?? 'hot'] ?? channelMap.hot;
 
     const json = await this.callRaw('/vip/goodsList', {
+      channel: 1, // 出单爆款频道
       page,
       pageSize,
       sortField: cfg.sortField,
