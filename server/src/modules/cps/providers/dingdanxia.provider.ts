@@ -606,7 +606,9 @@ export class DingdanxiaJdProvider implements CpsProvider {
 
   constructor(private readonly opt: DingdanxiaJdOptions) {
     this.baseUrl = opt.baseUrl || DEFAULT_BASE;
-    this.commonBaseUrl = opt.commonBaseUrl || opt.baseUrl || DEFAULT_BASE;
+    // 通用域名：如果没单独配置，就用默认的官方通用域名
+    // （不要用京东专线，部分接口如 url_privilege 专线上没有）
+    this.commonBaseUrl = opt.commonBaseUrl || DEFAULT_BASE;
   }
 
   private async call<T>(path: string, body: Record<string, any>, useCommonBase = false): Promise<T> {
@@ -892,8 +894,7 @@ export class DingdanxiaJdProvider implements CpsProvider {
     const reqBody: Record<string, any> = {
       materialId,
       unionId: this.opt.unionId,
-      positionId: positionId || this.opt.positionId || undefined,
-      sceneId: 2, // 单品转链场景，支持 itemId 和 skuId
+      // 只传必填参数，其他的不传避免干扰
     };
     this.logger.debug(`京东转链请求: goodsId=${goodsId}, materialId=${materialId}, baseUrl=${this.commonBaseUrl}`);
     const data = await this.call<any>('/jd/url_privilege', reqBody, true);
