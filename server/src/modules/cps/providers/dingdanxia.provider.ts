@@ -586,7 +586,10 @@ export interface DingdanxiaJdOptions {
   unionId?: string;
   /** 默认推广位 ID */
   positionId?: string;
+  /** 京东专线域名，搜索/详情等走这个 */
   baseUrl?: string;
+  /** 通用域名，部分接口（如转链）专线上没有，走通用域名 */
+  commonBaseUrl?: string;
 }
 
 /**
@@ -599,22 +602,25 @@ export class DingdanxiaJdProvider implements CpsProvider {
   readonly platform = 'JD';
   private readonly logger = new Logger(DingdanxiaJdProvider.name);
   private readonly baseUrl: string;
+  private readonly commonBaseUrl: string;
 
   constructor(private readonly opt: DingdanxiaJdOptions) {
     this.baseUrl = opt.baseUrl || DEFAULT_BASE;
+    this.commonBaseUrl = opt.commonBaseUrl || opt.baseUrl || DEFAULT_BASE;
   }
 
-  private async call<T>(path: string, body: Record<string, any>): Promise<T> {
-    const json = await this.callRaw(path, body);
+  private async call<T>(path: string, body: Record<string, any>, useCommonBase = false): Promise<T> {
+    const json = await this.callRaw(path, body, useCommonBase);
     return (json.data ?? json.result ?? json) as T;
   }
 
   /** 返回完整响应（含 code/msg/total_results 等外层字段），分页时需要读 total */
-  private async callRaw(path: string, body: Record<string, any>): Promise<any> {
+  private async callRaw(path: string, body: Record<string, any>, useCommonBase = false): Promise<any> {
     if (!this.opt.apiKey) {
       throw new Error('订单侠未配置：请在 .env 填 DDX_API_KEY');
     }
-    const url = new URL(path, this.baseUrl);
+    const baseUrl = useCommonBase ? this.commonBaseUrl : this.baseUrl;
+    const url = new URL(path, baseUrl);
     const payload = { ...body, apikey: this.opt.apiKey };
     for (const k of Object.keys(payload)) {
       if (payload[k] === undefined || payload[k] === null || payload[k] === '') {
@@ -637,6 +643,7 @@ export class DingdanxiaJdProvider implements CpsProvider {
     if (!res.ok) throw new Error(`订单侠京东 ${path} HTTP ${res.status}`);
     const json: any = await res.json();
     if (json.code !== undefined && json.code !== 200 && json.code !== 0) {
+      this.logger.warn(`京东接口 ${path} 错误: code=${json.code}, msg=${json.msg || json.message || ''}, body=${JSON.stringify(json).slice(0, 500)}`);
       throw new Error(`订单侠京东 ${path}: ${json.code} ${json.msg || json.message || ''}`);
     }
     return json;
@@ -888,8 +895,8 @@ export class DingdanxiaJdProvider implements CpsProvider {
       positionId: positionId || this.opt.positionId || undefined,
       sceneId: 2, // 单品转链场景，支持 itemId 和 skuId
     };
-    this.logger.debug(`京东转链请求: goodsId=${goodsId}, materialId=${materialId}`);
-    const data = await this.call<any>('/jd/url_privilege', reqBody);
+    this.logger.debug(`京东转链请求: goodsId=${goodsId}, materialId=${materialId}, baseUrl=${this.commonBaseUrl}`);
+    const data = await this.call<any>('/jd/url_privilege', reqBody, true);
 
     // 各种可能的返回字段
     const shortUrl = data?.clickURL
