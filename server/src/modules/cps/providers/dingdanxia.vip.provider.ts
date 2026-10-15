@@ -311,43 +311,45 @@ export class DingdanxiaVipProvider implements CpsProvider {
   /**
    * 从转链接口响应里提取可用的链接。
    *
-   * 唯品会跟淘宝/拼多多不一样，没有传统的"短链"概念：
-   *   - vipZfbSchemeUrl：支付宝小程序 scheme（deeplink）
+   * 唯品会 id_privilege / url_privilege 返回的主要字段：
+   *   - url / noEvokeUrl：短链（t.vip.com 域名，浏览器直接打开）
+   *   - longUrl：长链（带重定向参数）
+   *   - deeplinkUrl：唯品会 App deeplink（vipshop://...）
+   *   - vipZfbSchemeUrl：支付宝小程序 scheme
    *   - vipWxUrl：微信小程序页面路径
-   *   - 可能还有 vipH5Url / longUrl 等 H5 链接
-   *
-   * shortUrl 优先用 H5 链接（浏览器里能直接打开），
-   * deeplink 用支付宝 scheme，
-   * 微信小程序路径放 password 字段里暂存（前端判断 platform=VIP 时可以用）。
+   *   - onlyCommand：口令（淘口令那种）
    */
   private extractConvertedLink(data: any, goodsId: string, positionId: string): ConvertedLink | null {
     if (!data) return null;
 
-    const shortUrl = data?.shortUrl
+    // shortUrl：优先用短链（浏览器里能直接打开的 H5 链接）
+    const shortUrl = data?.url
+      ?? data?.noEvokeUrl
+      ?? data?.noEvokeLongUrl
+      ?? data?.shortUrl
       ?? data?.short_url
       ?? data?.clickUrl
       ?? data?.click_url
       ?? data?.promotionUrl
       ?? data?.promotion_url
       ?? data?.vipH5Url
-      ?? data?.vip_h5_url
-      ?? data?.h5Url
       ?? data?.longUrl
-      ?? data?.long_url
       ?? '';
 
-    const deeplink = data?.vipZfbSchemeUrl
-      ?? data?.vip_zfb_scheme_url
-      ?? data?.schemeUrl
-      ?? data?.scheme_url
+    // deeplink：唯品会 App 唤起链接
+    const deeplink = data?.deeplinkUrl
+      ?? data?.deepLink
       ?? data?.deeplink
+      ?? data?.ulUrl
+      ?? data?.vipZfbSchemeUrl
+      ?? data?.schemeUrl
       ?? shortUrl;
 
-    const password = data?.vipWxUrl
-      ?? data?.vip_wx_url
-      ?? data?.wxMiniPath
+    // password/口令：唯品会的 onlyCommand 是口令
+    const password = data?.onlyCommand
       ?? data?.command
       ?? data?.pwd
+      ?? data?.vipWxUrl
       ?? '';
 
     if (!shortUrl && !deeplink) return null;
@@ -367,7 +369,7 @@ export class DingdanxiaVipProvider implements CpsProvider {
 
     // 优先用商品ID版高佣转链
     try {
-      const params = { goodsId, pid: this.opt.pid };
+      const params = { id: goodsId, pid: this.opt.pid };
       this.logger.debug(`唯品会转链(id_privilege)请求参数: ${JSON.stringify(params)}`);
       const data = await this.call<any>('/vip/id_privilege', params);
       this.logger.debug(`唯品会转链(id_privilege)响应: ${JSON.stringify(data).slice(0, 800)}`);
