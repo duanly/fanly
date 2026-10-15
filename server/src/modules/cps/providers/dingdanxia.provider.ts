@@ -877,9 +877,10 @@ export class DingdanxiaJdProvider implements CpsProvider {
     // - 联盟商品ID (itemId，加密字符串) → 要拼成京粉详情页链接
     // - 联盟商品链接 (jingfen.jd.com/detail/{itemId}.html)
     // 纯数字就拼京东商品链接，否则拼京粉详情链接
+    // 注意：不要加 https:// 前缀，订单侠文档示例是不带协议的
     const materialId = /^\d+$/.test(goodsId)
-      ? `https://item.jd.com/${goodsId}.html`
-      : `https://jingfen.jd.com/detail/${goodsId}.html`;
+      ? `item.jd.com/${goodsId}.html`
+      : `jingfen.jd.com/detail/${goodsId}.html`;
 
     const reqBody: Record<string, any> = {
       materialId,
