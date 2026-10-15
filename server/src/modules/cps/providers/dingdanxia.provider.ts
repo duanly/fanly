@@ -901,7 +901,8 @@ export class DingdanxiaJdProvider implements CpsProvider {
     this.logger.debug(`京东转链响应: ${JSON.stringify(data).slice(0, 800)}`);
 
     // 各种可能的返回字段
-    const shortUrl = data?.clickURL
+    const shortUrl = data?.shortURL
+      ?? data?.clickURL
       ?? data?.click_url
       ?? data?.shortUrl
       ?? data?.short_url
