@@ -874,17 +874,18 @@ export class DingdanxiaJdProvider implements CpsProvider {
 
     // url_privilege 接口支持多种 materialId 格式：
     // - 京东商品链接 (item.jd.com/xxx.html)
-    // - 联盟商品ID (itemId，加密字符串)
+    // - 联盟商品ID (itemId，加密字符串) → 要拼成京粉详情页链接
     // - 联盟商品链接 (jingfen.jd.com/detail/{itemId}.html)
-    // 我们传 goodsId 本身，如果是纯数字就拼链接，不是就直接传（itemId）
+    // 纯数字就拼京东商品链接，否则拼京粉详情链接
     const materialId = /^\d+$/.test(goodsId)
       ? `https://item.jd.com/${goodsId}.html`
-      : goodsId;
+      : `https://jingfen.jd.com/detail/${goodsId}.html`;
 
     const reqBody: Record<string, any> = {
       materialId,
       unionId: this.opt.unionId,
       positionId: positionId || this.opt.positionId || undefined,
+      sceneId: 2, // 单品转链场景，支持 itemId 和 skuId
     };
     this.logger.debug(`京东转链请求: goodsId=${goodsId}, materialId=${materialId}`);
     const data = await this.call<any>('/jd/url_privilege', reqBody);
