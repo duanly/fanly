@@ -854,7 +854,11 @@ export class CurationService {
     }
 
     // ── 第二轮：模糊去重（标题相似 + 价格相近）──
-    // 按平台分批处理
+    // 策略：
+    //   1. 按价格升序排
+    //   2. 每件商品只和后面价格差在 15% 以内的比（滑动窗口）
+    //   3. 找到重复就把后面那条合并进前面那条，然后删后面的
+    //   4. 找到一个去一个，不用全部算完再批量删
     const platforms = await this.repo
       .createQueryBuilder('c')
       .select('c.platform', 'platform')
@@ -864,59 +868,102 @@ export class CurationService {
 
     for (const pf of platforms) {
       const platform = pf.platform;
-      const all = await this.repo.find({
+      // 按价格升序排列，这样价格相近的挨在一起，滑动窗口比较
+      const items = await this.repo.find({
         where: { platform },
         select: ['id', 'title', 'couponPrice', 'status', 'sortWeight', 'compareGroupId'],
-        order: { id: 'DESC' },
+        order: { couponPrice: 'ASC', id: 'ASC' },
       });
-      if (all.length < 2) continue;
+      if (items.length < 2) continue;
 
-      // 并查集聚类
-      const n = all.length;
-      const parent = new Array(n).fill(0).map((_, i) => i);
-      const find = (x: number): number => {
-        while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }
-        return x;
-      };
-      const union = (a: number, b: number) => {
-        const ra = find(a), rb = find(b);
-        if (ra !== rb) parent[ra] = rb;
-      };
+      // 已删掉的 id 集合，后续比较直接跳过
+      const removedIds = new Set<number>();
+      // 记录每个组有多少件，用来统计组数
+      const groupMap = new Map<number, number[]>(); // 保留的 id → 组内所有 id
 
-      // O(n^2)，几千件以内没问题
-      for (let i = 0; i < n; i++) {
-        if (!all[i].title || all[i].title.length < 10) continue;
-        if (!all[i].couponPrice) continue;
-        for (let j = i + 1; j < n; j++) {
-          if (!all[j].title || !all[j].couponPrice) continue;
-          // 价格差太远直接跳过，省得算相似度
-          const pa = Number(all[i].couponPrice), pb = Number(all[j].couponPrice);
-          if (Math.abs(pa - pb) / Math.max(pa, pb) > 0.15) continue;
-          if (Math.abs(pa - pb) > 20) continue;
+      for (let i = 0; i < items.length; i++) {
+        if (removedIds.has(items[i].id)) continue;
+        if (!items[i].title || items[i].title.length < 10) continue;
+        if (!items[i].couponPrice) continue;
+
+        const pi = Number(items[i].couponPrice);
+        const maxPrice = pi * 1.15 + 10; // 价格差上限
+
+        // 只和后面、且价格在范围内的比
+        for (let j = i + 1; j < items.length; j++) {
+          if (removedIds.has(items[j].id)) continue;
+          if (!items[j].title || !items[j].couponPrice) continue;
+
+          const pj = Number(items[j].couponPrice);
+          // 按价格排过序了，超了就 break（后面的只会更贵）
+          if (pj > maxPrice) break;
+
+          // 价格差太离谱的跳过（比例 + 绝对值双重判断）
+          const priceRatio = Math.abs(pi - pj) / Math.max(pi, pj);
+          if (priceRatio > 0.15 && Math.abs(pi - pj) > 20) continue;
 
           if (isSameProduct(
-            { title: all[i].title!, price: all[i].couponPrice },
-            { title: all[j].title!, price: all[j].couponPrice },
+            { title: items[i].title!, price: items[i].couponPrice },
+            { title: items[j].title!, price: items[j].couponPrice },
           )) {
-            union(i, j);
+            // 保留状态更好的，状态一样保留 id 小的（前面那条）
+            const keepRank = statusRank(items[i].status);
+            const dupRank = statusRank(items[j].status);
+            let keep = i;
+            let remove = j;
+
+            if (dupRank > keepRank) {
+              // 后面那条状态更好，反过来：保留后面的，删前面的
+              keep = j;
+              remove = i;
+            }
+
+            const keepRow = items[keep];
+            const removeRow = items[remove];
+
+            // 合并比价组关联
+            if (removeRow.compareGroupId && !keepRow.compareGroupId) {
+              await this.repo.update(keepRow.id, { compareGroupId: removeRow.compareGroupId })
+                .catch(() => {});
+              keepRow.compareGroupId = removeRow.compareGroupId;
+            }
+            // 合并权重（取大的）
+            if (removeRow.sortWeight > keepRow.sortWeight) {
+              await this.repo.update(keepRow.id, { sortWeight: removeRow.sortWeight })
+                .catch(() => {});
+              keepRow.sortWeight = removeRow.sortWeight;
+            }
+            // 如果保留的那条状态不如被删的，把状态升上去
+            if (statusRank(removeRow.status) > statusRank(keepRow.status)) {
+              await this.repo.update(keepRow.id, { status: removeRow.status })
+                .catch(() => {});
+              keepRow.status = removeRow.status;
+            }
+
+            // 删标签关联 + 删商品（找到一个去一个）
+            await this.relRepo.delete({ curatedId: removeRow.id }).catch(() => {});
+            await this.repo.delete({ id: removeRow.id }).catch(() => {});
+
+            removedIds.add(removeRow.id);
+            fuzzyRemoved++;
+
+            // 记录组信息
+            if (!groupMap.has(keepRow.id)) {
+              groupMap.set(keepRow.id, [keepRow.id]);
+            }
+            groupMap.get(keepRow.id)!.push(removeRow.id);
+
+            // 如果删掉的是 i（前面那条），i 位置换成保留的那条（就是 j），
+            // 然后继续用新的 i 和后面比
+            if (remove === i) {
+              items[i] = items[keep];
+              // 不 break，继续和后面比
+            }
           }
         }
       }
 
-      // 收集重复组
-      const clusters = new Map<number, number[]>();
-      for (let i = 0; i < n; i++) {
-        const root = find(i);
-        if (!clusters.has(root)) clusters.set(root, []);
-        clusters.get(root)!.push(all[i].id);
-      }
-
-      const dupClusters = [...clusters.values()].filter((ids) => ids.length >= 2);
-      if (dupClusters.length) {
-        const nRemoved = await mergeAndRemove(dupClusters);
-        fuzzyGroups += dupClusters.length;
-        fuzzyRemoved += nRemoved;
-      }
+      fuzzyGroups += groupMap.size;
     }
 
     this.logger.log(
