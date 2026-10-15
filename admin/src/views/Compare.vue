@@ -3,11 +3,14 @@
     <el-card shadow="never">
       <div class="bar">
         <el-button type="primary" @click="openNew">新建比价组</el-button>
+        <el-button type="warning" :loading="matching" @click="doAutoMatch">
+          自动匹配
+        </el-button>
         <el-select v-model="q.groupKey" placeholder="全部品类" clearable style="width:180px" @change="load">
           <el-option v-for="c in CATEGORIES" :key="c.key" :label="`${c.name} (${c.key})`" :value="c.key" />
         </el-select>
         <span class="hint">
-          只做标品。各平台没有共享商品标识，白牌非标品没有「同款」概念，硬凑会误导用户。
+          自动匹配按标题相似度找跨平台同款，生成的组默认下架，确认后再上架。
         </span>
       </div>
 
@@ -160,6 +163,7 @@ import { CATEGORIES, categoryName } from '../constants/groups';
 
 const rows = ref([]);
 const loading = ref(false);
+const matching = ref(false);
 const q = reactive({ groupKey: '' });
 
 const formVisible = ref(false);
@@ -250,6 +254,38 @@ async function dropMember(group, m) {
   await api.compareRemoveMember(group.id, m.curatedId);
   ElMessage.success('已移出');
   load();
+}
+
+async function doAutoMatch() {
+  const { value } = await ElMessageBox.prompt(
+    '设置相似度阈值（0-1），越高越严格。默认 0.4，建议先用默认值跑一次看看效果。',
+    '自动匹配比价组',
+    {
+      inputPattern: /^0\.[0-9]+$|^1$/,
+      inputErrorMessage: '请输入 0 到 1 之间的小数，比如 0.4',
+      inputValue: '0.4',
+      confirmButtonText: '开始匹配',
+      type: 'info',
+    },
+  );
+  const threshold = parseFloat(value);
+  matching.value = true;
+  try {
+    const r = await api.compareAutoMatch({ similarityThreshold: threshold, maxGroups: 50 });
+    if (r.created > 0) {
+      const names = r.groups.map((g, i) => `${i + 1}. ${g.name}（${g.items.map((it) => it.platform).join('/')}）`).join('\n');
+      await ElMessageBox.alert(
+        `匹配到 ${r.created} 组，已创建为下架状态，确认后再上架：\n\n${names}`,
+        '匹配完成',
+        { type: 'success', confirmButtonText: '去看看' },
+      );
+    } else {
+      ElMessage.info('没有匹配到合适的跨平台同款，试试调低阈值？');
+    }
+    load();
+  } finally {
+    matching.value = false;
+  }
 }
 
 onMounted(load);

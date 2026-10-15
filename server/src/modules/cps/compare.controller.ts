@@ -156,4 +156,10 @@ export class CompareAdminController {
   @Delete(':id')
   @ApiOperation({ summary: '删除比价组' })
   remove(@Param('id') id: string) { return this.compare.remove(+id); }
+
+  @Post('auto-match')
+  @ApiOperation({ summary: '自动匹配比价组：按标题相似度从选品池里找出跨平台同款' })
+  autoMatch(@Body() body: { similarityThreshold?: number; maxGroups?: number; onlyNew?: boolean }) {
+    return this.compare.autoMatch(body || {});
+  }
 }

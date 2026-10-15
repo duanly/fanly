@@ -86,6 +86,7 @@ export const api = {
   compareAddMembers: (id, curatedIds) => http.post(`/api/admin/compare/${id}/members`, { curatedIds }),
   compareRemoveMember: (id, curatedId) => http.delete(`/api/admin/compare/${id}/members/${curatedId}`),
   compareRemove: (id) => http.delete(`/api/admin/compare/${id}`),
+  compareAutoMatch: (data) => http.post('/api/admin/compare/auto-match', data),
 
   // 首页运营
   homeLinks: (slot) => http.get('/api/admin/home/links', { params: { slot } }),
