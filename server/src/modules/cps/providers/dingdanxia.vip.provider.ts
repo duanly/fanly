@@ -308,6 +308,60 @@ export class DingdanxiaVipProvider implements CpsProvider {
 
   // ───────────────────────── 转链 ─────────────────────────
 
+  /**
+   * 从转链接口响应里提取可用的链接。
+   *
+   * 唯品会跟淘宝/拼多多不一样，没有传统的"短链"概念：
+   *   - vipZfbSchemeUrl：支付宝小程序 scheme（deeplink）
+   *   - vipWxUrl：微信小程序页面路径
+   *   - 可能还有 vipH5Url / longUrl 等 H5 链接
+   *
+   * shortUrl 优先用 H5 链接（浏览器里能直接打开），
+   * deeplink 用支付宝 scheme，
+   * 微信小程序路径放 password 字段里暂存（前端判断 platform=VIP 时可以用）。
+   */
+  private extractConvertedLink(data: any, goodsId: string, positionId: string): ConvertedLink | null {
+    if (!data) return null;
+
+    const shortUrl = data?.shortUrl
+      ?? data?.short_url
+      ?? data?.clickUrl
+      ?? data?.click_url
+      ?? data?.promotionUrl
+      ?? data?.promotion_url
+      ?? data?.vipH5Url
+      ?? data?.vip_h5_url
+      ?? data?.h5Url
+      ?? data?.longUrl
+      ?? data?.long_url
+      ?? '';
+
+    const deeplink = data?.vipZfbSchemeUrl
+      ?? data?.vip_zfb_scheme_url
+      ?? data?.schemeUrl
+      ?? data?.scheme_url
+      ?? data?.deeplink
+      ?? shortUrl;
+
+    const password = data?.vipWxUrl
+      ?? data?.vip_wx_url
+      ?? data?.wxMiniPath
+      ?? data?.command
+      ?? data?.pwd
+      ?? '';
+
+    if (!shortUrl && !deeplink) return null;
+
+    return {
+      platform: 'VIP',
+      goodsId,
+      shortUrl: shortUrl || deeplink, // 至少有一个能用
+      deeplink,
+      password,
+      positionId: positionId || this.opt.pid || '',
+    };
+  }
+
   async convertLink(goodsId: string, positionId: string): Promise<ConvertedLink> {
     if (!this.opt.pid) throw new Error('订单侠唯品会未配置 PID：请在 .env 填 VIP_PID');
 
@@ -317,32 +371,10 @@ export class DingdanxiaVipProvider implements CpsProvider {
         goodsId,
         pid: this.opt.pid,
       });
-      this.logger.debug(`唯品会转链(id_privilege)响应: ${JSON.stringify(data).slice(0, 500)}`);
+      this.logger.debug(`唯品会转链(id_privilege)响应: ${JSON.stringify(data).slice(0, 800)}`);
 
-      const shortUrl = data?.shortUrl
-        ?? data?.short_url
-        ?? data?.clickUrl
-        ?? data?.click_url
-        ?? data?.promotionUrl
-        ?? data?.promotion_url
-        ?? '';
-      const deeplink = data?.longUrl
-        ?? data?.long_url
-        ?? data?.deeplink
-        ?? data?.schemeUrl
-        ?? shortUrl;
-      const password = data?.command ?? data?.pwd ?? data?.password ?? '';
-
-      if (shortUrl) {
-        return {
-          platform: 'VIP',
-          goodsId,
-          shortUrl,
-          deeplink,
-          password,
-          positionId: positionId || this.opt.pid || '',
-        };
-      }
+      const result = this.extractConvertedLink(data, goodsId, positionId);
+      if (result) return result;
     } catch (e: any) {
       this.logger.warn(`唯品会高佣转链(id_privilege)失败: ${e.message}，回落到 URL 转链`);
     }
@@ -352,27 +384,12 @@ export class DingdanxiaVipProvider implements CpsProvider {
       url: `https://detail.vip.com/detail-${goodsId}.html`,
       pid: this.opt.pid,
     });
-    this.logger.debug(`唯品会转链(url_privilege)响应: ${JSON.stringify(data).slice(0, 500)}`);
+    this.logger.debug(`唯品会转链(url_privilege)响应: ${JSON.stringify(data).slice(0, 800)}`);
 
-    const shortUrl = data?.shortUrl
-      ?? data?.short_url
-      ?? data?.clickUrl
-      ?? data?.click_url
-      ?? data?.promotionUrl
-      ?? '';
-    const deeplink = data?.longUrl ?? data?.long_url ?? data?.deeplink ?? shortUrl;
-    const password = data?.command ?? data?.pwd ?? data?.password ?? '';
+    const result = this.extractConvertedLink(data, goodsId, positionId);
+    if (result) return result;
 
-    if (!shortUrl) throw new Error('订单侠唯品会转链返回为空');
-
-    return {
-      platform: 'VIP',
-      goodsId,
-      shortUrl,
-      deeplink,
-      password,
-      positionId: positionId || this.opt.pid || '',
-    };
+    throw new Error('订单侠唯品会转链返回为空');
   }
 
   // ───────────────────────── 解析（链接/口令） ─────────────────────────
