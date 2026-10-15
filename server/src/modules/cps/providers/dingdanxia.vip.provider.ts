@@ -367,10 +367,9 @@ export class DingdanxiaVipProvider implements CpsProvider {
 
     // 优先用商品ID版高佣转链
     try {
-      const data = await this.call<any>('/vip/id_privilege', {
-        goodsId,
-        pid: this.opt.pid,
-      });
+      const params = { goodsId, pid: this.opt.pid };
+      this.logger.debug(`唯品会转链(id_privilege)请求参数: ${JSON.stringify(params)}`);
+      const data = await this.call<any>('/vip/id_privilege', params);
       this.logger.debug(`唯品会转链(id_privilege)响应: ${JSON.stringify(data).slice(0, 800)}`);
 
       const result = this.extractConvertedLink(data, goodsId, positionId);
@@ -380,10 +379,10 @@ export class DingdanxiaVipProvider implements CpsProvider {
     }
 
     // 兜底：URL 版转链
-    const data = await this.call<any>('/vip/url_privilege', {
-      url: `https://detail.vip.com/detail-${goodsId}.html`,
-      pid: this.opt.pid,
-    });
+    const url = `https://detail.vip.com/detail-${goodsId}.html`;
+    const params = { url, pid: this.opt.pid };
+    this.logger.debug(`唯品会转链(url_privilege)请求参数: ${JSON.stringify(params)}`);
+    const data = await this.call<any>('/vip/url_privilege', params);
     this.logger.debug(`唯品会转链(url_privilege)响应: ${JSON.stringify(data).slice(0, 800)}`);
 
     const result = this.extractConvertedLink(data, goodsId, positionId);
