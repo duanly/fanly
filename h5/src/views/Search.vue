@@ -53,15 +53,21 @@ const page = ref(1);
 const loading = ref(false);
 const finished = ref(false);
 
+// 请求序号：每次 reset 加 1，过期的请求结果直接丢弃，
+// 避免快速切换 tab 时旧请求的结果窜到当前列表里
+let reqSeq = 0;
+
 function reset() {
   list.value = [];
   page.value = 1;
   finished.value = false;
   loading.value = true;
+  reqSeq += 1; // 序号自增，之前的请求结果作废
   load();
 }
 
 async function load() {
+  const seq = reqSeq; // 记下当前请求的序号
   try {
     const r = await api.search({
       platform: platforms[platformIdx.value].key,
@@ -70,14 +76,16 @@ async function load() {
       pageSize: 20,
       sort: sort.value,
     });
+    // 序号变了说明用户切了 tab / 改了排序，这个结果已经过期了，扔掉
+    if (seq !== reqSeq) return;
     const rows = r.list || [];
     list.value.push(...rows);
     page.value += 1;
     if (rows.length < 20 || page.value > 5) finished.value = true;
   } catch {
-    finished.value = true;
+    if (seq === reqSeq) finished.value = true;
   } finally {
-    loading.value = false;
+    if (seq === reqSeq) loading.value = false;
   }
 }
 

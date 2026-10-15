@@ -649,7 +649,21 @@ export class DingdanxiaJdProvider implements CpsProvider {
     // 1. query_jingfen_goods（搜索）：嵌套结构 imageInfo/priceInfo/commissionInfo/couponInfo/shopInfo
     // 2. query_goods_rank（榜单）：扁平 + 部分嵌套 imageUrl/imgList/purchasePriceInfo/couponList
 
-    const skuId = String(raw.skuId ?? raw.sku_id ?? raw.id ?? '');
+    // 商品ID：优先用 skuId（数字，可直接拼 item.jd.com 链接），
+    // 没有的话用 itemId（加密的联盟商品ID，转链时需特殊处理）
+    const skuId = String(
+      raw.skuId
+      ?? raw.sku_id
+      ?? raw.id
+      ?? raw.itemId
+      ?? raw.item_id
+      ?? raw.goodsId
+      ?? raw.goods_id
+      ?? raw.wareId
+      ?? raw.ware_id
+      ?? raw.productId
+      ?? ''
+    );
     const title = raw.skuName ?? raw.sku_name ?? raw.name ?? raw.title ?? '';
 
     // 图片：榜单用 imageUrl + imgList(字符串数组)；搜索用 imageInfo.imageList(对象数组)
@@ -843,7 +857,10 @@ export class DingdanxiaJdProvider implements CpsProvider {
         pageSize: 5,
       });
       const list = this.extractList(data);
-      const hit = list.find((r: any) => String(r.skuId ?? r.id ?? '') === skuId) ?? list[0];
+      const hit = list.find((r: any) => {
+        const rid = String(r.skuId ?? r.itemId ?? r.id ?? '');
+        return rid === skuId;
+      }) ?? list[0];
       return hit ? this.mapGoods(hit) : null;
     } catch {
       return null;
@@ -852,19 +869,25 @@ export class DingdanxiaJdProvider implements CpsProvider {
 
   // ───────────────────────── 转链 ─────────────────────────
 
-  async convertLink(skuId: string, positionId: string): Promise<ConvertedLink> {
+  async convertLink(goodsId: string, positionId: string): Promise<ConvertedLink> {
     if (!this.opt.unionId) throw new Error('订单侠京东未配置 UnionId：请在 .env 填 JD_UNION_ID');
 
+    // url_privilege 接口支持多种 materialId 格式：
+    // - 京东商品链接 (item.jd.com/xxx.html)
+    // - 联盟商品ID (itemId，加密字符串)
+    // - 联盟商品链接 (jingfen.jd.com/detail/{itemId}.html)
+    // 我们传 goodsId 本身，如果是纯数字就拼链接，不是就直接传（itemId）
+    const materialId = /^\d+$/.test(goodsId)
+      ? `https://item.jd.com/${goodsId}.html`
+      : goodsId;
+
     const reqBody: Record<string, any> = {
-      materialId: `https://item.jd.com/${skuId}.html`,
+      materialId,
       unionId: this.opt.unionId,
       positionId: positionId || this.opt.positionId || undefined,
     };
-    this.logger.log(`京东转链请求: skuId=${skuId}, unionId=${this.opt.unionId}, positionId=${positionId}`);
-    const data = await this.call<any>('/jd/by_unionid_promotion', reqBody);
-    this.logger.log(`京东转链响应: ${JSON.stringify(data).slice(0, 500)}`);
-
-    this.logger.debug(`京东转链响应: ${JSON.stringify(data).slice(0, 500)}`);
+    this.logger.debug(`京东转链请求: goodsId=${goodsId}, materialId=${materialId}`);
+    const data = await this.call<any>('/jd/url_privilege', reqBody);
 
     // 各种可能的返回字段
     const shortUrl = data?.clickURL
@@ -881,7 +904,7 @@ export class DingdanxiaJdProvider implements CpsProvider {
 
     return {
       platform: 'JD',
-      goodsId: skuId,
+      goodsId,
       shortUrl,
       deeplink,
       password,
@@ -894,8 +917,16 @@ export class DingdanxiaJdProvider implements CpsProvider {
   async parseContent(text: string): Promise<UnifiedGoods | null> {
     // 京东商品 ID 一般是 7-12 位数字
     const m = text.match(/\b(\d{7,12})\b/);
-    if (!m) return null;
-    return this.getGoodsDetail(m[1]);
+    if (m) return this.getGoodsDetail(m[1]);
+    // 京粉链接里的 itemId：jingfen.jd.com/detail/{itemId}.html
+    const m2 = text.match(/jingfen\.jd\.com\/detail\/([a-zA-Z0-9_-]+)\.html/);
+    if (m2) return this.getGoodsDetail(m2[1]);
+    // 3.cn 短链
+    if (/3\.cn\//.test(text)) {
+      // 短链解析不了，返回 null 让上层走通用逻辑
+      return null;
+    }
+    return null;
   }
 
   // ───────────────────────── 订单 ─────────────────────────
