@@ -55,29 +55,30 @@ export class GoodsController {
   }
 
   @Public() @Get('goods/search')
-  @ApiOperation({ summary: '搜索商品' })
+  @ApiOperation({ summary: '搜索商品（从选品池搜，不实时调平台 API）' })
   async search(
-    @Query('platform') platform = 'PDD',
+    @Query('platform') platform = 'ALL',
     @Query('keyword') keyword?: string,
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '20',
     @Query('sort') sort?: string,
     @CurrentUser('sub') userId?: number,
   ) {
-    // platform=ALL：四家并发查了合并，这是「统一货架」的搜索形态
-    // sort=rebate：多拉几页按佣金金额降序，等价于按到手返利降序，
-    //              比平台自带的「佣金比例」排序靠谱
-    const all = (platform || '').toUpperCase() === 'ALL';
-    const list = all
-      ? await this.cps.searchAll({ keyword, pageSize: +pageSize, sort })
-      : sort === 'rebate'
-        ? await this.cps.searchByRebate(platform, { keyword, pageSize: +pageSize })
-        : await this.cps.searchGoods(platform, {
-            keyword, page: +page, pageSize: +pageSize, sort,
-          });
-    return {
-      list: await this.withCompare(await this.withRebate(list, userId)),
+    // H5 搜索走选品池，不再实时调第三方平台 API。
+    // 好处：响应快、不触发限流、价格跟列表页一致。
+    // 搜不到是正常的——我们是精选模式，不是全量平台搜索。
+    const result = await this.curation.searchPage({
+      keyword,
+      platform,
       page: +page,
+      pageSize: +pageSize,
+      sort,
+    });
+    return {
+      list: await this.withCompare(await this.withRebate(result.list, userId)),
+      page: result.page,
+      total: result.total,
+      hasMore: result.hasMore,
     };
   }
 
@@ -94,7 +95,7 @@ export class GoodsController {
   }
 
   @Public() @Get('goods/feed')
-  @ApiOperation({ summary: '首页 feed：优先选品池，池空时回落平台榜单；不传 platform 则跨平台混排' })
+  @ApiOperation({ summary: '首页 feed：从选品池读，不传 platform 则跨平台混排' })
   async feed(
     @Query('group') group = 'default',
     @Query('platform') platform?: string,
@@ -117,27 +118,13 @@ export class GoodsController {
       pageSize: size,
       sort,
     });
-    if (pageData.list.length) {
-      return {
-        source: 'curated',
-        total: pageData.total,
-        page: pageData.page,
-        pageSize: pageData.pageSize,
-        hasMore: pageData.hasMore,
-        list: await this.withRebate(pageData.list, userId),
-      };
-    }
-    // 池子空的时候只能回落到某一家的榜单，没有跨平台可言，默认拼多多
-    const list = await this.cps.recommendGoods(platform || 'PDD', {
-      channel: 'earn', pageSize: size,
-    });
     return {
-      source: 'recommend',
-      total: list.length,
-      page: 1,
-      pageSize: size,
-      hasMore: false,
-      list: await this.withRebate(list, userId),
+      source: 'curated',
+      total: pageData.total,
+      page: pageData.page,
+      pageSize: pageData.pageSize,
+      hasMore: pageData.hasMore,
+      list: await this.withRebate(pageData.list, userId),
     };
   }
 
@@ -149,46 +136,44 @@ export class GoodsController {
   }
 
   @Public() @Get('goods/:platform/:goodsId')
-  @ApiOperation({ summary: '商品详情' })
+  @ApiOperation({ summary: '商品详情（从选品池读，不实时调平台 API）' })
   async detail(
     @Param('platform') platform: string,
     @Param('goodsId') goodsId: string,
     @CurrentUser('sub') userId?: number,
   ) {
     const p = platform.toUpperCase();
-    // 优先从选品池读，保证跟列表页价格一致，也更快
+    // 从选品池读，保证跟列表页价格一致，也更快
     const cached = await this.curatedRepo.findOneBy({ platform: p, goodsId });
-    if (cached && cached.status !== 0) {
-      let images: string[] = [];
-      try { images = JSON.parse(cached.images || '[]'); } catch { /* ignore */ }
-      const g = {
-        platform: cached.platform,
-        goodsId: cached.goodsId,
-        title: cached.title,
-        image: cached.image,
-        images,
-        shopName: cached.shopName,
-        price: Number(cached.price),
-        couponPrice: Number(cached.couponPrice),
-        couponAmount: Number(cached.couponAmount),
-        commissionRate: Number(cached.commissionRate),
-        commission: Number(cached.commission),
-        salesVolume: cached.salesVolume,
-      };
-      const result = (await this.withRebate([g], userId))[0];
-      // 后台异步刷新一下，下次进来就是最新价了。
-      // 超过 30 分钟没刷的才刷，避免每个请求都打平台接口
-      const stale = !cached.lastSyncAt
-        || Date.now() - new Date(cached.lastSyncAt).getTime() > 30 * 60 * 1000;
-      if (stale) {
-        this.curation.refreshById(cached.id).catch(() => { /* 失败不影响当前请求 */ });
-      }
-      return result;
+    if (!cached || cached.status === 0) {
+      // 选品池里没有或已下架，直接返回 null——不再偷偷去调平台 API
+      return null;
     }
-    // 选品池里没有的话，走实时接口兜底
-    const g = await this.cps.getGoodsDetail(platform, goodsId);
-    if (!g) return null;
-    return (await this.withRebate([g], userId))[0];
+    let images: string[] = [];
+    try { images = JSON.parse(cached.images || '[]'); } catch { /* ignore */ }
+    const g = {
+      platform: cached.platform,
+      goodsId: cached.goodsId,
+      title: cached.title,
+      image: cached.image,
+      images,
+      shopName: cached.shopName,
+      price: Number(cached.price),
+      couponPrice: Number(cached.couponPrice),
+      couponAmount: Number(cached.couponAmount),
+      commissionRate: Number(cached.commissionRate),
+      commission: Number(cached.commission),
+      salesVolume: cached.salesVolume,
+    };
+    const result = (await this.withRebate([g], userId))[0];
+    // 后台异步刷新一下，下次进来就是最新价了。
+    // 超过 30 分钟没刷的才刷，避免每个请求都打平台接口
+    const stale = !cached.lastSyncAt
+      || Date.now() - new Date(cached.lastSyncAt).getTime() > 30 * 60 * 1000;
+    if (stale) {
+      this.curation.refreshById(cached.id).catch(() => { /* 失败不影响当前请求 */ });
+    }
+    return result;
   }
 
   @Post('link/convert')

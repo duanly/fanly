@@ -117,6 +117,25 @@ export class CurationController {
     return this.curation.importBatch(body);
   }
 
+  @Post('import-with-goods')
+  @ApiOperation({ summary: '用已拿到的商品数据直接批量入库（不再调平台接口' })
+  importBatchWithGoods(
+    @Body() body: {
+      platform: string;
+      goods: Array<{
+        goodsId: string; title: string; image: string; images?: string[];
+        shopName?: string; price: number; couponPrice: number; couponAmount?: number;
+        commissionRate: number; commission: number; salesVolume?: number;
+      }>;
+      groupKey?: string;
+      sortWeight?: number;
+      targetStatus?: number;
+      topicIds?: number[];
+    },
+  ) {
+    return this.curation.importBatchWithGoods(body);
+  }
+
   @Post('auto-pull')
   @ApiOperation({ summary: '手动触发自动拉品（进待选品池），商品多时会跑一会儿' })
   autoPull(@Body() body: { platforms?: string[]; targetPerPlatform?: number; keywords?: string[] }) {

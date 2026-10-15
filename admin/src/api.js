@@ -54,6 +54,7 @@ export const api = {
   curationAdd: (data) => http.post('/api/admin/curation/add', data),
   curationAddWithGoods: (data) => http.post('/api/admin/curation/add-with-goods', data),
   curationImport: (data) => http.post('/api/admin/curation/import', data),
+  curationImportWithGoods: (data) => http.post('/api/admin/curation/import-with-goods', data),
   curationExistsBatch: (items) => http.post('/api/admin/curation/exists-batch', { items }),
   curationUpdate: (id, data) => http.post(`/api/admin/curation/${id}`, data),
   curationRefresh: (id) => http.post(`/api/admin/curation/${id}/refresh`),

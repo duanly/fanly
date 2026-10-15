@@ -280,10 +280,16 @@ export class CurationService {
       return false;
     };
 
+    // 各平台 pageSize 上限（有些平台接口有自己的限制）
+    const PAGE_SIZE_LIMIT: Record<string, number> = {
+      VIP: 50,    // 唯品会 goodsList 限制 1-50
+    };
+    const pageSize = Math.min(100, PAGE_SIZE_LIMIT[platform] ?? 100);
+
     if (opts.keyword) {
       for (let page = 1; page <= MAX_PAGES; page++) {
         const r = await this.cps.searchGoodsPage(platform, {
-          keyword: opts.keyword, page, pageSize: 100, sort: 'sales',
+          keyword: opts.keyword, page, pageSize, sort: 'sales',
         });
         if (!r.list.length || collect(r.list) || !r.hasMore) break;
       }
@@ -293,7 +299,7 @@ export class CurationService {
       const channels = opts.channel ? [opts.channel] : ['earn', 'hot', 'cheap'];
       for (const ch of channels) {
         for (let page = 1; page <= MAX_PAGES; page++) {
-          const r = await this.cps.recommendGoodsPage(platform, { channel: ch, page, pageSize: 100 });
+          const r = await this.cps.recommendGoodsPage(platform, { channel: ch, page, pageSize });
           if (!r.list.length || collect(r.list) || !r.hasMore) break;
         }
         if (candidates.length >= target) break;
@@ -302,7 +308,7 @@ export class CurationService {
       if (candidates.length < target && !opts.channel) {
         try {
           for (let page = 1; page <= MAX_PAGES; page++) {
-            const r = await this.cps.searchGoodsPage(platform, { page, pageSize: 100, sort: 'sales' });
+            const r = await this.cps.searchGoodsPage(platform, { page, pageSize, sort: 'sales' });
             if (!r.list.length || collect(r.list) || !r.hasMore) break;
           }
         } catch (e: any) {
@@ -311,9 +317,83 @@ export class CurationService {
       }
     }
 
+    const result = await this.ingestBatch(platform, candidates, {
+      groupKey, sortWeight, targetStatus, topicIds,
+    });
+
+    return { fetched: candidates.length, ...result };
+  }
+
+  /**
+   * 直接用前端已经拿到的商品数据批量入库，不再重新拉平台接口。
+   *
+   * 后台「找商品」页已经搜出来了，用户看了觉得 OK 点「一键导入」，
+   * 这时再去调平台接口纯属浪费——既慢又容易触发限流。
+   * 直接把前端已经有的商品数据传过来入库就行。
+   */
+  async importBatchWithGoods(opts: {
+    platform: string;
+    goods: Array<{
+      goodsId: string; title: string; image: string; images?: string[];
+      shopName?: string; price: number; couponPrice: number; couponAmount?: number;
+      commissionRate: number; commission: number; salesVolume?: number;
+    }>;
+    groupKey?: string;
+    sortWeight?: number;
+    targetStatus?: number;
+    topicIds?: number[];
+  }): Promise<{ fetched: number; added: number; skipped: number; errors: number; intraBatchDedup: number; titleDupCount: number }> {
+    const platform = (opts.platform || 'PDD').toUpperCase();
+    const raw = opts.goods || [];
+
+    // 基本字段校验，过滤掉不合格的
+    const candidates: UnifiedGoods[] = raw
+      .filter((g) => g?.goodsId && g.title && g.couponPrice > 0)
+      .map((g) => ({
+        platform,
+        goodsId: g.goodsId,
+        title: g.title,
+        image: g.image || '',
+        images: g.images ?? [],
+        shopName: g.shopName || '',
+        price: Number(g.price) || Number(g.couponPrice),
+        couponPrice: Number(g.couponPrice),
+        couponAmount: Number(g.couponAmount ?? 0),
+        commissionRate: Number(g.commissionRate),
+        commission: Number(g.commission),
+        salesVolume: Number(g.salesVolume ?? 0),
+      }));
+
+    const result = await this.ingestBatch(platform, candidates, {
+      groupKey: opts.groupKey || 'default',
+      sortWeight: opts.sortWeight ?? 0,
+      targetStatus: opts.targetStatus ?? CuratedStatus.PENDING,
+      topicIds: (opts.topicIds ?? []).filter(Boolean),
+    });
+
+    return { fetched: candidates.length, ...result };
+  }
+
+  /**
+   * 私有：把一批候选商品写入选品池。
+   * 负责：佣金校验、内去重、库内去重（精确+模糊）、批量插入/更新、打标签。
+   */
+  private async ingestBatch(
+    platform: string,
+    candidates: UnifiedGoods[],
+    opts: {
+      groupKey: string;
+      sortWeight: number;
+      targetStatus: number;
+      topicIds: number[];
+    },
+  ): Promise<{ added: number; skipped: number; errors: number; intraBatchDedup: number; titleDupCount: number }> {
+    const { groupKey, sortWeight, targetStatus, topicIds } = opts;
+
     // 淘宝物料精选接口列表不返回佣金，跳过校验——这些商品基本都有返利，
     // 后续自动刷新时用详情接口再验证，没佣金的会被自动下架。
     const needCommissionCheck = platform !== 'TB';
+
     const validCandidates = candidates.filter((g) => {
       if (needCommissionCheck && !(g.commission > 0)) return false;
       return true;
@@ -574,7 +654,6 @@ export class CurationService {
     }
 
     return {
-      fetched: candidates.length,
       added,
       skipped: skipped + skippedExisting,
       errors,
@@ -682,6 +761,71 @@ export class CurationService {
       skip,
       take,
     });
+    return {
+      list: rows.map((r) => this.toGoods(r)),
+      total,
+      page,
+      pageSize: take,
+      hasMore: skip + rows.length < total,
+    };
+  }
+
+  /**
+   * 选品池内搜索：按关键词搜标题，支持平台过滤和排序。
+   *
+   * H5 前台搜索走这里，不实时调平台 API——既快又不会触发限流。
+   * 搜不到是正常的（我们是精选模式，不是全量），返回空列表就行。
+   */
+  async searchPage(opts: {
+    keyword?: string;
+    platform?: string;
+    page?: number;
+    pageSize?: number;
+    sort?: string;
+  }) {
+    const { keyword, platform, page = 1, pageSize = 20, sort } = opts;
+    const skip = (page - 1) * pageSize;
+    const take = Math.min(pageSize, 100);
+
+    const qb = this.repo.createQueryBuilder('c').where('c.status = :status', { status: CuratedStatus.ON });
+
+    if (keyword && keyword.trim()) {
+      const kw = `%${keyword.trim()}%`;
+      qb.andWhere('c.title LIKE :kw', { kw });
+    }
+
+    if (platform && platform.toUpperCase() !== 'ALL') {
+      qb.andWhere('c.platform = :platform', { platform: platform.toUpperCase() });
+    }
+
+    // 排序：默认综合（运营权重 + 佣金），支持销量 / 佣金(返利) / 价格升降序
+    switch (sort) {
+      case 'sales':
+      case 'sales_desc':
+        qb.orderBy('c.salesVolume', 'DESC').addOrderBy('c.id', 'DESC');
+        break;
+      case 'rebate':
+      case 'commission':
+      case 'commission_desc':
+        qb.orderBy('CAST(c.commission AS DECIMAL)', 'DESC').addOrderBy('c.id', 'DESC');
+        break;
+      case 'price':
+      case 'price_asc':
+        qb.orderBy('CAST(c.couponPrice AS DECIMAL)', 'ASC').addOrderBy('c.id', 'DESC');
+        break;
+      case 'price_desc':
+        qb.orderBy('CAST(c.couponPrice AS DECIMAL)', 'DESC').addOrderBy('c.id', 'DESC');
+        break;
+      default:
+        qb
+          .orderBy('CAST(c.sortWeight AS DECIMAL)', 'DESC')
+          .addOrderBy('CAST(c.commission AS DECIMAL)', 'DESC')
+          .addOrderBy('c.id', 'DESC');
+        break;
+    }
+
+    const [rows, total] = await qb.skip(skip).take(take).getManyAndCount();
+
     return {
       list: rows.map((r) => this.toGoods(r)),
       total,

@@ -902,13 +902,30 @@ function more() {
 }
 
 async function importBatch() {
+  if (!found.value.length) {
+    ElMessage.warning('还没有搜索结果，先查找商品');
+    return;
+  }
+  const count = Math.min(f.importCount, found.value.length);
+  const goods = found.value.slice(0, count).map((g) => ({
+    goodsId: g.goodsId,
+    title: g.title,
+    image: g.image,
+    images: g.images || [],
+    shopName: g.shopName || '',
+    price: g.price,
+    couponPrice: g.couponPrice,
+    couponAmount: g.couponAmount || 0,
+    commissionRate: g.commissionRate,
+    commission: g.commission,
+    salesVolume: g.salesVolume || 0,
+  }));
+
   importing.value = true;
   try {
-    const r = await api.curationImport({
+    const r = await api.curationImportWithGoods({
       platform: f.platform,
-      keyword: f.keyword || undefined,
-      channel: f.channel === 'all' ? undefined : f.channel,
-      count: f.importCount,
+      goods,
       groupKey: f.groupKey || 'default',
       sortWeight: f.sortWeight || 0,
       targetStatus: f.targetStatus,
@@ -916,9 +933,15 @@ async function importBatch() {
     });
     const to = f.targetStatus === 1 ? '上架' : '待上架';
     ElMessage.success(
-      `导入完成：拉到 ${r.fetched} 件，入${to} ${r.added}，无佣金跳过 ${r.skipped}` +
+      `导入完成：共 ${r.fetched} 件，入${to} ${r.added}，跳过 ${r.skipped}` +
         `${r.errors ? `，失败 ${r.errors}` : ''}`,
     );
+    // 刷新状态显示
+    try {
+      const items = goods.map((g) => ({ platform: f.platform, goodsId: g.goodsId }));
+      const m = await api.curationExistsBatch(items);
+      foundStatus.value = { ...foundStatus.value, ...m };
+    } catch { /* ignore */ }
     loadPending();
     loadPool();
   } finally {
