@@ -116,6 +116,28 @@
       </div>
     </div>
 
+    <!-- 品牌专区 -->
+    <div v-if="brandTopics.length" class="sec-head-wrap brand-head">
+      <span class="sec-title">品牌专区 🏷️</span>
+      <span class="sec-more" @click="showAllBrands = true">全部品牌 ›</span>
+    </div>
+    <div v-if="brandTopics.length" class="section brand-section">
+      <div class="brand-scroll">
+        <div
+          v-for="b in brandTopics"
+          :key="b.id"
+          class="brand-item"
+          @click="$router.push(`/topic/${b.slug}`)"
+        >
+          <div class="b-ico" :style="{ background: b.bg || 'linear-gradient(135deg,#e0eafc,#cfdef3)' }">
+            {{ b.icon || '🏷️' }}
+          </div>
+          <div class="b-name">{{ b.name.replace('品牌·', '') }}</div>
+          <div class="b-cnt">{{ b.goodsCount || 0 }} 件</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 活动标签位（自动滚动） -->
     <div v-if="acts.length" class="sec-head-wrap act-head">
       <span class="sec-title">限时活动 🕙</span>
@@ -203,6 +225,32 @@
         </div>
       </div>
     </van-popup>
+
+    <!-- 全部品牌弹窗 -->
+    <van-popup v-model:show="showAllBrands" position="bottom" round :style="{ maxHeight: '80%' }">
+      <div class="all-brands">
+        <div class="aa-head">
+          <div class="aa-title">全部品牌</div>
+          <van-icon name="cross" size="20" @click="showAllBrands = false" />
+        </div>
+        <div class="brand-grid">
+          <div
+            v-for="b in allBrands"
+            :key="b.id"
+            class="bg-item"
+            @click="$router.push(`/topic/${b.slug}`); showAllBrands = false"
+          >
+            <div class="bg-ico" :style="{ background: b.bg || 'linear-gradient(135deg,#e0eafc,#cfdef3)' }">
+              {{ b.icon || '🏷️' }}
+            </div>
+            <div class="bg-name">{{ b.name.replace('品牌·', '') }}</div>
+          </div>
+        </div>
+        <div v-if="!allBrands.length" class="brand-empty">
+          品牌标签正在积累中，先看看品类吧～
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -271,6 +319,21 @@ const acts = computed(() =>
     })),
 );
 
+// 品牌专区：按商品数排序，取前 20 个展示
+const brandTopics = computed(() =>
+  topics.value
+    .filter((t) => t.type === 'brand' && t.status === 1 && (t.goodsCount || 0) > 0)
+    .sort((a, b) => (b.goodsCount || 0) - (a.goodsCount || 0))
+    .slice(0, 20),
+);
+
+// 所有品牌（弹窗里用）
+const allBrands = computed(() =>
+  topics.value
+    .filter((t) => t.type === 'brand' && t.status === 1)
+    .sort((a, b) => (b.goodsCount || 0) - (a.goodsCount || 0)),
+);
+
 // 跑马灯：复制多份实现无缝循环，必须偶数份才不跳
 const marqueeActs = computed(() => {
   const arr = acts.value;
@@ -327,6 +390,9 @@ function stopMarquee() {
 
 // 全部活动弹窗
 const showAllActs = ref(false);
+
+// 全部品牌弹窗
+const showAllBrands = ref(false);
 
 // 返回顶部悬浮按钮
 const showBackTop = ref(false);
@@ -1119,5 +1185,102 @@ onUnmounted(() => {
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   width: 100%;
+}
+
+/* ========== 品牌专区 ========== */
+.brand-section {
+  border-color: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  padding: 10px 14px 12px;
+}
+.brand-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  margin: 0 -14px;
+  padding: 4px 14px 6px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.brand-scroll::-webkit-scrollbar { display: none; }
+.brand-item {
+  flex: 0 0 auto;
+  width: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.brand-item:active { transform: scale(0.95); }
+.b-ico {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.b-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #1a1a1a;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.b-cnt {
+  font-size: 10px;
+  color: #999;
+}
+
+/* 全部品牌弹窗 */
+.all-brands {
+  display: flex;
+  flex-direction: column;
+}
+.brand-grid {
+  padding: 14px 12px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px 8px;
+}
+.bg-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.bg-item:active { transform: scale(0.95); }
+.bg-ico {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin-bottom: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.bg-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #1a1a1a;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  width: 100%;
+}
+.brand-empty {
+  padding: 40px 0;
+  text-align: center;
+  color: #999;
+  font-size: 13px;
 }
 </style>
