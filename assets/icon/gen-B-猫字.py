@@ -65,7 +65,7 @@ for dy, drop in ((-46, -18), (6, 0), (58, 20)):
 
 # 「猫」
 font = ImageFont.truetype(FONT, s(310), index=2)
-d.text((s(CX), s(CY + 6)), "猫", font=font, fill=CHAR, anchor="mm")
+d.text((s(CX), s(CY + 6)), "省", font=font, fill=CHAR, anchor="mm")
 
 # 金币
 box = (628, 662, 868, 902)
