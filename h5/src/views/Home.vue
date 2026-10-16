@@ -129,7 +129,7 @@
           class="brand-item"
           @click="$router.push(`/topic/${b.slug}`)"
         >
-          <div class="b-ico" :style="{ background: b.bg || 'linear-gradient(135deg,#e0eafc,#cfdef3)' }">
+          <div class="b-ico" :style="{ background: brandBg(b) }">
             {{ brandIcon(b) }}
           </div>
           <div class="b-name">{{ brandName(b) }}</div>
@@ -217,7 +217,7 @@
             class="aa-item"
             @click="openLink(a); showAllActs = false"
           >
-            <div class="aa-ico" :style="{ background: a.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' }">
+            <div class="aa-ico" :style="{ background: a.bg || gradientFromName(a.title) }">
               {{ a.icon || '🎁' }}
             </div>
             <div class="aa-name">{{ a.title }}</div>
@@ -240,7 +240,7 @@
             class="bg-item"
             @click="$router.push(`/topic/${b.slug}`); showAllBrands = false"
           >
-            <div class="bg-ico" :style="{ background: b.bg || 'linear-gradient(135deg,#e0eafc,#cfdef3)' }">
+            <div class="bg-ico" :style="{ background: brandBg(b) }">
               {{ brandIcon(b) }}
             </div>
             <div class="bg-name">{{ brandName(b) }}</div>
@@ -313,7 +313,7 @@ const acts = computed(() =>
       title: t.name,
       subtitle: t.intro || '',
       icon: t.icon || '🎁',
-      bg: t.bg,
+      bg: t.bg || gradientFromName(t.name),
       url: `/topic/${t.slug}`,
       internal: true,
     })),
@@ -342,10 +342,42 @@ function brandName(t) {
 // 品牌图标：如果 icon 是 emoji 就用 emoji，否则取品牌名第一个字
 function brandIcon(t) {
   const name = brandName(t);
-  // 后台配置了 icon 且不是默认的 🏷️ 就用配置的
   if (t.icon && t.icon !== '🏷️') return t.icon;
-  // 否则取品牌名第一个字
   return name ? name.charAt(0) : '🏷️';
+}
+
+// 品牌/活动背景色：根据名称 hash 生成不同渐变色
+const GRADIENTS = [
+  'linear-gradient(135deg,#667eea,#764ba2)',
+  'linear-gradient(135deg,#f093fb,#f5576c)',
+  'linear-gradient(135deg,#4facfe,#00f2fe)',
+  'linear-gradient(135deg,#43e97b,#38f9d7)',
+  'linear-gradient(135deg,#fa709a,#fee140)',
+  'linear-gradient(135deg,#30cfd0,#330867)',
+  'linear-gradient(135deg,#a8edea,#fed6e3)',
+  'linear-gradient(135deg,#ffecd2,#fcb69f)',
+  'linear-gradient(135deg,#84fab0,#8fd3f4)',
+  'linear-gradient(135deg,#fccb90,#d57eeb)',
+  'linear-gradient(135deg,#e0c3fc,#8ec5fc)',
+  'linear-gradient(135deg,#f5576c,#f093fb)',
+  'linear-gradient(135deg,#48c6ef,#6f86d6)',
+  'linear-gradient(135deg,#ff9a9e,#fecfef)',
+  'linear-gradient(135deg,#a1c4fd,#c2e9fb)',
+  'linear-gradient(135deg,#fbc2eb,#a6c1ee)',
+];
+function gradientFromName(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) - hash) + name.charCodeAt(i);
+    hash |= 0;
+  }
+  return GRADIENTS[Math.abs(hash) % GRADIENTS.length];
+}
+
+// 品牌背景色：后台配了就用配的，否则按名称生成
+function brandBg(t) {
+  if (t.bg && t.bg !== 'linear-gradient(135deg,#e0eafc,#cfdef3)') return t.bg;
+  return gradientFromName(brandName(t));
 }
 
 // 跑马灯：复制多份实现无缝循环，必须偶数份才不跳
