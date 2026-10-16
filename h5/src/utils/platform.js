@@ -12,10 +12,10 @@
  * 颜色只是让角标贴合平台观感，别指望用户靠颜色认平台。
  */
 export const PLATFORMS = [
-  { key: 'PDD', name: '拼多多', short: '多', bg: '#e02e24' },
-  { key: 'JD', name: '京东', short: '京', bg: '#c81623' },
   { key: 'TB', name: '淘宝', short: '淘', bg: '#ff5000' },
+  { key: 'JD', name: '京东', short: '京', bg: '#c81623' },
   { key: 'VIP', name: '唯品会', short: '唯', bg: '#ff2d52' },
+  { key: 'PDD', name: '拼多多', short: '多', bg: '#e02e24' },
 ];
 
 /** 按 key 取，方便模板里 PLAT[g.platform]?.short 这种写法 */
