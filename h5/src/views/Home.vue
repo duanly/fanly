@@ -130,9 +130,9 @@
           @click="$router.push(`/topic/${b.slug}`)"
         >
           <div class="b-ico" :style="{ background: b.bg || 'linear-gradient(135deg,#e0eafc,#cfdef3)' }">
-            {{ b.icon || '🏷️' }}
+            {{ brandIcon(b) }}
           </div>
-          <div class="b-name">{{ b.name.replace('品牌·', '') }}</div>
+          <div class="b-name">{{ brandName(b) }}</div>
           <div class="b-cnt">{{ b.goodsCount || 0 }} 件</div>
         </div>
       </div>
@@ -241,9 +241,9 @@
             @click="$router.push(`/topic/${b.slug}`); showAllBrands = false"
           >
             <div class="bg-ico" :style="{ background: b.bg || 'linear-gradient(135deg,#e0eafc,#cfdef3)' }">
-              {{ b.icon || '🏷️' }}
+              {{ brandIcon(b) }}
             </div>
-            <div class="bg-name">{{ b.name.replace('品牌·', '') }}</div>
+            <div class="bg-name">{{ brandName(b) }}</div>
           </div>
         </div>
         <div v-if="!allBrands.length" class="brand-empty">
@@ -333,6 +333,20 @@ const allBrands = computed(() =>
     .filter((t) => t.type === 'brand' && t.status === 1)
     .sort((a, b) => (b.goodsCount || 0) - (a.goodsCount || 0)),
 );
+
+// 品牌显示名：去掉「品牌·」前缀
+function brandName(t) {
+  return t.name.replace(/^品牌[·•\-]/, '');
+}
+
+// 品牌图标：如果 icon 是 emoji 就用 emoji，否则取品牌名第一个字
+function brandIcon(t) {
+  const name = brandName(t);
+  // 后台配置了 icon 且不是默认的 🏷️ 就用配置的
+  if (t.icon && t.icon !== '🏷️') return t.icon;
+  // 否则取品牌名第一个字
+  return name ? name.charAt(0) : '🏷️';
+}
 
 // 跑马灯：复制多份实现无缝循环，必须偶数份才不跳
 const marqueeActs = computed(() => {
@@ -1219,7 +1233,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 .b-name {
@@ -1261,7 +1277,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
   margin-bottom: 6px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }

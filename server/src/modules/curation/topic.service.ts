@@ -110,13 +110,26 @@ export class TopicService implements OnModuleInit {
     };
   }
 
-  /** H5 用：只返上架的 */
+  /** H5 用：只返上架的，带每个标签挂了多少件在架商品 */
   async listPublic() {
     const rows = await this.repo.find({
       where: { status: 1 },
       order: { sortWeight: 'DESC', id: 'ASC' },
     });
-    return rows.map((t) => this.view(t));
+    if (!rows.length) return [];
+
+    // 只统计在架商品的数量（status=1），下架的不算
+    const counts = await this.relRepo
+      .createQueryBuilder('r')
+      .innerJoin(CuratedGoods, 'g', 'g.id = r.curatedId AND g.status = :status', { status: CuratedStatus.ON })
+      .select('r.topicId', 'topicId')
+      .addSelect('COUNT(*)', 'n')
+      .where('r.topicId IN (:...ids)', { ids: rows.map((r) => r.id) })
+      .groupBy('r.topicId')
+      .getRawMany();
+    const byId = new Map(counts.map((c) => [Number(c.topicId), Number(c.n)]));
+
+    return rows.map((t) => this.view(t, byId.get(t.id) ?? 0));
   }
 
   /** 后台用：全都返，带每个专题挂了多少件 */
