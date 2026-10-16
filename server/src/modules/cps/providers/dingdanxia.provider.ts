@@ -828,12 +828,32 @@ export class DingdanxiaJdProvider implements CpsProvider {
       earn: 200000,    // 收益榜用全品类
       hot: 200000,     // 热销榜也用全品类（接口本身就是热销榜）
       cheap: 200000,   // 便宜的也从全品类里找
+      pick: 200000,
+      // 8 个细分类目榜单
+      food: 200001,        // 食品酒水
+      home_clean: 200002,  // 家庭清洁
+      beauty: 200003,      // 个护美妆
+      health: 200004,      // 医药保健
+      fresh: 200005,       // 生鲜
+      digital: 200006,     // 数码家电
+      home_life: 200007,   // 家居日用
+      fashion: 200008,     // 时尚生活
     };
     const rankId = rankMap[p.channel ?? 'hot'] ?? 200000;
 
+    // 排序类型：1=2小时 2=高佣 3=24小时
+    const sortMap: Record<string, number> = {
+      earn: 2,  // 收益榜 → 高佣排序
+      hot: 3,   // 热销榜 → 24小时
+      cheap: 3,
+      all: 3,
+      pick: 3,
+    };
+    const sortType = sortMap[p.channel ?? 'hot'] ?? 3;
+
     const json = await this.callRaw('/jd/query_goods_rank', {
       rankId,
-      sortType: 1, // 排序类型 1=小时 2=24小时 3=3日 4=7日
+      sortType,
       pageIndex: page,
       pageSize,
     });

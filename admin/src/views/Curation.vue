@@ -250,7 +250,7 @@
       <el-tab-pane label="找商品" name="find">
         <el-card shadow="never">
           <div class="bar">
-            <el-select v-model="f.platform" style="width:110px">
+            <el-select v-model="f.platform" style="width:110px" @change="onPlatformChange">
               <el-option label="拼多多" value="PDD" />
               <el-option label="京东" value="JD" />
               <el-option label="淘宝" value="TB" />
@@ -263,11 +263,13 @@
               clearable
               @keyup.enter="find"
             />
-            <el-select v-model="f.channel" style="width:150px">
-              <el-option label="全品类" value="all" />
-              <el-option label="实时收益榜" value="earn" />
-              <el-option label="实时热销榜" value="hot" />
-              <el-option label="平台推荐位" value="pick" />
+            <el-select v-model="f.channel" style="width:150px" @change="onChannelChange">
+              <el-option
+                v-for="c in currentChannels"
+                :key="c.value"
+                :label="c.label"
+                :value="c.value"
+              />
             </el-select>
             <el-button type="primary" :loading="finding" @click="find">查找</el-button>
 
@@ -845,6 +847,52 @@ const f = reactive({
   targetStatus: 3, // 3=待上架，1=直接上架
   importTopicIds: [], // 导入时打的标签
 });
+
+// 不同平台的分类/榜单选项（后续调查完直接加这里）
+const CHANNEL_OPTIONS = {
+  PDD: [
+    { label: '全品类', value: 'all' },
+    { label: '实时收益榜', value: 'earn' },
+    { label: '实时热销榜', value: 'hot' },
+    { label: '9块9特卖', value: 'cheap' },
+    { label: '品牌好货', value: 'pick' },
+  ],
+  JD: [
+    { label: '全品类', value: 'all' },
+    { label: '食品酒水', value: 'food' },
+    { label: '家庭清洁', value: 'home_clean' },
+    { label: '个护美妆', value: 'beauty' },
+    { label: '医药保健', value: 'health' },
+    { label: '生鲜', value: 'fresh' },
+    { label: '数码家电', value: 'digital' },
+    { label: '家居日用', value: 'home_life' },
+    { label: '时尚生活', value: 'fashion' },
+  ],
+  TB: [
+    { label: '全品类', value: 'all' },
+    { label: '实时收益榜', value: 'earn' },
+    { label: '实时热销榜', value: 'hot' },
+    { label: '品牌好货', value: 'pick' },
+  ],
+  VIP: [
+    { label: '全品类', value: 'all' },
+    { label: '出单爆款', value: 'hot' },
+    { label: '佣金榜', value: 'earn' },
+    { label: '价格低到高', value: 'cheap' },
+  ],
+};
+const currentChannels = computed(() => CHANNEL_OPTIONS[f.platform] || CHANNEL_OPTIONS.PDD);
+
+// 切平台时，如果当前 channel 在新平台里没有，重置为 all
+function onPlatformChange() {
+  const valid = currentChannels.value.some((c) => c.value === f.channel);
+  if (!valid) f.channel = 'all';
+}
+
+function onChannelChange() {
+  // 切分类时重置分页
+  f.page = 1;
+}
 
 async function load(append = false) {
   finding.value = true;

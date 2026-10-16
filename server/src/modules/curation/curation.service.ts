@@ -1218,22 +1218,39 @@ export class CurationService {
     platforms?: string[];
     targetPerPlatform?: number;
     keywords?: string[];
-  }): Promise<Record<string, { fetched: number; added: number; skipped: number; errors: number }>> {
+  }): Promise<Record<string, { fetched: number; added: number; skipped: number; errors: number; alreadyInPool: number }>> {
     const platforms = opts.platforms?.length ? opts.platforms : ['PDD', 'JD', 'TB', 'DY'];
     const target = Math.min(Math.max(opts.targetPerPlatform ?? 1000, 100), 5000);
     const keywords = opts.keywords?.length ? opts.keywords : ['日用', '食品', '美妆', '数码', '服饰'];
 
-    const result: Record<string, { fetched: number; added: number; skipped: number; errors: number }> = {};
+    const result: Record<string, { fetched: number; added: number; skipped: number; errors: number; alreadyInPool: number }> = {};
 
     for (const platform of platforms) {
-      this.logger.log(`自动拉品开始 [${platform}], 目标 ${target} 件`);
-      const stat = { fetched: 0, added: 0, skipped: 0, errors: 0 };
+      this.logger.log(`自动拉品开始 [${platform}], 目标 ${target} 件新商品`);
+      const stat = { fetched: 0, added: 0, skipped: 0, errors: 0, alreadyInPool: 0 };
       const seen = new Set<string>();
       const candidates: UnifiedGoods[] = [];
-      const collect = (list: UnifiedGoods[]) => {
-        for (const g of list) {
-          if (!g?.goodsId || seen.has(g.goodsId)) continue;
-          seen.add(g.goodsId);
+
+      /** 收一批候选，自动跳过已在池子里的，返回是否凑够了 */
+      const collect = async (list: UnifiedGoods[]): Promise<boolean> => {
+        // 先过滤掉本轮已见过的
+        const fresh = list.filter((g) => g?.goodsId && !seen.has(g.goodsId));
+        if (!fresh.length) return false;
+        fresh.forEach((g) => seen.add(g.goodsId!));
+
+        // 批量查库里有没有，跳过已在池子里的
+        const existRows = await this.repo.find({
+          where: {
+            platform,
+            goodsId: In(fresh.map((g) => g.goodsId!)),
+          },
+          select: ['goodsId'],
+        });
+        const existIds = new Set(existRows.map((r) => r.goodsId));
+        stat.alreadyInPool += existIds.size;
+
+        for (const g of fresh) {
+          if (existIds.has(g.goodsId!)) continue;
           candidates.push(g);
           if (candidates.length >= target) return true;
         }
@@ -1243,10 +1260,10 @@ export class CurationService {
       // 维度 1：热销榜（25% 配额）
       try {
         const hotTarget = Math.floor(target * 0.25);
-        for (let page = 1; page <= 20 && candidates.length < hotTarget; page++) {
+        for (let page = 1; page <= 50 && candidates.length < hotTarget; page++) {
           const r = await this.cps.recommendGoodsPage(platform, { channel: 'hot', page, pageSize: 50 });
           if (!r.list.length || !r.hasMore) break;
-          if (collect(r.list)) break;
+          if (await collect(r.list)) break;
           await new Promise((r) => setTimeout(r, 200));
         }
       } catch (e: any) {
@@ -1256,10 +1273,10 @@ export class CurationService {
       // 维度 2：收益榜（25% 配额）
       try {
         const earnTarget = Math.floor(target * 0.5);
-        for (let page = 1; page <= 20 && candidates.length < earnTarget; page++) {
+        for (let page = 1; page <= 50 && candidates.length < earnTarget; page++) {
           const r = await this.cps.recommendGoodsPage(platform, { channel: 'earn', page, pageSize: 50 });
           if (!r.list.length || !r.hasMore) break;
-          if (collect(r.list)) break;
+          if (await collect(r.list)) break;
           await new Promise((r) => setTimeout(r, 200));
         }
       } catch (e: any) {
@@ -1273,10 +1290,10 @@ export class CurationService {
         if (candidates.length >= target) break;
         const beforeCount = candidates.length;
         try {
-          for (let page = 1; page <= 5; page++) {
+          for (let page = 1; page <= 10; page++) {
             const r = await this.cps.searchGoodsPage(platform, { keyword: kw, page, pageSize: 50, sort: 'sales' });
             if (!r.list.length || !r.hasMore) break;
-            if (collect(r.list)) break;
+            if (await collect(r.list)) break;
             // 这个关键词已经拉够配额了就停
             if (candidates.length - beforeCount >= kwQuota) break;
             await new Promise((r) => setTimeout(r, 200));
@@ -1300,7 +1317,10 @@ export class CurationService {
       }
 
       result[platform] = stat;
-      this.logger.log(`自动拉品完成 [${platform}]: 拉取 ${stat.fetched}, 入库 ${stat.added}, 跳过 ${stat.skipped}, 错误 ${stat.errors}`);
+      this.logger.log(
+        `自动拉品完成 [${platform}]: 拉取 ${stat.fetched}, 入库 ${stat.added}, ` +
+        `已在池 ${stat.alreadyInPool}, 跳过 ${stat.skipped}, 错误 ${stat.errors}`,
+      );
     }
 
     return result;

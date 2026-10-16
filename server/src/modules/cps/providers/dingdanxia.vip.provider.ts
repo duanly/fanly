@@ -194,19 +194,41 @@ export class DingdanxiaVipProvider implements CpsProvider {
 
   async searchGoodsPage(p: SearchParams): Promise<GoodsPage> {
     const page = Math.max(p.page ?? 1, 1);
-    const pageSize = Math.min(p.pageSize ?? 30, 100);
+    const pageSize = Math.min(p.pageSize ?? 30, 50);
     const keyword = p.keyword ?? '';
 
     // 排序映射（字段名大写）：
-    //   sales → 没找到对应字段，用 COMMISSION 代替
+    //   sales → SALES（销量）
     //   commission → COMMISSION（佣金）
     //   price → PRICE（价格）
     const sortMap: Record<string, string> = {
-      sales: 'COMMISSION',
+      sales: 'SALES',
       commission: 'COMMISSION',
       price: 'PRICE',
     };
     const fieldName = sortMap[p.sort || ''] || '';
+
+    // 有关键词走 /vip/query（关键词搜索，结果更准）
+    // 没关键词走 /vip/goodsList（频道榜单）
+    if (keyword) {
+      const json = await this.callRaw('/vip/query', {
+        keyword,
+        page,
+        pageSize,
+        fieldName: fieldName || undefined,
+      });
+
+      const rawList = this.extractList(json.data ?? json);
+      if (rawList.length) {
+        this.logger.debug(`唯品会query搜索返回第一条原始数据: ${JSON.stringify(rawList[0]).slice(0, 800)}`);
+      }
+      const list = rawList.map((r: any) => this.mapGoods(r));
+      const total = Number(json.total ?? json.totalCount ?? json.total_results ?? list.length);
+      const hasMore = list.length >= pageSize;
+
+      return { list, total, page, hasMore };
+    }
+
     // 0=正序，1=逆序
     const order = p.sort === 'price' ? 0 : 1;
 
@@ -214,9 +236,8 @@ export class DingdanxiaVipProvider implements CpsProvider {
     const offset = (page - 1) * pageSize;
 
     const json = await this.callRaw('/vip/goodsList', {
-      keyword: keyword || undefined,
       // 没有关键词时走频道模式（出单爆款），不然接口会报"频道类型不能为空"
-      channelType: keyword ? undefined : 1,
+      channelType: 1,
       offset,
       pageSize,
       fieldName: fieldName || undefined,
@@ -225,7 +246,7 @@ export class DingdanxiaVipProvider implements CpsProvider {
 
     const rawList = this.extractList(json.data ?? json);
     if (rawList.length) {
-      this.logger.debug(`唯品会搜索返回第一条原始数据: ${JSON.stringify(rawList[0]).slice(0, 800)}`);
+      this.logger.debug(`唯品会goodsList返回第一条原始数据: ${JSON.stringify(rawList[0]).slice(0, 800)}`);
     }
     const list = rawList.map((r: any) => this.mapGoods(r));
     const total = Number(json.total ?? json.totalCount ?? json.total_results ?? list.length);
