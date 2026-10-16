@@ -78,9 +78,25 @@ export class AutoTagService implements OnModuleInit {
       if (count === 0) {
         this.logger.log('标签库为空，初始化预置品类标签...');
         await this.seedDefaultTopics();
+      } else {
+        // 老数据迁移：之前 autoBrand 的标签 type 是 category，统一迁到 brand
+        await this.migrateBrandType();
       }
     } catch (e: any) {
       this.logger.warn(`初始化预置标签失败（可能表还不存在）: ${e.message}`);
+    }
+  }
+
+  /** 把 autoBrand=true 但 type 不对的标签统一迁成 type=brand，幂等可重复跑 */
+  private async migrateBrandType() {
+    const r = await this.topicRepo
+      .createQueryBuilder()
+      .update()
+      .set({ type: 'brand' })
+      .where('autoBrand = 1 AND type <> :t', { t: 'brand' })
+      .execute();
+    if (r.affected) {
+      this.logger.log(`品牌标签类型迁移完成: ${r.affected} 条 category → brand`);
     }
   }
 
@@ -344,7 +360,7 @@ export class AutoTagService implements OnModuleInit {
         icon: '🏷️',
         bg: 'linear-gradient(135deg,#e0eafc,#cfdef3)',
         intro: `${brand}品牌好物`,
-        type: 'category',
+        type: 'brand',
         slot: 'hidden',
         status: 1,
         sortWeight: 50,

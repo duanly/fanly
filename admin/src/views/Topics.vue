@@ -4,6 +4,7 @@
       <el-radio-group v-model="activeType" size="default" @change="load">
         <el-radio-button value="">全部</el-radio-button>
         <el-radio-button value="category">品类标签</el-radio-button>
+        <el-radio-button value="brand">品牌标签</el-radio-button>
         <el-radio-button value="activity">活动标签</el-radio-button>
         <el-radio-button value="operate">运营标签</el-radio-button>
       </el-radio-group>
@@ -301,7 +302,7 @@ import { api } from '../api';
 
 const SLOT_NAME = { grid: '八大分区', activity: '活动位', hidden: '不露面' };
 const SLOT_TAG = { grid: 'success', activity: 'warning', hidden: 'info' };
-const TYPE_NAME = { category: '品类标签', activity: '活动标签', operate: '运营标签' };
+const TYPE_NAME = { category: '品类标签', activity: '活动标签', operate: '运营标签', brand: '品牌标签' };
 
 const EMPTY = {
   id: null, name: '', slug: '', icon: '', bg: '', cover: '', intro: '',
