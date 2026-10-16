@@ -582,23 +582,25 @@ export class CurationService {
         const BATCH = 200;
         for (let i = 0; i < toUpdatePending.length; i += BATCH) {
           const chunk = toUpdatePending.slice(i, i + BATCH);
+          if (!chunk.length) continue;
+          const first = chunk[0];
+          if (!first) continue;
           // 用 CASE 批量更新，一次 SQL 搞定
           const ids = chunk.map((c) => c.id);
-          const fields = Object.keys(chunk[0]).filter((k) => k !== 'id');
+          const fields = Object.keys(first).filter((k) => k !== 'id');
           const qb = this.repo.createQueryBuilder().update(CuratedGoods);
+          const allParams: Record<string, any> = {};
           for (const f of fields) {
             const whenClauses = chunk.map((c, idx) => `WHEN :id${idx} THEN :val${idx}_${f}`).join(' ');
-            const params: Record<string, any> = {};
             chunk.forEach((c, idx) => {
-              params[`id${idx}`] = c.id;
-              params[`val${idx}_${f}`] = (c as any)[f];
+              allParams[`id${idx}`] = c.id;
+              allParams[`val${idx}_${f}`] = (c as any)[f];
             });
             qb.set({
               [f]: () => `CASE id ${whenClauses} END`,
             } as any);
-            Object.assign((qb as any).expressionMap.setParameters, params);
           }
-          await qb.whereInIds(ids).execute();
+          await qb.whereInIds(ids).setParameters(allParams).execute();
         }
         added += toUpdatePending.length;
         this.logger.log(`批量导入刷新 PENDING ${toUpdatePending.length} 件 [${platform}]`);
