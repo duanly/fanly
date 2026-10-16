@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff8a3d"/>
+      <stop offset="100%" stop-color="#ff3b30"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="1024" height="1024" rx="256" fill="url(#bg)"/>
+  <rect width="1024" height="1024" rx="256" fill="url(#glow)"/>
+
+  <!-- 装饰圆环 -->
+  <circle cx="512" cy="512" r="420" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="8"/>
+  <circle cx="512" cy="512" r="320" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="8"/>
+  <circle cx="512" cy="512" r="220" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="8"/>
+
+  <!-- 猫耳朵（从后面冒出来） -->
+  <!-- 左耳 -->
+  <path d="M180 280 L250 160 L330 290 Z" fill="#fff8f0"/>
+  <path d="M215 265 L250 195 L285 270 Z" fill="#ffb3a7"/>
+  <!-- 右耳 -->
+  <path d="M844 280 L774 160 L694 290 Z" fill="#fff8f0"/>
+  <path d="M809 265 L774 195 L739 270 Z" fill="#ffb3a7"/>
+
+  <!-- 猫脸（下半部分，被字挡住上半） -->
+  <ellipse cx="512" cy="640" rx="340" ry="260" fill="#fff8f0"/>
+
+  <!-- 眼睛 -->
+  <ellipse cx="380" cy="570" rx="45" ry="60" fill="#3d2314"/>
+  <ellipse cx="400" cy="555" rx="15" ry="25" fill="#ffffff"/>
+  <ellipse cx="644" cy="570" rx="45" ry="60" fill="#3d2314"/>
+  <ellipse cx="664" cy="555" rx="15" ry="25" fill="#ffffff"/>
+
+  <!-- 鼻子 -->
+  <path d="M482 680 L542 680 L512 720 Z" fill="#ffb3a7"/>
+
+  <!-- 嘴 -->
+  <path d="M512 720 Q470 770 430 745" stroke="#3d2314" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <path d="M512 720 Q554 770 594 745" stroke="#3d2314" stroke-width="6" fill="none" stroke-linecap="round"/>
+
+  <!-- 胡须 -->
+  <line x1="240" y1="600" x2="330" y2="610" stroke="#3d2314" stroke-width="6" stroke-linecap="round"/>
+  <line x1="240" y1="650" x2="330" y2="650" stroke="#3d2314" stroke-width="6" stroke-linecap="round"/>
+  <line x1="240" y1="700" x2="330" y2="690" stroke="#3d2314" stroke-width="6" stroke-linecap="round"/>
+  <line x1="784" y1="600" x2="694" y2="610" stroke="#3d2314" stroke-width="6" stroke-linecap="round"/>
+  <line x1="784" y1="650" x2="694" y2="650" stroke="#3d2314" stroke-width="6" stroke-linecap="round"/>
+  <line x1="784" y1="700" x2="694" y2="690" stroke="#3d2314" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- 省字（白色描边 + 红色填充，醒目） -->
+  <text x="512" y="390" text-anchor="middle" dominant-baseline="middle"
+        font-family="'PingFang SC','Microsoft YaHei','Hiragino Sans GB',sans-serif"
+        font-size="300" font-weight="900"
+        fill="#fff8f0"
+        stroke="#ff3b30"
+        stroke-width="8">省</text>
+
+  <!-- 右下角金币 -->
+  <circle cx="800" cy="820" r="120" fill="#f5a623"/>
+  <circle cx="800" cy="820" r="95" fill="#ffd166" stroke="#f5a623" stroke-width="6"/>
+  <circle cx="800" cy="820" r="70" fill="none" stroke="#f5a623" stroke-width="5"/>
+  <text x="800" y="855" text-anchor="middle"
+        font-family="Arial, sans-serif"
+        font-size="80" font-weight="bold"
+        fill="#e8951e">¥</text>
+</svg>

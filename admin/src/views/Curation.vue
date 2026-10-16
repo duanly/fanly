@@ -100,7 +100,7 @@
           <div class="bar">
             <el-select v-model="q.topicId" placeholder="全部标签" clearable style="width:190px" @change="loadPool">
               <el-option
-                v-for="t in allTopics"
+                v-for="t in manualTopics"
                 :key="t.id"
                 :label="t.name"
                 :value="t.id"
@@ -217,7 +217,7 @@
                   @change="(v) => saveTags(row, v)"
                 >
                   <el-option
-                    v-for="t in allTopics"
+                    v-for="t in manualTopics"
                     :key="t.id"
                     :label="t.name"
                     :value="t.id"
@@ -297,7 +297,7 @@
               style="width:220px"
             >
               <el-option
-                v-for="t in allTopics"
+                v-for="t in manualTopics"
                 :key="t.id"
                 :label="t.name"
                 :value="t.id"
@@ -378,7 +378,7 @@
         <el-form-item label="标签">
           <el-select v-model="addDlgTags" multiple placeholder="选择标签（可选，不选就是进全品类）" style="width:100%">
             <el-option
-              v-for="t in allTopics"
+              v-for="t in manualTopics"
               :key="t.id"
               :label="t.name"
               :value="t.id"
@@ -400,7 +400,7 @@
     <el-dialog v-model="batchTagOpen" title="批量打标签" width="480px">
       <el-select v-model="batchTagIds" multiple placeholder="选择要打的标签" style="width:100%">
         <el-option
-          v-for="t in allTopics"
+          v-for="t in manualTopics"
           :key="t.id"
           :label="t.name"
           :value="t.id"
@@ -420,7 +420,7 @@
     <el-dialog v-model="pendingTagDlg" title="上架并打标签" width="480px">
       <el-select v-model="pendingTagIds" multiple placeholder="选择要打的标签（可不选，直接上架）" style="width:100%">
         <el-option
-          v-for="t in allTopics"
+          v-for="t in manualTopics"
           :key="t.id"
           :label="t.name"
           :value="t.id"
@@ -440,7 +440,7 @@
     <el-dialog v-model="pendingBatchTagDlg" title="批量上架并打标签" width="480px">
       <el-select v-model="pendingBatchTagIds" multiple placeholder="选择要打的标签（可不选，直接上架）" style="width:100%">
         <el-option
-          v-for="t in allTopics"
+          v-for="t in manualTopics"
           :key="t.id"
           :label="t.name"
           :value="t.id"
@@ -615,6 +615,8 @@ async function autoPull() {
 const pool = ref({ list: [], total: 0 });
 const groups = ref([]);
 const allTopics = ref([]);
+// 手动打标签/筛选时用的标签列表，过滤掉系统自动生成的品牌标签（太多了）
+const manualTopics = computed(() => allTopics.value.filter((t) => t.type !== 'brand'));
 const goodsTags = ref({}); // { curatedId: [topicId, ...] }
 const poolSelected = ref([]);
 const loading = ref(false);

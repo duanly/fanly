@@ -1,0 +1,23 @@
+{
+  "name": "省钱猫",
+  "short_name": "省钱猫",
+  "description": "买啥都返现，省钱小能手",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ff3b30",
+  "theme_color": "#ff3b30",
+  "icons": [
+    {
+      "src": "/icons/icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
