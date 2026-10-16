@@ -8,6 +8,9 @@
         <el-radio-button value="operate">运营标签</el-radio-button>
       </el-radio-group>
       <el-button type="primary" @click="openEdit()">新建专题</el-button>
+      <el-button type="warning" :loading="autoTagging" @click="runAutoTagAll">
+        全量自动打标
+      </el-button>
       <span class="hint">
         建好就能用：页面地址一列就是 H5 的入口，不用改代码也不用发版
       </span>
@@ -36,6 +39,17 @@
       </el-table-column>
 
       <el-table-column prop="goodsCount" label="商品数" width="80" align="center" />
+
+      <el-table-column label="关键词" width="100" align="center">
+        <template #default="{ row }">
+          <el-tag v-if="row.autoBrand" type="success" size="small">品牌·自动</el-tag>
+          <span v-else-if="row.keywordRules?.length" class="kw-count">
+            {{ row.keywordRules.length }} 个
+          </span>
+          <span v-else class="kw-empty">未设</span>
+        </template>
+      </el-table-column>
+
       <el-table-column prop="sortWeight" label="权重" width="70" align="center" />
 
       <el-table-column label="状态" width="80" align="center">
@@ -117,6 +131,19 @@
         <el-form-item label="一句说明">
           <el-input v-model="form.intro" maxlength="30" show-word-limit placeholder="给宝宝挑的，都是常用的" />
           <div class="tip">显示在专题页顶部；放活动位时也当卡片副标题。</div>
+        </el-form-item>
+
+        <el-form-item label="自动打标关键词">
+          <el-input
+            v-model="keywordText"
+            type="textarea"
+            :rows="3"
+            placeholder="多个关键词用逗号或空格分隔，比如：奶粉, 婴儿奶粉, 婴幼儿配方奶粉"
+          />
+          <div class="tip">
+            商品标题命中任意一个关键词，就自动打上这个标签。
+            留空表示不参与自动打标。品牌标签由系统自动生成，不用手动配。
+          </div>
         </el-form-item>
 
         <el-form-item label="头图">
@@ -286,7 +313,9 @@ const list = ref([]);
 const loading = ref(false);
 const editOpen = ref(false);
 const saving = ref(false);
+const autoTagging = ref(false);
 const form = reactive({ ...EMPTY });
+const keywordText = ref('');
 const activeType = ref('');
 
 async function load() {
@@ -303,6 +332,12 @@ function openEdit(row) {
   const data = row ? { ...row } : {};
   // banners 确保是数组
   if (!data.banners || !Array.isArray(data.banners)) data.banners = [];
+  // keywordRules 转成逗号分隔字符串给输入框
+  if (data.keywordRules && Array.isArray(data.keywordRules) && data.keywordRules.length) {
+    keywordText.value = data.keywordRules.join(', ');
+  } else {
+    keywordText.value = '';
+  }
   Object.assign(form, EMPTY, data);
   editOpen.value = true;
 }
@@ -322,6 +357,11 @@ async function save() {
     const body = { ...form };
     delete body.pageUrl;
     delete body.goodsCount;
+    // 关键词文本 → 数组
+    body.keywordRules = keywordText.value
+      .split(/[,，\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
     if (form.id) await api.topicUpdate(form.id, body);
     else await api.topicCreate(body);
     ElMessage.success('保存好了');
@@ -346,6 +386,27 @@ async function remove(row) {
   await api.topicRemove(row.id);
   ElMessage.success('删好了');
   load();
+}
+
+async function runAutoTagAll() {
+  await ElMessageBox.confirm(
+    '将根据所有标签的关键词规则，给选品池里所有上架商品重新自动打标。' +
+    '只追加新标签，不会覆盖或移除人工打的标签。商品越多越慢，耐心等一下。',
+    '全量自动打标',
+    { type: 'warning', confirmButtonText: '开始打标', cancelButtonText: '取消' },
+  );
+  autoTagging.value = true;
+  try {
+    const r = await api.curationAutoTagAll();
+    ElMessage.success(
+      `完成：共 ${r.total ?? r.totalGoods ?? '-'} 件商品，` +
+      `新增 ${r.tagged ?? r.newTags ?? '-'} 个标签关联，` +
+      `新建品牌标签 ${r.newBrandTopics ?? r.newTopics ?? 0} 个`,
+    );
+    load();
+  } finally {
+    autoTagging.value = false;
+  }
 }
 
 function copy(t) {
@@ -439,4 +500,6 @@ onMounted(load);
 }
 .banner-list { width: 100%; }
 .banner-item { display: flex; align-items: center; margin-bottom: 8px; }
+.kw-count { color: #409eff; font-size: 12px; }
+.kw-empty { color: #c0c4cc; font-size: 12px; }
 </style>

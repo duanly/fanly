@@ -43,6 +43,7 @@ import { TopicController, TopicAdminController } from './modules/curation/topic.
 import { RecommendService } from './modules/curation/recommend.service';
 import { HomeController, HomeAdminController, RecommendController } from './modules/curation/home.controller';
 import { CurationService } from './modules/curation/curation.service';
+import { AutoTagService } from './modules/curation/auto-tag.service';
 import { CurationController } from './modules/curation/curation.controller';
 import { JobService } from './modules/job/job.service';
 
@@ -101,7 +102,7 @@ const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'functi
   providers: [
     SysConfigService, AuthService, OrderService, CommissionService,
     FundService, AgentService, CurationService, AuthzService, CompareService,
-    HomeLinkService, RankingService, RecommendService, TopicService,
+    HomeLinkService, RankingService, RecommendService, TopicService, AutoTagService,
     CartService, OrderClaimService, CoinService, JobService,
     { provide: APP_GUARD, useClass: JwtGuard },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },

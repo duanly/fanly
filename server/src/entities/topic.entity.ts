@@ -90,6 +90,16 @@ export class Topic {
   /** 分享海报图 URL，用户点分享时弹出来长按保存 */
   @Column({ length: 512, default: '' }) shareImage: string;
 
+  /**
+   * 自动打标关键词，JSON 字符串数组。
+   * 商品标题命中任意一个关键词，就自动打上这个标签。
+   * 留空表示不参与自动打标。
+   */
+  @Column({ type: 'text', nullable: true }) keywordRules: string | null;
+
+  /** 是否是自动生成的品牌标签（品牌·XXX），用于区分普通品类标签 */
+  @Column({ type: 'boolean', default: false }) autoBrand: boolean;
+
   @CreateDateColumn() createdAt: Date;
   @UpdateDateColumn() updatedAt: Date;
 }

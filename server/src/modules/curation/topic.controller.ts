@@ -143,4 +143,10 @@ export class TopicAdminController {
   untagMany(@Param('id') id: string, @Body() b: { curatedIds: number[] }) {
     return this.svc.untagMany(+id, b?.curatedIds ?? []);
   }
+
+  @Post(':id/keywords')
+  @ApiOperation({ summary: '设置标签的自动打标关键词（逗号分隔或数组）' })
+  setKeywords(@Param('id') id: string, @Body() b: { keywords: string | string[] }) {
+    return this.svc.setKeywords(+id, b.keywords);
+  }
 }

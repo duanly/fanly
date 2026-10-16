@@ -4,6 +4,7 @@ import { In, Repository } from 'typeorm';
 import { CuratedGoods, CuratedStatus, GoodsTopic } from '@/entities';
 import { CpsService } from '../cps/cps.service';
 import { UnifiedGoods } from '../cps/cps.types';
+import { AutoTagService } from './auto-tag.service';
 
 /** 刷新时每件商品之间的间隔，别把平台接口打限流了 */
 const REFRESH_GAP_MS = 120;
@@ -87,6 +88,7 @@ export class CurationService {
     @InjectRepository(CuratedGoods) private readonly repo: Repository<CuratedGoods>,
     @InjectRepository(GoodsTopic) private readonly relRepo: Repository<GoodsTopic>,
     private readonly cps: CpsService,
+    private readonly autoTag: AutoTagService,
   ) {}
 
   /** UnifiedGoods → 表里的快照字段。decimal 列 TypeORM 用字符串，这里统一转 */
@@ -238,6 +240,14 @@ export class CurationService {
     this.logger.log(
       `选品池 ${exist ? '更新' : '新增'} [${statusName(finalStatus)}]: ${g.platform}/${g.goodsId} ${g.title.slice(0, 20)}`,
     );
+
+    // 新增商品自动打标（更新的不打，避免重复处理）
+    if (!exist && g.title) {
+      this.autoTag.tagOne(saved.id, g.title).catch((e) => {
+        this.logger.warn(`自动打标失败 [${saved.id}]: ${e.message}`);
+      });
+    }
+
     return this.toGoods(saved);
   }
 
@@ -660,6 +670,19 @@ export class CurationService {
       intraBatchDedup,
       titleDupCount,
     };
+  }
+
+  /**
+   * 批量给商品自动打标（公开方法，供外部调用）。
+   * 内部委托给 AutoTagService。
+   */
+  async autoTagBatch(goods: Array<{ id: number; title: string }>) {
+    return this.autoTag.tagGoods(goods);
+  }
+
+  /** 全量自动打标 */
+  async autoTagAll() {
+    return this.autoTag.retagAll();
   }
 
   /**

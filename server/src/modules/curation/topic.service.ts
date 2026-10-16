@@ -100,6 +100,10 @@ export class TopicService implements OnModuleInit {
       banners: t.banners ? safeParseJson(t.banners, []) : [],
       description: t.description || '',
       shareImage: t.shareImage || '',
+      /** 自动打标关键词，存的是 JSON 字符串，解析成数组给前端 */
+      keywordRules: t.keywordRules ? safeParseJson(t.keywordRules, []) : [],
+      /** 是否自动生成的品牌标签 */
+      autoBrand: t.autoBrand || false,
       /** 后台直接显示这个，运营不用猜 URL 填什么 */
       pageUrl: `/topic/${t.slug}`,
       ...(goodsCount === undefined ? {} : { goodsCount }),
@@ -279,7 +283,7 @@ export class TopicService implements OnModuleInit {
   }
 
   /**
-   * 输入标准化：数组字段（banners）转 JSON 字符串再存库，
+   * 输入标准化：数组字段转 JSON 字符串再存库，
    * 前端传过来的是数组，数据库里存的是 text。
    */
   private normalizeInput(d: Partial<Topic>): Record<string, any> {
@@ -289,6 +293,25 @@ export class TopicService implements OnModuleInit {
         out.banners = JSON.stringify(out.banners);
       } else if (!out.banners) {
         out.banners = null;
+      }
+    }
+    if ('keywordRules' in out) {
+      if (Array.isArray(out.keywordRules)) {
+        // 数组：trim + 去空 + 去重
+        const cleaned = [...new Set(
+          out.keywordRules.map((k: string) => k.trim()).filter(Boolean),
+        )];
+        out.keywordRules = cleaned.length ? JSON.stringify(cleaned) : null;
+      } else if (typeof out.keywordRules === 'string') {
+        // 字符串：按逗号/空格分割
+        const arr = out.keywordRules
+          .split(/[,，\s]+/)
+          .map((k: string) => k.trim())
+          .filter(Boolean);
+        const cleaned = [...new Set(arr)];
+        out.keywordRules = cleaned.length ? JSON.stringify(cleaned) : null;
+      } else {
+        out.keywordRules = null;
       }
     }
     return out;

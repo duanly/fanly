@@ -62,6 +62,7 @@ export const api = {
   curationRemoveOffShelf: () => http.post('/api/admin/curation/remove-off-shelf'),
   curationCleanOffShelf: (data) => http.post('/api/admin/curation/clean-off-shelf', data),
   curationDedup: () => http.post('/api/admin/curation/dedup'),
+  curationAutoTagAll: () => http.post('/api/admin/curation/auto-tag/all'),
   curationRemove: (id) => http.delete(`/api/admin/curation/${id}`),
   curationAutoPull: (data) => http.post('/api/admin/curation/auto-pull', data),
   curationBatchOnShelf: (ids) => http.post('/api/admin/curation/batch-on-shelf', { ids }),

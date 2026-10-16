@@ -201,6 +201,12 @@ export class CurationController {
     return this.curation.dedup();
   }
 
+  @Post('auto-tag/all')
+  @ApiOperation({ summary: '全量自动打标：给所有上架商品按标题关键词自动打标签' })
+  autoTagAll() {
+    return this.curation.autoTagAll();
+  }
+
   @Post(':id')
   @ApiOperation({ summary: '改专题 / 权重 / 上下架' })
   update(
