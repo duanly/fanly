@@ -322,7 +322,7 @@ const acts = computed(() =>
 // 品牌专区：按商品数排序，取前 20 个展示
 const brandTopics = computed(() =>
   topics.value
-    .filter((t) => t.type === 'brand' && t.status === 1 && (t.goodsCount || 0) > 0)
+    .filter((t) => t.type === 'brand' && t.status === 1)
     .sort((a, b) => (b.goodsCount || 0) - (a.goodsCount || 0))
     .slice(0, 20),
 );
