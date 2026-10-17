@@ -32,7 +32,6 @@
             @click="onPlatClick(p)"
           >
             <span class="ac-dot" :style="{ background: p.bg }">{{ p.short }}</span>
-            <span class="ac-name">{{ p.name }}</span>
             <span class="ac-st">{{ auth[p.key] === true ? '已开启' : '去开启' }}</span>
           </div>
         </div>
@@ -914,42 +913,47 @@ onUnmounted(() => {
 .ac-list {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 8px;
 }
 .ac-item {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 12px 0 10px;
+  padding: 10px 4px 8px;
   border-radius: 12px;
-  background: #f5f9f5;
-  transition: transform 0.15s;
+  background: #f7f8fa;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.05);
+  transition: transform 0.1s, background 0.1s;
+  cursor: pointer;
 }
-.ac-item:active { transform: scale(0.95); }
+.ac-item:active {
+  transform: scale(0.92);
+  background: #eceff2;
+}
 .ac-item.done {
   background: #f0f8f0;
 }
+.ac-item.done:active {
+  background: #e0f0e0;
+}
 .ac-dot {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: 50%;
   color: #fff;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
-}
-.ac-name {
-  font-size: 13px;
-  color: #333;
-  font-weight: 500;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 .ac-st {
-  font-size: 12px;
+  font-size: 11px;
   color: #07c160;
   font-weight: 500;
+  white-space: nowrap;
 }
 .ac-item:not(.done) .ac-st {
   color: #ff4b3a;
