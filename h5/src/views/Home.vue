@@ -752,7 +752,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 0 10px;
+  padding: calc(12px + env(safe-area-inset-top)) 0 10px;
 }
 .search-box {
   flex: 1;
