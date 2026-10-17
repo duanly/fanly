@@ -66,3 +66,49 @@ router.beforeEach((to) => {
 });
 
 createApp(App).use(router).use(Vant).mount('#app');
+
+// ───────── PWA 动态切换：管理后台 vs 用户端 ─────────
+// 访问 /madmin/* 时切换成运营中心的 PWA 配置，这样可以单独添加到桌面
+const USER_MANIFEST = '/manifest.json';
+const ADMIN_MANIFEST = '/admin-manifest.json';
+const USER_TITLE = '省钱猫 · 买啥都返现';
+const ADMIN_TITLE = '运营中心';
+const USER_THEME = '#ff3b30';
+const ADMIN_THEME = '#ff4b3a';
+
+function setMeta(name, content) {
+  let el = document.querySelector(`meta[name="${name}"]`);
+  if (!el) {
+    el = document.createElement('meta');
+    el.setAttribute('name', name);
+    document.head.appendChild(el);
+  }
+  el.setAttribute('content', content);
+}
+
+function setPwaMode(isAdmin) {
+  // manifest
+  let link = document.querySelector('link[rel="manifest"]');
+  if (!link) {
+    link = document.createElement('link');
+    link.setAttribute('rel', 'manifest');
+    document.head.appendChild(link);
+  }
+  link.setAttribute('href', isAdmin ? ADMIN_MANIFEST : USER_MANIFEST);
+
+  // iOS PWA 相关
+  setMeta('apple-mobile-web-app-title', isAdmin ? '运营中心' : '省钱猫');
+  setMeta('theme-color', isAdmin ? ADMIN_THEME : USER_THEME);
+  setMeta('apple-mobile-web-app-status-bar-style', 'default');
+
+  // 文档标题
+  document.title = isAdmin ? ADMIN_TITLE : USER_TITLE;
+}
+
+router.afterEach((to) => {
+  const isAdmin = to.path.startsWith('/madmin');
+  setPwaMode(isAdmin);
+});
+
+// 初始化时根据当前路径设置
+setPwaMode(location.hash.startsWith('#/madmin'));
