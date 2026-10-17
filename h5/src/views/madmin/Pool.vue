@@ -89,7 +89,7 @@
             <div v-if="batchMode" class="check-wrap" @click.stop="togglePick(g)">
               <van-checkbox :model-value="isPicked(g)" />
             </div>
-            <img :src="g.image" class="g-img" />
+            <van-image :src="g.image" class="g-img" lazy-load width="80" height="80" radius="8" />
             <div class="g-info">
               <div class="g-title">{{ g.title }}</div>
               <div class="g-meta">
@@ -97,16 +97,16 @@
                 <span v-if="g.sales" class="g-sales">销量 {{ g.sales }}</span>
                 <span class="g-status" :class="statusClass(g.status)">{{ statusName(g.status) }}</span>
               </div>
-              <div v-if="getGoodsTags(g.id || g.curatedId).length" class="g-tags">
+              <div v-if="g._tagNames && g._tagNames.length" class="g-tags">
                 <span
-                  v-for="t in getGoodsTags(g.id || g.curatedId).slice(0, 3)"
-                  :key="t.id"
+                  v-for="(t, i) in g._tagNames.slice(0, 3)"
+                  :key="i"
                   class="g-tag"
-                >{{ t.name }}</span>
+                >{{ t }}</span>
                 <span
-                  v-if="getGoodsTags(g.id || g.curatedId).length > 3"
+                  v-if="g._tagNames.length > 3"
                   class="g-tag more"
-                >+{{ getGoodsTags(g.id || g.curatedId).length - 3 }}</span>
+                >+{{ g._tagNames.length - 3 }}</span>
               </div>
               <div class="g-price-row">
                 <div class="g-price">
@@ -148,7 +148,7 @@
             <div v-if="batchMode" class="check-wrap" @click.stop="togglePick(g)">
               <van-checkbox :model-value="isPicked(g)" />
             </div>
-            <img :src="g.image" class="g-img" />
+            <van-image :src="g.image" class="g-img" lazy-load width="80" height="80" radius="8" />
             <div class="g-info">
               <div class="g-title">{{ g.title }}</div>
               <div class="g-meta">
@@ -156,16 +156,16 @@
                 <span v-if="g.sales" class="g-sales">销量 {{ g.sales }}</span>
                 <span class="g-status" :class="statusClass(g.status)">{{ statusName(g.status) }}</span>
               </div>
-              <div v-if="getGoodsTags(g.id || g.curatedId).length" class="g-tags">
+              <div v-if="g._tagNames && g._tagNames.length" class="g-tags">
                 <span
-                  v-for="t in getGoodsTags(g.id || g.curatedId).slice(0, 3)"
-                  :key="t.id"
+                  v-for="(t, i) in g._tagNames.slice(0, 3)"
+                  :key="i"
                   class="g-tag"
-                >{{ t.name }}</span>
+                >{{ t }}</span>
                 <span
-                  v-if="getGoodsTags(g.id || g.curatedId).length > 3"
+                  v-if="g._tagNames.length > 3"
                   class="g-tag more"
-                >+{{ getGoodsTags(g.id || g.curatedId).length - 3 }}</span>
+                >+{{ g._tagNames.length - 3 }}</span>
               </div>
               <div class="g-price-row">
                 <div class="g-price">
@@ -207,7 +207,7 @@
             <div v-if="batchMode" class="check-wrap" @click.stop="togglePick(g)">
               <van-checkbox :model-value="isPicked(g)" />
             </div>
-            <img :src="g.image" class="g-img" />
+            <van-image :src="g.image" class="g-img" lazy-load width="80" height="80" radius="8" />
             <div class="g-info">
               <div class="g-title">{{ g.title }}</div>
               <div class="g-meta">
@@ -215,16 +215,16 @@
                 <span v-if="g.sales" class="g-sales">销量 {{ g.sales }}</span>
                 <span class="g-status" :class="statusClass(g.status)">{{ statusName(g.status) }}</span>
               </div>
-              <div v-if="getGoodsTags(g.id || g.curatedId).length" class="g-tags">
+              <div v-if="g._tagNames && g._tagNames.length" class="g-tags">
                 <span
-                  v-for="t in getGoodsTags(g.id || g.curatedId).slice(0, 3)"
-                  :key="t.id"
+                  v-for="(t, i) in g._tagNames.slice(0, 3)"
+                  :key="i"
                   class="g-tag"
-                >{{ t.name }}</span>
+                >{{ t }}</span>
                 <span
-                  v-if="getGoodsTags(g.id || g.curatedId).length > 3"
+                  v-if="g._tagNames.length > 3"
                   class="g-tag more"
-                >+{{ getGoodsTags(g.id || g.curatedId).length - 3 }}</span>
+                >+{{ g._tagNames.length - 3 }}</span>
               </div>
               <div class="g-price-row">
                 <div class="g-price">
@@ -347,17 +347,11 @@ const states = reactive({
 });
 
 const topicMap = ref({});
-const goodsTopicMap = ref({});
 
 const currentList = computed(() => states[activeStatus.value]?.list || []);
 
 function isPicked(g) {
   return pickedIds.value.includes(g.id || g.curatedId);
-}
-
-function getGoodsTags(id) {
-  const tids = goodsTopicMap.value[id] || [];
-  return tids.map((tid) => topicMap.value[tid]).filter(Boolean);
 }
 
 function onCardClick(g) {
@@ -381,8 +375,18 @@ async function loadAllTopics() {
   }
 }
 
-// 批量获取商品标签（分批，每批 50 个）
-async function loadGoodsTopics(ids) {
+// 把标签名挂到商品对象上（直接修改，避免模板里重复计算）
+function applyTagsToGoods(goodsList, tagMap) {
+  const tMap = topicMap.value;
+  goodsList.forEach((g) => {
+    const id = g.id || g.curatedId;
+    const tids = tagMap[id] || [];
+    g._tagNames = tids.map((tid) => tMap[tid]?.name).filter(Boolean);
+  });
+}
+
+// 批量获取商品标签（分批，延迟加载，不阻塞首屏）
+async function loadGoodsTopics(statusVal, ids) {
   if (!ids.length) return;
   try {
     const chunkSize = 50;
@@ -394,7 +398,11 @@ async function loadGoodsTopics(ids) {
         Object.assign(allMap, gtMap);
       }
     }
-    Object.assign(goodsTopicMap.value, allMap);
+    // 把标签名直接挂到商品对象上
+    const s = states[statusVal];
+    if (s && s.list.length) {
+      applyTagsToGoods(s.list, allMap);
+    }
   } catch {
     // 标签加载失败不影响列表
   }
@@ -420,10 +428,12 @@ async function loadPage(statusVal) {
     if (rows.length < 20) {
       s.finished = true;
     }
-    // 批量加载标签（异步，不阻塞列表显示）
+    // 标签延迟加载：先让列表渲染出来，再请求标签数据，避免手机端首屏卡顿
     if (rows.length) {
       const ids = rows.map((g) => g.id || g.curatedId).filter(Boolean);
-      loadGoodsTopics(ids);
+      setTimeout(() => {
+        loadGoodsTopics(statusVal, ids);
+      }, 300);
     }
   } catch (e) {
     // 错误已由拦截器 toast
@@ -611,14 +621,17 @@ async function batchRemove() {
   }
 }
 
-function batchMove(fromStatus, toStatus, ids) {
+function batchMove(fromStatus, toStatus, ids, tagNames) {
   const from = states[fromStatus];
   const to = states[toStatus];
   const idSet = new Set(ids);
   const moved = from.list.filter((g) => idSet.has(g.id || g.curatedId));
   from.list = from.list.filter((g) => !idSet.has(g.id || g.curatedId));
   if (to.loaded) {
-    moved.forEach((g) => { g.status = Number(toStatus); });
+    moved.forEach((g) => {
+      g.status = Number(toStatus);
+      if (tagNames) g._tagNames = [...tagNames];
+    });
     to.list = [...moved, ...to.list];
   }
 }
@@ -656,8 +669,11 @@ const filteredEditorTags = computed(() => {
 function openTagEditor(g, mode) {
   editorMode = mode || 'edit';
   editorGoods = [g];
-  const id = g.id || g.curatedId;
-  editorPickedIds.value = [...(goodsTopicMap.value[id] || [])];
+  // 从商品 _tagNames 反查 topic id
+  const tagNames = g._tagNames || [];
+  const nameToId = {};
+  Object.values(topicMap.value).forEach((t) => { nameToId[t.name] = t.id; });
+  editorPickedIds.value = tagNames.map((n) => nameToId[n]).filter(Boolean);
   editorTagType.value = '';
   editorTagKw.value = '';
   tagEditorShow.value = true;
@@ -673,9 +689,12 @@ function openBatchTagEdit() {
     pickedIds.value.includes(g.id || g.curatedId),
   );
   editorGoods = currentGoods;
+  // 单条时预填，多条时空
   if (currentGoods.length === 1) {
-    const id = currentGoods[0].id || currentGoods[0].curatedId;
-    editorPickedIds.value = [...(goodsTopicMap.value[id] || [])];
+    const tagNames = currentGoods[0]._tagNames || [];
+    const nameToId = {};
+    Object.values(topicMap.value).forEach((t) => { nameToId[t.name] = t.id; });
+    editorPickedIds.value = tagNames.map((n) => nameToId[n]).filter(Boolean);
   } else {
     editorPickedIds.value = [];
   }
@@ -714,6 +733,8 @@ async function confirmTagEdit() {
   editorLoading.value = true;
   try {
     const ids = editorGoods.map((g) => g.id || g.curatedId);
+    const tMap = topicMap.value;
+    const pickedNames = editorPickedIds.value.map((id) => tMap[id]?.name).filter(Boolean);
 
     if (editorMode === 'shelf') {
       // 带标签上架：先上架，再打标签
@@ -732,16 +753,20 @@ async function confirmTagEdit() {
           editorPickedIds.value.length ? `，打了 ${editorPickedIds.value.length} 个标签` : ''
         }`,
       );
-      batchMove(activeStatus.value, '1', ids);
-      ids.forEach((id) => {
-        goodsTopicMap.value[id] = [...editorPickedIds.value];
-      });
+      batchMove(activeStatus.value, '1', ids, pickedNames);
     } else {
       // 编辑标签：逐个设置（全量替换）
       for (const id of ids) {
         await adminApi.setGoodsTopics(id, editorPickedIds.value);
-        goodsTopicMap.value[id] = [...editorPickedIds.value];
       }
+      // 直接更新商品对象上的 _tagNames
+      const idSet = new Set(ids);
+      const s = states[activeStatus.value];
+      s.list.forEach((g) => {
+        if (idSet.has(g.id || g.curatedId)) {
+          g._tagNames = [...pickedNames];
+        }
+      });
       showSuccessToast(`已更新 ${ids.length} 件商品的标签`);
     }
 
@@ -754,7 +779,7 @@ async function confirmTagEdit() {
 }
 
 // ───────── 初始化 ─────────
-onMounted(async () => {
+onMounted(() => {
   // 从路由参数读取初始 tab
   if (route.query.status) {
     const s = String(route.query.status);
@@ -762,7 +787,8 @@ onMounted(async () => {
       activeStatus.value = s;
     }
   }
-  await loadAllTopics();
+  // 并发加载：标签列表和商品列表同时请求，不互相阻塞
+  loadAllTopics();
   // 手动触发当前 tab 的加载（v-show 初始隐藏的 van-list 可能不会自动触发）
   const s = states[activeStatus.value];
   if (!s.loaded && !s.loading) {
@@ -823,6 +849,10 @@ onMounted(async () => {
   background: #fff;
   border-radius: 12px;
   margin-bottom: 8px;
+  /* 性能优化：GPU 加速，减少滚动时重绘 */
+  transform: translateZ(0);
+  will-change: transform;
+  contain: layout paint;
 }
 .goods-card.selected {
   background: #e3f2fd;
@@ -835,8 +865,6 @@ onMounted(async () => {
 .g-img {
   width: 80px;
   height: 80px;
-  object-fit: cover;
-  border-radius: 8px;
   flex: none;
 }
 .g-info {
