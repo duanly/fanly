@@ -320,12 +320,13 @@ export class CpsService implements OnModuleInit {
   async searchByRebate(
     platform: string,
     params: SearchParams,
-    pages = 3,
-  ): Promise<UnifiedGoods[]> {
+    pages = 10,
+  ): Promise<{ list: UnifiedGoods[]; total: number; page: number; hasMore: boolean }> {
     const pageSize = Math.min(params.pageSize ?? 20, 100);
+    const page = Math.max(params.page ?? 1, 1);
     const key = `rebate|${platform}|${params.keyword ?? ''}|${pages}|${pageSize}`;
 
-    return this.remember(await this.goodsCache.wrap(key, async () => {
+    const all = await this.remember(await this.goodsCache.wrap(key, async () => {
       const provider = this.get(platform);
       const batches = await Promise.all(
         Array.from({ length: pages }, (_, i) =>
@@ -346,9 +347,18 @@ export class CpsService implements OnModuleInit {
           seen.add(g.goodsId);
           return true;
         })
-        .sort((a, b) => b.commission - a.commission)
-        .slice(0, pageSize);
+        .sort((a, b) => b.commission - a.commission);
     }));
+
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    const list = all.slice(start, end);
+    return {
+      list,
+      total: all.length,
+      page,
+      hasMore: end < all.length,
+    };
   }
 
   /**

@@ -30,10 +30,9 @@ export class CurationController {
       const list = await this.cps.searchAll({ keyword, pageSize: +pageSize, sort });
       return { list, total: list.length, page: +page, hasMore: false };
     }
-    // rebate 是「全量拉回来按佣金排前 N」，没有翻页概念；其余排序走真分页
+    // rebate 是「全量拉回来按佣金排前 N」，用内存分页翻页
     if (sort === 'rebate') {
-      const list = await this.cps.searchByRebate(platform, { keyword, pageSize: +pageSize });
-      return { list, total: list.length, page: +page, hasMore: false };
+      return this.cps.searchByRebate(platform, { keyword, page: +page, pageSize: +pageSize });
     }
     return this.cps.searchGoodsPage(platform, { keyword, page: +page, pageSize: +pageSize, sort });
   }
