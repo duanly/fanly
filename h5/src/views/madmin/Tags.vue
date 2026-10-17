@@ -14,11 +14,11 @@
     </van-nav-bar>
 
     <van-tabs v-model:active="activeType" sticky offset-top="46px" @change="onTypeChange">
-      <van-tab title="全部" name="" />
       <van-tab title="品类" name="category" />
-      <van-tab title="品牌" name="brand" />
       <van-tab title="活动" name="activity" />
       <van-tab title="运营" name="operate" />
+      <van-tab title="品牌" name="brand" />
+      <van-tab title="全部" name="" />
     </van-tabs>
 
     <van-search
@@ -184,7 +184,7 @@ const EMPTY = {
   type: 'category', slot: 'grid', sortWeight: 0,
 };
 
-const activeType = ref('');
+const activeType = ref('category');
 const keyword = ref('');
 const list = ref([]);
 const loading = ref(false);

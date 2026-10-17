@@ -70,182 +70,229 @@
       </template>
     </div>
 
+    <!-- 列表总数 -->
+    <div v-if="currentTotal != null" class="list-count">
+      共 {{ currentTotal }} 件 · 第 {{ currentPage }} 页
+    </div>
+
     <!-- 已上架列表 -->
-    <div v-show="activeStatus === '1'" class="list-wrap">
-      <van-list
-        v-model:loading="states[1].loading"
-        :finished="states[1].finished"
-        finished-text="没有更多了"
-        @load="loadPage(1)"
-      >
-        <div class="goods-list">
-          <div
-            v-for="g in states[1].list"
-            :key="g.id || g.curatedId"
-            class="goods-card"
-            :class="{ selected: isPicked(g) }"
-            @click="onCardClick(g)"
-          >
-            <div v-if="batchMode" class="check-wrap" @click.stop="togglePick(g)">
-              <van-checkbox :model-value="isPicked(g)" />
+    <div v-if="activeStatus === '1'" class="list-wrap">
+      <div v-if="states[1].loading" class="loading-bar">
+        <van-loading size="18" /> 加载中...
+      </div>
+      <div class="goods-list">
+        <div
+          v-for="g in states[1].list"
+          :key="g.id || g.curatedId"
+          class="goods-card"
+          :class="{ selected: isPicked(g) }"
+          @click="onCardClick(g)"
+        >
+          <div v-if="batchMode" class="check-wrap" @click.stop="togglePick(g)">
+            <van-checkbox :model-value="isPicked(g)" />
+          </div>
+          <img
+            :src="g.image"
+            class="g-img"
+            loading="lazy"
+            decoding="async"
+            referrerpolicy="no-referrer"
+          />
+          <div class="g-info">
+            <div class="g-title">{{ g.title }}</div>
+            <div class="g-meta">
+              <span class="g-platform">{{ platName(g.platform) }}</span>
+              <span v-if="g.sales" class="g-sales">销量 {{ g.sales }}</span>
+              <span class="g-status" :class="statusClass(g.status)">{{ statusName(g.status) }}</span>
             </div>
-            <van-image :src="g.image" class="g-img" lazy-load width="80" height="80" radius="8" />
-            <div class="g-info">
-              <div class="g-title">{{ g.title }}</div>
-              <div class="g-meta">
-                <span class="g-platform">{{ platName(g.platform) }}</span>
-                <span v-if="g.sales" class="g-sales">销量 {{ g.sales }}</span>
-                <span class="g-status" :class="statusClass(g.status)">{{ statusName(g.status) }}</span>
-              </div>
-              <div v-if="g._tagNames && g._tagNames.length" class="g-tags">
-                <span
-                  v-for="(t, i) in g._tagNames.slice(0, 3)"
-                  :key="i"
-                  class="g-tag"
-                >{{ t }}</span>
-                <span
-                  v-if="g._tagNames.length > 3"
-                  class="g-tag more"
-                >+{{ g._tagNames.length - 3 }}</span>
-              </div>
-              <div class="g-price-row">
-                <div class="g-price">
-                  <span class="label">券后</span>
-                  <span class="price">¥{{ g.couponPrice || g.price || 0 }}</span>
-                </div>
-                <div class="g-comm">
-                  <span class="label">返利</span>
-                  <span class="comm">¥{{ g.commission || 0 }}</span>
-                </div>
-              </div>
+            <div v-if="g._tagNames && g._tagNames.length" class="g-tags">
+              <span
+                v-for="(t, i) in g._tagNames.slice(0, 3)"
+                :key="i"
+                class="g-tag"
+              >{{ t }}</span>
+              <span
+                v-if="g._tagNames.length > 3"
+                class="g-tag more"
+              >+{{ g._tagNames.length - 3 }}</span>
             </div>
-            <div v-if="!batchMode" class="g-actions" @click.stop>
-              <van-button size="mini" type="primary" plain @click="openTagEditor(g, 'edit')">编辑标签</van-button>
-              <van-button size="mini" type="warning" plain @click="offShelf(g)">下架</van-button>
+            <div class="g-price-row">
+              <div class="g-price">
+                <span class="label">券后</span>
+                <span class="price">¥{{ g.couponPrice || g.price || 0 }}</span>
+              </div>
+              <div class="g-comm">
+                <span class="label">返利</span>
+                <span class="comm">¥{{ g.commission || 0 }}</span>
+              </div>
             </div>
           </div>
+          <div v-if="!batchMode" class="g-actions" @click.stop>
+            <van-button size="mini" type="primary" plain @click="openTagEditor(g, 'edit')">编辑标签</van-button>
+            <van-button size="mini" type="warning" plain @click="offShelf(g)">下架</van-button>
+          </div>
         </div>
-      </van-list>
+      </div>
       <van-empty v-if="!states[1].loading && states[1].loaded && !states[1].list.length" description="暂无商品" />
+      <div v-if="states[1].loaded && states[1].list.length && !states[1].finished" class="load-more-bar">
+        <van-button
+          block
+          type="default"
+          plain
+          :loading="states[1].loading"
+          @click="loadPage(1)"
+        >加载更多</van-button>
+      </div>
+      <div v-if="states[1].finished && states[1].list.length" class="finished-tip">
+        — 已经到底了 —
+      </div>
     </div>
 
     <!-- 待上架列表 -->
-    <div v-show="activeStatus === '3'" class="list-wrap">
-      <van-list
-        v-model:loading="states[3].loading"
-        :finished="states[3].finished"
-        finished-text="没有更多了"
-        @load="loadPage(3)"
-      >
-        <div class="goods-list">
-          <div
-            v-for="g in states[3].list"
-            :key="g.id || g.curatedId"
-            class="goods-card"
-            :class="{ selected: isPicked(g) }"
-            @click="onCardClick(g)"
-          >
-            <div v-if="batchMode" class="check-wrap" @click.stop="togglePick(g)">
-              <van-checkbox :model-value="isPicked(g)" />
+    <div v-if="activeStatus === '3'" class="list-wrap">
+      <div v-if="states[3].loading" class="loading-bar">
+        <van-loading size="18" /> 加载中...
+      </div>
+      <div class="goods-list">
+        <div
+          v-for="g in states[3].list"
+          :key="g.id || g.curatedId"
+          class="goods-card"
+          :class="{ selected: isPicked(g) }"
+          @click="onCardClick(g)"
+        >
+          <div v-if="batchMode" class="check-wrap" @click.stop="togglePick(g)">
+            <van-checkbox :model-value="isPicked(g)" />
+          </div>
+          <img
+            :src="g.image"
+            class="g-img"
+            loading="lazy"
+            decoding="async"
+            referrerpolicy="no-referrer"
+          />
+          <div class="g-info">
+            <div class="g-title">{{ g.title }}</div>
+            <div class="g-meta">
+              <span class="g-platform">{{ platName(g.platform) }}</span>
+              <span v-if="g.sales" class="g-sales">销量 {{ g.sales }}</span>
+              <span class="g-status" :class="statusClass(g.status)">{{ statusName(g.status) }}</span>
             </div>
-            <van-image :src="g.image" class="g-img" lazy-load width="80" height="80" radius="8" />
-            <div class="g-info">
-              <div class="g-title">{{ g.title }}</div>
-              <div class="g-meta">
-                <span class="g-platform">{{ platName(g.platform) }}</span>
-                <span v-if="g.sales" class="g-sales">销量 {{ g.sales }}</span>
-                <span class="g-status" :class="statusClass(g.status)">{{ statusName(g.status) }}</span>
-              </div>
-              <div v-if="g._tagNames && g._tagNames.length" class="g-tags">
-                <span
-                  v-for="(t, i) in g._tagNames.slice(0, 3)"
-                  :key="i"
-                  class="g-tag"
-                >{{ t }}</span>
-                <span
-                  v-if="g._tagNames.length > 3"
-                  class="g-tag more"
-                >+{{ g._tagNames.length - 3 }}</span>
-              </div>
-              <div class="g-price-row">
-                <div class="g-price">
-                  <span class="label">券后</span>
-                  <span class="price">¥{{ g.couponPrice || g.price || 0 }}</span>
-                </div>
-                <div class="g-comm">
-                  <span class="label">返利</span>
-                  <span class="comm">¥{{ g.commission || 0 }}</span>
-                </div>
-              </div>
+            <div v-if="g._tagNames && g._tagNames.length" class="g-tags">
+              <span
+                v-for="(t, i) in g._tagNames.slice(0, 3)"
+                :key="i"
+                class="g-tag"
+              >{{ t }}</span>
+              <span
+                v-if="g._tagNames.length > 3"
+                class="g-tag more"
+              >+{{ g._tagNames.length - 3 }}</span>
             </div>
-            <div v-if="!batchMode" class="g-actions" @click.stop>
-              <van-button size="mini" type="primary" @click="onShelf(g)">上架</van-button>
-              <van-button size="mini" type="success" plain @click="openTagEditor(g, 'shelf')">带标签上架</van-button>
+            <div class="g-price-row">
+              <div class="g-price">
+                <span class="label">券后</span>
+                <span class="price">¥{{ g.couponPrice || g.price || 0 }}</span>
+              </div>
+              <div class="g-comm">
+                <span class="label">返利</span>
+                <span class="comm">¥{{ g.commission || 0 }}</span>
+              </div>
             </div>
           </div>
+          <div v-if="!batchMode" class="g-actions" @click.stop>
+            <van-button size="mini" type="primary" @click="onShelf(g)">上架</van-button>
+            <van-button size="mini" type="success" plain @click="openTagEditor(g, 'shelf')">带标签上架</van-button>
+          </div>
         </div>
-      </van-list>
+      </div>
       <van-empty v-if="!states[3].loading && states[3].loaded && !states[3].list.length" description="暂无商品" />
+      <div v-if="states[3].loaded && states[3].list.length && !states[3].finished" class="load-more-bar">
+        <van-button
+          block
+          type="default"
+          plain
+          :loading="states[3].loading"
+          @click="loadPage(3)"
+        >加载更多</van-button>
+      </div>
+      <div v-if="states[3].finished && states[3].list.length" class="finished-tip">
+        — 已经到底了 —
+      </div>
     </div>
 
     <!-- 已下架列表 -->
-    <div v-show="activeStatus === '0'" class="list-wrap">
-      <van-list
-        v-model:loading="states[0].loading"
-        :finished="states[0].finished"
-        finished-text="没有更多了"
-        @load="loadPage(0)"
-      >
-        <div class="goods-list">
-          <div
-            v-for="g in states[0].list"
-            :key="g.id || g.curatedId"
-            class="goods-card"
-            :class="{ selected: isPicked(g) }"
-            @click="onCardClick(g)"
-          >
-            <div v-if="batchMode" class="check-wrap" @click.stop="togglePick(g)">
-              <van-checkbox :model-value="isPicked(g)" />
+    <div v-if="activeStatus === '0'" class="list-wrap">
+      <div v-if="states[0].loading" class="loading-bar">
+        <van-loading size="18" /> 加载中...
+      </div>
+      <div class="goods-list">
+        <div
+          v-for="g in states[0].list"
+          :key="g.id || g.curatedId"
+          class="goods-card"
+          :class="{ selected: isPicked(g) }"
+          @click="onCardClick(g)"
+        >
+          <div v-if="batchMode" class="check-wrap" @click.stop="togglePick(g)">
+            <van-checkbox :model-value="isPicked(g)" />
+          </div>
+          <img
+            :src="g.image"
+            class="g-img"
+            loading="lazy"
+            decoding="async"
+            referrerpolicy="no-referrer"
+          />
+          <div class="g-info">
+            <div class="g-title">{{ g.title }}</div>
+            <div class="g-meta">
+              <span class="g-platform">{{ platName(g.platform) }}</span>
+              <span v-if="g.sales" class="g-sales">销量 {{ g.sales }}</span>
+              <span class="g-status" :class="statusClass(g.status)">{{ statusName(g.status) }}</span>
             </div>
-            <van-image :src="g.image" class="g-img" lazy-load width="80" height="80" radius="8" />
-            <div class="g-info">
-              <div class="g-title">{{ g.title }}</div>
-              <div class="g-meta">
-                <span class="g-platform">{{ platName(g.platform) }}</span>
-                <span v-if="g.sales" class="g-sales">销量 {{ g.sales }}</span>
-                <span class="g-status" :class="statusClass(g.status)">{{ statusName(g.status) }}</span>
-              </div>
-              <div v-if="g._tagNames && g._tagNames.length" class="g-tags">
-                <span
-                  v-for="(t, i) in g._tagNames.slice(0, 3)"
-                  :key="i"
-                  class="g-tag"
-                >{{ t }}</span>
-                <span
-                  v-if="g._tagNames.length > 3"
-                  class="g-tag more"
-                >+{{ g._tagNames.length - 3 }}</span>
-              </div>
-              <div class="g-price-row">
-                <div class="g-price">
-                  <span class="label">券后</span>
-                  <span class="price">¥{{ g.couponPrice || g.price || 0 }}</span>
-                </div>
-                <div class="g-comm">
-                  <span class="label">返利</span>
-                  <span class="comm">¥{{ g.commission || 0 }}</span>
-                </div>
-              </div>
+            <div v-if="g._tagNames && g._tagNames.length" class="g-tags">
+              <span
+                v-for="(t, i) in g._tagNames.slice(0, 3)"
+                :key="i"
+                class="g-tag"
+              >{{ t }}</span>
+              <span
+                v-if="g._tagNames.length > 3"
+                class="g-tag more"
+              >+{{ g._tagNames.length - 3 }}</span>
             </div>
-            <div v-if="!batchMode" class="g-actions" @click.stop>
-              <van-button size="mini" type="primary" @click="onShelf(g)">上架</van-button>
-              <van-button size="mini" type="success" plain @click="openTagEditor(g, 'shelf')">带标签上架</van-button>
-              <van-button size="mini" type="danger" plain @click="removeGoods(g)">删除</van-button>
+            <div class="g-price-row">
+              <div class="g-price">
+                <span class="label">券后</span>
+                <span class="price">¥{{ g.couponPrice || g.price || 0 }}</span>
+              </div>
+              <div class="g-comm">
+                <span class="label">返利</span>
+                <span class="comm">¥{{ g.commission || 0 }}</span>
+              </div>
             </div>
           </div>
+          <div v-if="!batchMode" class="g-actions" @click.stop>
+            <van-button size="mini" type="primary" @click="onShelf(g)">上架</van-button>
+            <van-button size="mini" type="success" plain @click="openTagEditor(g, 'shelf')">带标签上架</van-button>
+            <van-button size="mini" type="danger" plain @click="removeGoods(g)">删除</van-button>
+          </div>
         </div>
-      </van-list>
+      </div>
       <van-empty v-if="!states[0].loading && states[0].loaded && !states[0].list.length" description="暂无商品" />
+      <div v-if="states[0].loaded && states[0].list.length && !states[0].finished" class="load-more-bar">
+        <van-button
+          block
+          type="default"
+          plain
+          :loading="states[0].loading"
+          @click="loadPage(0)"
+        >加载更多</van-button>
+      </div>
+      <div v-if="states[0].finished && states[0].list.length" class="finished-tip">
+        — 已经到底了 —
+      </div>
     </div>
 
     <!-- 底部 tabbar -->
@@ -269,10 +316,11 @@
         <van-icon name="cross" size="20" @click="tagEditorShow = false" />
       </div>
       <van-tabs v-model:active="editorTagType">
-        <van-tab title="全部" name="" />
         <van-tab title="品类" name="category" />
-        <van-tab title="品牌" name="brand" />
         <van-tab title="活动" name="activity" />
+        <van-tab title="运营" name="operation" />
+        <van-tab title="品牌" name="brand" />
+        <van-tab title="全部" name="" />
       </van-tabs>
       <div class="picker-search">
         <van-search v-model="editorTagKw" placeholder="搜索标签" shape="round" />
@@ -332,6 +380,8 @@ const batchMode = ref(false);
 const pickedIds = ref([]);
 const allChecked = ref(false);
 
+const pageSize = 20;
+
 // 三个状态各自独立的列表状态
 const makeState = () => ({
   list: [],
@@ -339,6 +389,7 @@ const makeState = () => ({
   loading: false,
   finished: false,
   loaded: false,
+  total: 0,
 });
 const states = reactive({
   1: makeState(),
@@ -349,6 +400,8 @@ const states = reactive({
 const topicMap = ref({});
 
 const currentList = computed(() => states[activeStatus.value]?.list || []);
+const currentTotal = computed(() => states[activeStatus.value]?.total ?? null);
+const currentPage = computed(() => (states[activeStatus.value]?.page || 1) - 1);
 
 function isPicked(g) {
   return pickedIds.value.includes(g.id || g.curatedId);
@@ -375,7 +428,7 @@ async function loadAllTopics() {
   }
 }
 
-// 把标签名挂到商品对象上（直接修改，避免模板里重复计算）
+// 把标签名挂到商品对象上
 function applyTagsToGoods(goodsList, tagMap) {
   const tMap = topicMap.value;
   goodsList.forEach((g) => {
@@ -385,7 +438,7 @@ function applyTagsToGoods(goodsList, tagMap) {
   });
 }
 
-// 批量获取商品标签（分批，延迟加载，不阻塞首屏）
+// 批量获取商品标签（分批，延迟加载）
 async function loadGoodsTopics(statusVal, ids) {
   if (!ids.length) return;
   try {
@@ -398,7 +451,6 @@ async function loadGoodsTopics(statusVal, ids) {
         Object.assign(allMap, gtMap);
       }
     }
-    // 把标签名直接挂到商品对象上
     const s = states[statusVal];
     if (s && s.list.length) {
       applyTagsToGoods(s.list, allMap);
@@ -419,23 +471,24 @@ async function loadPage(statusVal) {
       status: Number(statusVal),
       keyword: searchKw.value.trim() || undefined,
       page: s.page,
-      pageSize: 20,
+      pageSize,
     });
     const rows = r?.list || r || [];
     s.list = s.list.concat(rows);
+    s.total = r?.total ?? s.total;
     s.page++;
     s.loaded = true;
-    if (rows.length < 20) {
+    if (rows.length < pageSize) {
       s.finished = true;
     }
-    // 标签延迟加载：先让列表渲染出来，再请求标签数据，避免手机端首屏卡顿
+    // 标签延迟加载，不阻塞首屏
     if (rows.length) {
       const ids = rows.map((g) => g.id || g.curatedId).filter(Boolean);
       setTimeout(() => {
         loadGoodsTopics(statusVal, ids);
       }, 300);
     }
-  } catch (e) {
+  } catch {
     // 错误已由拦截器 toast
     s.finished = true;
   } finally {
@@ -445,8 +498,6 @@ async function loadPage(statusVal) {
 
 function onTabChange() {
   const s = states[activeStatus.value];
-  // 如果还没加载过，手动触发加载
-  // （v-show 的元素 van-list 的 immediate-check 可能不生效，因为 DOM 初始是隐藏的）
   if (!s.loaded && !s.loading) {
     loadPage(activeStatus.value);
   }
@@ -462,6 +513,7 @@ function onSearch() {
   s.page = 1;
   s.finished = false;
   s.loaded = false;
+  s.total = 0;
   loadPage(activeStatus.value);
 }
 
@@ -538,20 +590,22 @@ async function removeGoods(g) {
     showSuccessToast('已删除');
     const s = states[activeStatus.value];
     s.list = s.list.filter((x) => (x.id || x.curatedId) !== id);
+    if (s.total) s.total--;
   } catch (e) {
     if (e === 'cancel') return;
   }
 }
 
-// 把商品从一个状态移到另一个状态
 function moveGoods(g, fromStatus, toStatus) {
   const id = g.id || g.curatedId;
   const from = states[fromStatus];
   const to = states[toStatus];
   from.list = from.list.filter((x) => (x.id || x.curatedId) !== id);
+  if (from.total) from.total--;
   const copy = { ...g, status: Number(toStatus) };
   if (to.loaded) {
     to.list.unshift(copy);
+    to.total = (to.total || 0) + 1;
   }
 }
 
@@ -614,6 +668,7 @@ async function batchRemove() {
     const s = states[activeStatus.value];
     const idSet = new Set(ids);
     s.list = s.list.filter((g) => !idSet.has(g.id || g.curatedId));
+    if (s.total) s.total -= ids.length;
     pickedIds.value = [];
     allChecked.value = false;
   } catch (e) {
@@ -627,18 +682,20 @@ function batchMove(fromStatus, toStatus, ids, tagNames) {
   const idSet = new Set(ids);
   const moved = from.list.filter((g) => idSet.has(g.id || g.curatedId));
   from.list = from.list.filter((g) => !idSet.has(g.id || g.curatedId));
+  if (from.total) from.total -= ids.length;
   if (to.loaded) {
     moved.forEach((g) => {
       g.status = Number(toStatus);
       if (tagNames) g._tagNames = [...tagNames];
     });
     to.list = [...moved, ...to.list];
+    to.total = (to.total || 0) + ids.length;
   }
 }
 
 // ───────── 标签编辑弹窗 ─────────
 const tagEditorShow = ref(false);
-const editorTagType = ref('');
+const editorTagType = ref('category');
 const editorTagKw = ref('');
 const editorPickedIds = ref([]);
 const editorLoading = ref(false);
@@ -669,12 +726,11 @@ const filteredEditorTags = computed(() => {
 function openTagEditor(g, mode) {
   editorMode = mode || 'edit';
   editorGoods = [g];
-  // 从商品 _tagNames 反查 topic id
   const tagNames = g._tagNames || [];
   const nameToId = {};
   Object.values(topicMap.value).forEach((t) => { nameToId[t.name] = t.id; });
   editorPickedIds.value = tagNames.map((n) => nameToId[n]).filter(Boolean);
-  editorTagType.value = '';
+  editorTagType.value = 'category';
   editorTagKw.value = '';
   tagEditorShow.value = true;
 }
@@ -689,7 +745,6 @@ function openBatchTagEdit() {
     pickedIds.value.includes(g.id || g.curatedId),
   );
   editorGoods = currentGoods;
-  // 单条时预填，多条时空
   if (currentGoods.length === 1) {
     const tagNames = currentGoods[0]._tagNames || [];
     const nameToId = {};
@@ -698,7 +753,7 @@ function openBatchTagEdit() {
   } else {
     editorPickedIds.value = [];
   }
-  editorTagType.value = '';
+  editorTagType.value = 'category';
   editorTagKw.value = '';
   tagEditorShow.value = true;
 }
@@ -714,7 +769,7 @@ function openBatchTagShelf() {
   );
   editorGoods = currentGoods;
   editorPickedIds.value = [];
-  editorTagType.value = '';
+  editorTagType.value = 'category';
   editorTagKw.value = '';
   tagEditorShow.value = true;
 }
@@ -737,7 +792,6 @@ async function confirmTagEdit() {
     const pickedNames = editorPickedIds.value.map((id) => tMap[id]?.name).filter(Boolean);
 
     if (editorMode === 'shelf') {
-      // 带标签上架：先上架，再打标签
       for (let i = 0; i < ids.length; i += 50) {
         await adminApi.curationBatchOnShelf(ids.slice(i, i + 50));
       }
@@ -755,11 +809,9 @@ async function confirmTagEdit() {
       );
       batchMove(activeStatus.value, '1', ids, pickedNames);
     } else {
-      // 编辑标签：逐个设置（全量替换）
       for (const id of ids) {
         await adminApi.setGoodsTopics(id, editorPickedIds.value);
       }
-      // 直接更新商品对象上的 _tagNames
       const idSet = new Set(ids);
       const s = states[activeStatus.value];
       s.list.forEach((g) => {
@@ -780,16 +832,14 @@ async function confirmTagEdit() {
 
 // ───────── 初始化 ─────────
 onMounted(() => {
-  // 从路由参数读取初始 tab
   if (route.query.status) {
     const s = String(route.query.status);
     if (['1', '3', '0'].includes(s)) {
       activeStatus.value = s;
     }
   }
-  // 并发加载：标签列表和商品列表同时请求，不互相阻塞
+  // 并发加载
   loadAllTopics();
-  // 手动触发当前 tab 的加载（v-show 初始隐藏的 van-list 可能不会自动触发）
   const s = states[activeStatus.value];
   if (!s.loaded && !s.loading) {
     loadPage(activeStatus.value);
@@ -836,11 +886,25 @@ onMounted(() => {
   border-bottom: 1px solid #eee;
   overflow-x: auto;
 }
+.list-count {
+  padding: 6px 14px;
+  font-size: 12px;
+  color: #999;
+}
 .list-wrap {
   min-height: 200px;
 }
+.loading-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  font-size: 13px;
+  color: #999;
+}
 .goods-list {
-  padding: 8px 12px;
+  padding: 0 12px;
 }
 .goods-card {
   display: flex;
@@ -849,10 +913,6 @@ onMounted(() => {
   background: #fff;
   border-radius: 12px;
   margin-bottom: 8px;
-  /* 性能优化：GPU 加速，减少滚动时重绘 */
-  transform: translateZ(0);
-  will-change: transform;
-  contain: layout paint;
 }
 .goods-card.selected {
   background: #e3f2fd;
@@ -865,7 +925,10 @@ onMounted(() => {
 .g-img {
   width: 80px;
   height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
   flex: none;
+  background: #f5f5f5;
 }
 .g-info {
   flex: 1;
@@ -950,6 +1013,15 @@ onMounted(() => {
   flex-direction: column;
   justify-content: center;
   gap: 6px;
+}
+.load-more-bar {
+  padding: 12px;
+}
+.finished-tip {
+  text-align: center;
+  padding: 16px;
+  font-size: 12px;
+  color: #ccc;
 }
 .picker-header {
   display: flex;
