@@ -180,11 +180,46 @@ async function jump(it) {
     if (r?.needAuth) {
       return router.push({ path: `/auth/${r.platform || it.platform}`, query: { redirect: '/cart' } });
     }
-    if (!r?.deeplink) return showToast('转链失败，稍后再试');
+    const platform = it.platform?.toUpperCase();
+    const goodsId = it.goodsId;
+
+    const appUrl = buildAppUrl(platform, goodsId, r);
+    const h5Url = r.shortUrl || r.deeplink;
+
+    if (!appUrl && !h5Url) return showToast('转链失败，稍后再试');
     showToast('正在打开购物 App…');
-    location.href = r.deeplink;
+
+    if (appUrl && !appUrl.startsWith('http')) {
+      const start = Date.now();
+      location.href = appUrl;
+      setTimeout(() => {
+        if (Date.now() - start < 2200) return;
+        if (document.hidden) return;
+        if (h5Url) location.href = h5Url;
+      }, 2000);
+    } else if (h5Url) {
+      location.href = h5Url;
+    }
   } catch {
     showToast('转链失败，稍后再试');
+  }
+}
+
+function buildAppUrl(platform, goodsId, link) {
+  if (link?.deeplink && !link.deeplink.startsWith('http')) {
+    return link.deeplink;
+  }
+  switch (platform) {
+    case 'TB':
+      return `taobao://item.taobao.com/item.htm?id=${goodsId}`;
+    case 'JD':
+      return `jdapp://item.jd.com/${goodsId}.html`;
+    case 'PDD':
+      return link?.deeplink || '';
+    case 'VIP':
+      return link?.deeplink || '';
+    default:
+      return link?.deeplink || '';
   }
 }
 

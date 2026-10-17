@@ -153,11 +153,44 @@ async function doParse() {
 
 function openApp() {
   const link = result.value?.link;
-  // 优先 H5 短链（唤起 App / 引导下载），schema deeplink 只作兜底
-  const target = link?.shortUrl || link?.deeplink;
-  if (!target) return showToast('转链信息缺失');
+  const platform = result.value?.platform?.toUpperCase();
+  const goodsId = result.value?.goods?.goodsId;
+
+  const appUrl = buildAppUrl(platform, goodsId, link);
+  const h5Url = link?.shortUrl || link?.deeplink;
+
+  if (!appUrl && !h5Url) return showToast('转链信息缺失');
   showToast('正在打开购物 App…');
-  location.href = target;
+
+  if (appUrl && !appUrl.startsWith('http')) {
+    const start = Date.now();
+    location.href = appUrl;
+    setTimeout(() => {
+      if (Date.now() - start < 2200) return;
+      if (document.hidden) return;
+      if (h5Url) location.href = h5Url;
+    }, 2000);
+  } else if (h5Url) {
+    location.href = h5Url;
+  }
+}
+
+function buildAppUrl(platform, goodsId, link) {
+  if (link?.deeplink && !link.deeplink.startsWith('http')) {
+    return link.deeplink;
+  }
+  switch (platform) {
+    case 'TB':
+      return `taobao://item.taobao.com/item.htm?id=${goodsId}`;
+    case 'JD':
+      return `jdapp://item.jd.com/${goodsId}.html`;
+    case 'PDD':
+      return link?.deeplink || '';
+    case 'VIP':
+      return link?.deeplink || '';
+    default:
+      return link?.deeplink || '';
+  }
 }
 
 function back() {
