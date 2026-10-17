@@ -393,7 +393,7 @@ export class DingdanxiaVipProvider implements CpsProvider {
       const params = { id: goodsId, pid: this.opt.pid };
       this.logger.debug(`唯品会转链(id_privilege)请求参数: ${JSON.stringify(params)}`);
       const data = await this.call<any>('/vip/id_privilege', params);
-      this.logger.debug(`唯品会转链(id_privilege)响应: ${JSON.stringify(data).slice(0, 800)}`);
+      this.logger.warn(`[DEBUG] 唯品会转链完整响应: ${JSON.stringify(data)}`);
 
       const result = this.extractConvertedLink(data, goodsId, positionId);
       if (result) return result;

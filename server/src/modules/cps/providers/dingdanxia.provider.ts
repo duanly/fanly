@@ -419,9 +419,12 @@ export class DingdanxiaProvider implements CpsProvider {
       };
       if (this.opt.relationId) params.relation_id = this.opt.relationId;
       const data = await this.call<any>('/tbk/id_privilege', params);
-      this.logger.warn(`[DEBUG] 淘宝高佣转链完整响应: ${JSON.stringify(data)}`);
-      const shortUrl = data?.coupon_click_url ?? data?.item_url ?? '';
-      const tpwd = data?.coupon_tpwd ?? data?.item_tpwd ?? '';
+      // item_url 是商品详情推广链（直接到商品页），coupon_click_url 是券领取页（粉丝福利购）
+      // 优先用 item_url，用户体验更好；券链接也保留备用
+      const itemUrl = data?.item_url ?? '';
+      const couponUrl = data?.coupon_click_url ?? '';
+      const shortUrl = itemUrl || couponUrl;
+      const tpwd = data?.item_tpwd ?? data?.coupon_tpwd ?? '';
       const deeplink = data?.deeplink ?? data?.schema ?? shortUrl;
       if (shortUrl || tpwd) {
         this.logger.log(`淘宝转链成功: id_privilege, goodsId=${goodsId}`);
@@ -454,11 +457,14 @@ export class DingdanxiaProvider implements CpsProvider {
     const data = await this.call<any>('/tbk/wn_convert', reqBody);
     this.logger.log(`淘宝万能转链响应: ${JSON.stringify(data).slice(0, 500)}`);
 
-    const shortUrl = data?.coupon_short_url
+    // 优先取商品详情推广链接（click_url / cps_short_url），
+    // 其次才是券链接（coupon_click_url / coupon_short_url），避免跳到粉丝福利购
+    const shortUrl = data?.click_url
       ?? data?.cps_short_url
       ?? data?.short_url
-      ?? data?.click_url
+      ?? data?.item_url
       ?? data?.coupon_click_url
+      ?? data?.coupon_short_url
       ?? '';
     const tpwd = data?.tpwd ?? data?.password ?? data?.model ?? data?.tbk_pwd ?? '';
     if (!shortUrl && !tpwd) throw new Error('订单侠转链返回为空');
@@ -920,7 +926,7 @@ export class DingdanxiaJdProvider implements CpsProvider {
     };
     this.logger.debug(`京东转链请求: goodsId=${goodsId}, materialId=${materialId}, baseUrl=${this.commonBaseUrl}`);
     const data = await this.call<any>('/jd/url_privilege', reqBody, true);
-    this.logger.warn(`[DEBUG] 京东转链完整响应: ${JSON.stringify(data)}`);
+    this.logger.debug(`京东转链响应: ${JSON.stringify(data)}`);
     this.logger.debug(`京东转链响应: ${JSON.stringify(data).slice(0, 800)}`);
 
     // 各种可能的返回字段
