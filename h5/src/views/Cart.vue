@@ -180,46 +180,25 @@ async function jump(it) {
     if (r?.needAuth) {
       return router.push({ path: `/auth/${r.platform || it.platform}`, query: { redirect: '/cart' } });
     }
-    const platform = it.platform?.toUpperCase();
-    const goodsId = it.goodsId;
+    // 优先用后端返回的真正 scheme deeplink（带推广参数），其次用 H5 短链
+    // 注意：不自己拼无返利的纯商品 scheme
+    const hasRealDeeplink = r.deeplink && !r.deeplink.startsWith('http');
+    const target = hasRealDeeplink ? r.deeplink : (r.shortUrl || r.deeplink);
+    if (!target) return showToast('转链失败，稍后再试');
 
-    const appUrl = buildAppUrl(platform, goodsId, r);
-    const h5Url = r.shortUrl || r.deeplink;
-
-    if (!appUrl && !h5Url) return showToast('转链失败，稍后再试');
     showToast('正在打开购物 App…');
+    location.href = target;
 
-    if (appUrl && !appUrl.startsWith('http')) {
+    if (hasRealDeeplink && r.shortUrl && r.shortUrl !== r.deeplink) {
       const start = Date.now();
-      location.href = appUrl;
       setTimeout(() => {
         if (Date.now() - start < 2200) return;
         if (document.hidden) return;
-        if (h5Url) location.href = h5Url;
+        location.href = r.shortUrl;
       }, 2000);
-    } else if (h5Url) {
-      location.href = h5Url;
     }
   } catch {
     showToast('转链失败，稍后再试');
-  }
-}
-
-function buildAppUrl(platform, goodsId, link) {
-  if (link?.deeplink && !link.deeplink.startsWith('http')) {
-    return link.deeplink;
-  }
-  switch (platform) {
-    case 'TB':
-      return `taobao://item.taobao.com/item.htm?id=${goodsId}`;
-    case 'JD':
-      return `jdapp://item.jd.com/${goodsId}.html`;
-    case 'PDD':
-      return link?.deeplink || '';
-    case 'VIP':
-      return link?.deeplink || '';
-    default:
-      return link?.deeplink || '';
   }
 }
 

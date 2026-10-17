@@ -135,56 +135,26 @@ async function buy() {
     if (r?.needAuth) return toAuth(r.platform || route.params.platform);
     link.value = r;
 
-    const platform = route.params.platform?.toUpperCase();
-    const goodsId = route.params.goodsId;
-
-    // 1. 优先尝试直接唤起 APP（scheme / deeplink）
-    const appUrl = buildAppUrl(platform, goodsId, r);
-    const h5Url = r.shortUrl || r.deeplink;
+    // 优先用后端返回的真正 scheme deeplink（带推广参数），其次用 H5 短链
+    // 注意：绝不能自己拼不带推广参数的 scheme，否则没有返利
+    const hasRealDeeplink = r.deeplink && !r.deeplink.startsWith('http');
+    const target = hasRealDeeplink ? r.deeplink : (r.shortUrl || r.deeplink);
+    if (!target) return showToast('转链失败，稍后再试');
 
     showToast('正在打开购物 App…');
+    location.href = target;
 
-    if (appUrl && !appUrl.startsWith('http')) {
-      // 是真正的 scheme，先尝试唤起 APP
+    // 如果是 scheme，2 秒兜底到 H5 短链（没装 APP 或被拦截时）
+    if (hasRealDeeplink && r.shortUrl && r.shortUrl !== r.deeplink) {
       const start = Date.now();
-      location.href = appUrl;
-      // 2 秒后还没离开，说明没装 APP 或被浏览器拦截，走 H5 短链兜底
       setTimeout(() => {
-        if (Date.now() - start < 2200) return; // 用户切走了就不跑了
-        if (document.hidden) return; // 页面被隐藏（APP 已唤起）就不跳了
-        if (h5Url) location.href = h5Url;
+        if (Date.now() - start < 2200) return;
+        if (document.hidden) return;
+        location.href = r.shortUrl;
       }, 2000);
-    } else if (h5Url) {
-      // 没有可靠的 scheme，直接走 H5 短链（短链页面自己会尝试唤起 APP）
-      location.href = h5Url;
     }
-    // 注意：去掉了转链成功弹窗，用户不需要知道中间过程
   } finally {
     converting.value = false;
-  }
-}
-
-/** 根据平台拼出 APP 跳转链接 */
-function buildAppUrl(platform, goodsId, link) {
-  // 如果后端返回了真正的 scheme（非 http），直接用
-  if (link?.deeplink && !link.deeplink.startsWith('http')) {
-    return link.deeplink;
-  }
-  switch (platform) {
-    case 'TB':
-      // 淘宝：taobao:// 协议直接打开商品详情
-      return `taobao://item.taobao.com/item.htm?id=${goodsId}`;
-    case 'JD':
-      // 京东：jdapp:// 协议
-      return `jdapp://item.jd.com/${goodsId}.html`;
-    case 'PDD':
-      // 拼多多后端一般会返回 schema_url（已在 deeplink 字段），兜底一下
-      return link?.deeplink || '';
-    case 'VIP':
-      // 唯品会后端一般会返回 deeplinkUrl（已在 deeplink 字段）
-      return link?.deeplink || '';
-    default:
-      return link?.deeplink || '';
   }
 }
 

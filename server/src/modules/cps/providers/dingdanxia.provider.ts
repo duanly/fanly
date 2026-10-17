@@ -419,15 +419,17 @@ export class DingdanxiaProvider implements CpsProvider {
       };
       if (this.opt.relationId) params.relation_id = this.opt.relationId;
       const data = await this.call<any>('/tbk/id_privilege', params);
+      this.logger.warn(`[DEBUG] 淘宝高佣转链完整响应: ${JSON.stringify(data)}`);
       const shortUrl = data?.coupon_click_url ?? data?.item_url ?? '';
       const tpwd = data?.coupon_tpwd ?? data?.item_tpwd ?? '';
+      const deeplink = data?.deeplink ?? data?.schema ?? shortUrl;
       if (shortUrl || tpwd) {
         this.logger.log(`淘宝转链成功: id_privilege, goodsId=${goodsId}`);
         return {
           platform: 'TB',
           goodsId: String(data?.item_id ?? goodsId),
           shortUrl: shortUrl || tpwd,
-          deeplink: shortUrl,
+          deeplink,
           password: tpwd,
           positionId,
         };
@@ -918,6 +920,7 @@ export class DingdanxiaJdProvider implements CpsProvider {
     };
     this.logger.debug(`京东转链请求: goodsId=${goodsId}, materialId=${materialId}, baseUrl=${this.commonBaseUrl}`);
     const data = await this.call<any>('/jd/url_privilege', reqBody, true);
+    this.logger.warn(`[DEBUG] 京东转链完整响应: ${JSON.stringify(data)}`);
     this.logger.debug(`京东转链响应: ${JSON.stringify(data).slice(0, 800)}`);
 
     // 各种可能的返回字段
