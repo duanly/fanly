@@ -94,6 +94,35 @@
     <!-- 列表总数 -->
     <div v-if="currentTotal != null" class="list-count">
       共 {{ currentTotal }} 件 · 第 {{ currentPage }} 页
+      <span v-if="activeStatus === '1' && tagFilter === 'untagged'" class="count-sub">
+        （无标签 {{ filteredList.length }} 件）
+      </span>
+      <span v-else-if="activeStatus === '1' && tagFilter === 'tagged'" class="count-sub">
+        （有标签 {{ filteredList.length }} 件）
+      </span>
+    </div>
+
+    <!-- 已上架：标签过滤 -->
+    <div v-if="activeStatus === '1'" class="tag-filter">
+      <div
+        class="tf-chip"
+        :class="{ active: tagFilter === 'all' }"
+        @click="tagFilter = 'all'"
+      >全部</div>
+      <div
+        class="tf-chip"
+        :class="{ active: tagFilter === 'untagged' }"
+        @click="tagFilter = 'untagged'"
+      >无标签</div>
+      <div
+        class="tf-chip"
+        :class="{ active: tagFilter === 'tagged' }"
+        @click="tagFilter = 'tagged'"
+      >有标签</div>
+      <div class="tf-sort" @click="toggleUntaggedFirst">
+        <van-icon name="sort" />
+        <span>{{ untaggedFirst ? '无标签在前' : '默认排序' }}</span>
+      </div>
     </div>
 
     <!-- 已上架列表 -->
@@ -103,7 +132,7 @@
       </div>
       <div class="goods-list">
         <div
-          v-for="g in states[1].list"
+          v-for="g in filteredList"
           :key="g.id || g.curatedId"
           class="goods-card"
           :class="{ selected: isPicked(g) }"
@@ -415,6 +444,9 @@ const activeStatus = ref('1');
 const searchKw = ref('');
 const batchMode = ref(false);
 const pickedIds = ref([]);
+// 已上架标签过滤
+const tagFilter = ref('all'); // all | untagged | tagged
+const untaggedFirst = ref(true);
 const allChecked = ref(false);
 
 const pageSize = 20;
@@ -439,6 +471,38 @@ const topicMap = ref({});
 const currentList = computed(() => states[activeStatus.value]?.list || []);
 const currentTotal = computed(() => states[activeStatus.value]?.total ?? null);
 const currentPage = computed(() => (states[activeStatus.value]?.page || 1) - 1);
+
+// 已上架：标签过滤 + 无标签优先排序
+const filteredList = computed(() => {
+  const list = states['1']?.list || [];
+  let result = list;
+  if (tagFilter.value === 'untagged') {
+    result = list.filter((g) => !g._tagNames || !g._tagNames.length);
+  } else if (tagFilter.value === 'tagged') {
+    result = list.filter((g) => g._tagNames && g._tagNames.length);
+  }
+  if (untaggedFirst.value) {
+    result = [...result].sort((a, b) => {
+      const aTags = a._tagNames?.length || 0;
+      const bTags = b._tagNames?.length || 0;
+      // 无标签在前（0 在前），有标签在后
+      if (aTags === 0 && bTags > 0) return -1;
+      if (aTags > 0 && bTags === 0) return 1;
+      return 0;
+    });
+  }
+  return result;
+});
+
+// 当前可见的商品列表（已上架会根据标签过滤）
+const visibleList = computed(() => {
+  if (activeStatus.value === '1') return filteredList.value;
+  return currentList.value;
+});
+
+function toggleUntaggedFirst() {
+  untaggedFirst.value = !untaggedFirst.value;
+}
 
 function isPicked(g) {
   return pickedIds.value.includes(g.id || g.curatedId);
@@ -570,12 +634,12 @@ function togglePick(g) {
     pickedIds.value.push(id);
   }
   allChecked.value =
-    pickedIds.value.length === currentList.value.length && currentList.value.length > 0;
+    pickedIds.value.length === visibleList.value.length && visibleList.value.length > 0;
 }
 
 function onCheckAll() {
   if (allChecked.value) {
-    pickedIds.value = currentList.value.map((g) => g.id || g.curatedId);
+    pickedIds.value = visibleList.value.map((g) => g.id || g.curatedId);
   } else {
     pickedIds.value = [];
   }
@@ -942,6 +1006,42 @@ onBeforeUnmount(() => {
   padding: 6px 14px;
   font-size: 12px;
   color: #999;
+}
+.count-sub {
+  margin-left: 4px;
+  color: #ff4b3a;
+}
+.tag-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tag-filter::-webkit-scrollbar { display: none; }
+.tf-chip {
+  flex: none;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: #f5f5f5;
+  font-size: 13px;
+  color: #666;
+}
+.tf-chip.active {
+  background: #ff4b3a;
+  color: #fff;
+  font-weight: 500;
+}
+.tf-sort {
+  margin-left: auto;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #999;
+  padding: 4px 8px;
 }
 .list-wrap {
   min-height: 200px;
