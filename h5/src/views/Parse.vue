@@ -153,14 +153,24 @@ async function doParse() {
 
 function openApp() {
   const link = result.value?.link;
-  // 优先用后端返回的真正 scheme deeplink（带推广参数），其次用 H5 短链
+  const platform = result.value?.platform?.toUpperCase();
+
+  // 跳转策略：PDD 优先 scheme，其他平台优先 HTTP 短链（universal link）
+  const useSchemeFirst = platform === 'PDD';
   const hasRealDeeplink = link?.deeplink && !link.deeplink.startsWith('http');
-  const target = hasRealDeeplink ? link.deeplink : (link?.shortUrl || link?.deeplink);
+  const shortUrl = link?.shortUrl || link?.deeplink;
+
+  let target;
+  if (useSchemeFirst && hasRealDeeplink) {
+    target = link.deeplink;
+  } else {
+    target = shortUrl;
+  }
   if (!target) return showToast('转链信息缺失');
   showToast('正在打开购物 App…');
   location.href = target;
 
-  if (hasRealDeeplink && link?.shortUrl && link.shortUrl !== link.deeplink) {
+  if (useSchemeFirst && hasRealDeeplink && link?.shortUrl && link.shortUrl !== link.deeplink) {
     const start = Date.now();
     setTimeout(() => {
       if (Date.now() - start < 2200) return;

@@ -419,12 +419,15 @@ export class DingdanxiaProvider implements CpsProvider {
       };
       if (this.opt.relationId) params.relation_id = this.opt.relationId;
       const data = await this.call<any>('/tbk/id_privilege', params);
-      // item_url 是商品详情推广链（直接到商品页），coupon_click_url 是券领取页（粉丝福利购）
-      // 优先用 item_url，用户体验更好；券链接也保留备用
+      // 有券的走 coupon_click_url（粉丝福利购领券页，券感知强，转化率高）
+      // 没券的走 item_url（直接进商品详情页）
+      const hasCoupon = data?.coupon && parseFloat(data.coupon) > 0;
       const itemUrl = data?.item_url ?? '';
       const couponUrl = data?.coupon_click_url ?? '';
-      const shortUrl = itemUrl || couponUrl;
-      const tpwd = data?.item_tpwd ?? data?.coupon_tpwd ?? '';
+      const shortUrl = (hasCoupon && couponUrl) ? couponUrl : (itemUrl || couponUrl);
+      const tpwd = hasCoupon
+        ? (data?.coupon_tpwd ?? data?.item_tpwd ?? '')
+        : (data?.item_tpwd ?? data?.coupon_tpwd ?? '');
       const deeplink = data?.deeplink ?? data?.schema ?? shortUrl;
       if (shortUrl || tpwd) {
         this.logger.log(`淘宝转链成功: id_privilege, goodsId=${goodsId}`);

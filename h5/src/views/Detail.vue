@@ -135,22 +135,33 @@ async function buy() {
     if (r?.needAuth) return toAuth(r.platform || route.params.platform);
     link.value = r;
 
-    // 优先用后端返回的真正 scheme deeplink（带推广参数），其次用 H5 短链
-    // 注意：绝不能自己拼不带推广参数的 scheme，否则没有返利
+    // 跳转策略：
+    // - PDD：优先 scheme（pinduoduo://），因为拼多多的短链唤起体验一般
+    // - TB/JD/VIP：优先 HTTP 短链（universal link），装了 APP 直接唤起，没装显示 H5
+    //   自定义 scheme 在没装 APP 时浏览器会报"网址无效"，体验差
+    const platform = route.params.platform?.toUpperCase();
+    const useSchemeFirst = platform === 'PDD';
     const hasRealDeeplink = r.deeplink && !r.deeplink.startsWith('http');
-    const target = hasRealDeeplink ? r.deeplink : (r.shortUrl || r.deeplink);
+    const shortUrl = r.shortUrl || r.deeplink;
+
+    let target;
+    if (useSchemeFirst && hasRealDeeplink) {
+      target = r.deeplink; // scheme 优先
+    } else {
+      target = shortUrl; // HTTP 短链优先（universal link）
+    }
     if (!target) return showToast('转链失败，稍后再试');
 
     showToast('正在打开购物 App…');
     location.href = target;
 
-    // 如果是 scheme，2 秒兜底到 H5 短链（没装 APP 或被拦截时）
-    if (hasRealDeeplink && r.shortUrl && r.shortUrl !== r.deeplink) {
+    // scheme 优先的平台：2 秒兜底到 H5 短链（没装 APP 或被拦截时）
+    if (useSchemeFirst && hasRealDeeplink && shortUrl && shortUrl !== r.deeplink) {
       const start = Date.now();
       setTimeout(() => {
         if (Date.now() - start < 2200) return;
         if (document.hidden) return;
-        location.href = r.shortUrl;
+        location.href = shortUrl;
       }, 2000);
     }
   } finally {

@@ -180,21 +180,30 @@ async function jump(it) {
     if (r?.needAuth) {
       return router.push({ path: `/auth/${r.platform || it.platform}`, query: { redirect: '/cart' } });
     }
-    // 优先用后端返回的真正 scheme deeplink（带推广参数），其次用 H5 短链
-    // 注意：不自己拼无返利的纯商品 scheme
+    // 跳转策略：PDD 优先 scheme，其他平台优先 HTTP 短链（universal link）
+    // 自定义 scheme 在没装 APP 时浏览器会报"网址无效"，体验差
+    const platform = it.platform?.toUpperCase();
+    const useSchemeFirst = platform === 'PDD';
     const hasRealDeeplink = r.deeplink && !r.deeplink.startsWith('http');
-    const target = hasRealDeeplink ? r.deeplink : (r.shortUrl || r.deeplink);
+    const shortUrl = r.shortUrl || r.deeplink;
+
+    let target;
+    if (useSchemeFirst && hasRealDeeplink) {
+      target = r.deeplink;
+    } else {
+      target = shortUrl;
+    }
     if (!target) return showToast('转链失败，稍后再试');
 
     showToast('正在打开购物 App…');
     location.href = target;
 
-    if (hasRealDeeplink && r.shortUrl && r.shortUrl !== r.deeplink) {
+    if (useSchemeFirst && hasRealDeeplink && shortUrl && shortUrl !== r.deeplink) {
       const start = Date.now();
       setTimeout(() => {
         if (Date.now() - start < 2200) return;
         if (document.hidden) return;
-        location.href = r.shortUrl;
+        location.href = shortUrl;
       }, 2000);
     }
   } catch {

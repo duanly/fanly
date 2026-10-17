@@ -343,8 +343,11 @@ export class DingdanxiaVipProvider implements CpsProvider {
   private extractConvertedLink(data: any, goodsId: string, positionId: string): ConvertedLink | null {
     if (!data) return null;
 
-    // shortUrl：优先用短链（浏览器里能直接打开的 H5 链接）
-    const shortUrl = data?.url
+    // shortUrl：优先用 ulUrl（联盟 universal link，唤起 APP 最顺畅）
+    // 其次用 url / noEvokeUrl（t.vip.com 短链，浏览器能直接打开）
+    // 都没有再 fallback 到其他可能的字段
+    const shortUrl = data?.ulUrl
+      ?? data?.url
       ?? data?.noEvokeUrl
       ?? data?.noEvokeLongUrl
       ?? data?.shortUrl
@@ -393,7 +396,7 @@ export class DingdanxiaVipProvider implements CpsProvider {
       const params = { id: goodsId, pid: this.opt.pid };
       this.logger.debug(`唯品会转链(id_privilege)请求参数: ${JSON.stringify(params)}`);
       const data = await this.call<any>('/vip/id_privilege', params);
-      this.logger.warn(`[DEBUG] 唯品会转链完整响应: ${JSON.stringify(data)}`);
+      this.logger.debug(`唯品会转链(id_privilege)响应: ${JSON.stringify(data).slice(0, 800)}`);
 
       const result = this.extractConvertedLink(data, goodsId, positionId);
       if (result) return result;
