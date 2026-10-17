@@ -26,6 +26,7 @@ import { AgentController } from './modules/agent/agent.controller';
 import { SysConfigService } from './modules/admin/sys-config.service';
 import { AdminController } from './modules/admin/admin.controller';
 import { HealthController } from './modules/admin/health.controller';
+import { UploadController } from './modules/admin/upload.controller';
 import { AuthzService } from './modules/cps/authz.service';
 import { AuthzController } from './modules/cps/authz.controller';
 import { CompareService } from './modules/cps/compare.service';
@@ -92,7 +93,7 @@ const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'functi
   ],
   controllers: [
     AuthController, GoodsController, OauthController, OrderController,
-    FundController, AgentController, AdminController, HealthController,
+    FundController, AgentController, AdminController, HealthController, UploadController,
     CurationController, AuthzController,
     TopicController, TopicAdminController,
     ComparePublicController, CompareAdminController,

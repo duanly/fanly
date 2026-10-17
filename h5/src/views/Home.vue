@@ -106,7 +106,10 @@
                 class="cat-item"
                 @click="openCat(e)"
               >
-                <div class="cat-ico" :style="{ background: e.bg }">{{ e.icon }}</div>
+                <div class="cat-ico" :style="{ background: isImageUrl(e.icon) ? 'transparent' : e.bg }">
+                  <img v-if="isImageUrl(e.icon)" :src="e.icon" alt="" />
+                  <template v-else>{{ e.icon }}</template>
+                </div>
                 <div class="cat-name">{{ e.name }}</div>
               </div>
             </div>
@@ -121,20 +124,28 @@
       <span class="sec-more" @click="showAllBrands = true">全部品牌 ›</span>
     </div>
     <div v-if="brandTopics.length" class="section brand-section">
-      <div class="brand-scroll">
-        <div
-          v-for="b in brandTopics"
-          :key="b.id"
-          class="brand-item"
-          @click="$router.push(`/topic/${b.slug}`)"
-        >
-          <div class="b-ico" :style="{ background: brandBg(b) }">
-            {{ brandIcon(b) }}
+      <van-swipe
+        :autoplay="brandPages.length > 1 ? 4000 : 0"
+        indicator-color="rgba(255,75,58,0.3)"
+        class="brand-swipe"
+      >
+        <van-swipe-item v-for="(pageItems, pi) in brandPages" :key="pi">
+          <div class="brand-page">
+            <div
+              v-for="b in pageItems"
+              :key="b.id"
+              class="brand-item"
+              @click="$router.push(`/topic/${b.slug}`)"
+            >
+              <div class="b-ico" :style="{ background: isImageUrl(brandIcon(b)) ? 'transparent' : brandBg(b) }">
+                <img v-if="isImageUrl(brandIcon(b))" :src="brandIcon(b)" alt="" />
+                <template v-else>{{ brandIcon(b) }}</template>
+              </div>
+              <div class="b-name">{{ brandName(b) }}</div>
+            </div>
           </div>
-          <div class="b-name">{{ brandName(b) }}</div>
-          <div class="b-cnt">{{ b.goodsCount || 0 }} 件</div>
-        </div>
-      </div>
+        </van-swipe-item>
+      </van-swipe>
     </div>
 
     <!-- 活动标签位（自动滚动） -->
@@ -151,8 +162,9 @@
             class="act-card"
             @click="openLink(a)"
           >
-            <div class="ac-ico" :style="{ background: a.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' }">
-              {{ a.icon || '🎁' }}
+            <div class="ac-ico" :style="{ background: isImageUrl(a.icon) ? 'transparent' : (a.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)') }">
+              <img v-if="isImageUrl(a.icon)" :src="a.icon" alt="" />
+              <template v-else>{{ a.icon || '🎁' }}</template>
             </div>
             <div class="ac-info">
               <div class="ac-title">{{ a.title }}</div>
@@ -216,8 +228,9 @@
             class="aa-item"
             @click="openLink(a); showAllActs = false"
           >
-            <div class="aa-ico" :style="{ background: a.bg || gradientFromName(a.title) }">
-              {{ a.icon || '🎁' }}
+            <div class="aa-ico" :style="{ background: isImageUrl(a.icon) ? 'transparent' : (a.bg || gradientFromName(a.title)) }">
+              <img v-if="isImageUrl(a.icon)" :src="a.icon" alt="" />
+              <template v-else>{{ a.icon || '🎁' }}</template>
             </div>
             <div class="aa-name">{{ a.title }}</div>
           </div>
@@ -239,8 +252,9 @@
             class="bg-item"
             @click="$router.push(`/topic/${b.slug}`); showAllBrands = false"
           >
-            <div class="bg-ico" :style="{ background: brandBg(b) }">
-              {{ brandIcon(b) }}
+            <div class="bg-ico" :style="{ background: isImageUrl(brandIcon(b)) ? 'transparent' : brandBg(b) }">
+              <img v-if="isImageUrl(brandIcon(b))" :src="brandIcon(b)" alt="" />
+              <template v-else>{{ brandIcon(b) }}</template>
             </div>
             <div class="bg-name">{{ brandName(b) }}</div>
           </div>
@@ -326,6 +340,17 @@ const brandTopics = computed(() =>
     .slice(0, 20),
 );
 
+// 品牌分页（每页 5 个，横向轮播）
+const BRAND_PER_PAGE = 5;
+const brandPages = computed(() => {
+  const list = brandTopics.value;
+  const pages = [];
+  for (let i = 0; i < list.length; i += BRAND_PER_PAGE) {
+    pages.push(list.slice(i, i + BRAND_PER_PAGE));
+  }
+  return pages;
+});
+
 // 所有品牌（弹窗里用）
 const allBrands = computed(() =>
   topics.value
@@ -338,7 +363,13 @@ function brandName(t) {
   return t.name.replace(/^品牌[·•\-]/, '');
 }
 
-// 品牌图标：如果 icon 是 emoji 就用 emoji，否则取品牌名第一个字
+// 判断 icon 是不是图片 URL（http/https 开头 或 / 开头的相对路径）
+function isImageUrl(icon) {
+  if (!icon) return false;
+  return /^(https?:|\/)/.test(icon);
+}
+
+// 品牌图标：如果 icon 是图片 URL 就用图片，是 emoji 就用 emoji，否则取品牌名第一个字
 function brandIcon(t) {
   const name = brandName(t);
   if (t.icon && t.icon !== '🏷️') return t.icon;
@@ -1241,21 +1272,19 @@ onUnmounted(() => {
 .brand-section {
   border-color: #fff;
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-  padding: 10px 14px 12px;
+  padding: 12px 0 10px;
 }
-.brand-scroll {
+.brand-swipe {
+  padding: 0 4px;
+}
+.brand-page {
   display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  margin: 0 -14px;
-  padding: 4px 14px 6px;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  justify-content: space-around;
+  padding: 4px 8px 8px;
 }
-.brand-scroll::-webkit-scrollbar { display: none; }
 .brand-item {
   flex: 0 0 auto;
-  width: 64px;
+  width: 60px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1336,5 +1365,15 @@ onUnmounted(() => {
   text-align: center;
   color: #999;
   font-size: 13px;
+}
+
+/* 图标图片通用样式 */
+.cat-ico img, .b-ico img, .bg-ico img, .ac-ico img, .aa-ico img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cat-ico, .b-ico, .bg-ico, .ac-ico, .aa-ico {
+  overflow: hidden;
 }
 </style>

@@ -33,8 +33,8 @@ export class Topic {
 
   @Column({ length: 32 }) name: string;
 
-  /** 一个 emoji 就够，宫格里显示 */
-  @Column({ length: 8, default: '' }) icon: string;
+  /** 图标：emoji 或图片 URL */
+  @Column({ length: 255, default: '' }) icon: string;
 
   /** 宫格图标底色：CSS 渐变串或纯色 */
   @Column({ length: 128, default: '' }) bg: string;

@@ -2,12 +2,17 @@ import 'reflect-metadata';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { join } from 'path';
+import * as express from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({ origin: true, credentials: true });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+
+  // 上传的图片静态资源（公开访问）
+  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   // 生产默认不暴露接口文档，需要时 ENABLE_DOCS=true
   const showDocs = process.env.NODE_ENV !== 'production' || process.env.ENABLE_DOCS === 'true';

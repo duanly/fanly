@@ -99,4 +99,13 @@ export const api = {
   claimList: (params) => http.get('/api/admin/claim', { params }),
   claimAudit: (id, pass, reason) => http.post(`/api/admin/claim/${id}/audit`, { pass, reason }),
   claimRetry: () => http.post('/api/admin/claim/retry'),
+
+  // 上传
+  uploadImage: (file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return http.post('/api/admin/upload/image', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };

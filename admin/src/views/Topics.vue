@@ -20,7 +20,10 @@
     <el-table :data="list" v-loading="loading" size="small" border>
       <el-table-column label="图标" width="60" align="center">
         <template #default="{ row }">
-          <span :style="{ background: row.bg || '#eee' }" class="ico">{{ row.icon || '📦' }}</span>
+          <span :style="{ background: isImageUrl(row.icon) ? 'transparent' : (row.bg || '#eee') }" class="ico">
+            <img v-if="isImageUrl(row.icon)" :src="row.icon" alt="" />
+            <template v-else>{{ row.icon || '📦' }}</template>
+          </span>
         </template>
       </el-table-column>
 
@@ -120,8 +123,23 @@
         </el-form-item>
 
         <el-form-item label="图标">
-          <el-input v-model="form.icon" maxlength="2" style="width:90px" placeholder="🍼" />
-          <span class="tip inline">一个 emoji</span>
+          <el-input v-model="form.icon" style="width:260px" placeholder="emoji 或图片 URL，比如 🍼 或 /uploads/xxx.png" />
+          <el-button
+            size="small"
+            type="primary"
+            plain
+            :loading="uploadingIcon"
+            style="margin-left:8px"
+            @click="$refs.iconFileInput?.click()"
+          >上传图片</el-button>
+          <input
+            ref="iconFileInput"
+            type="file"
+            accept="image/*"
+            style="display:none"
+            @change="onIconFileChange"
+          />
+          <div class="tip">可以填 emoji，也可以上传图片或填图片 URL</div>
         </el-form-item>
 
         <el-form-item label="图标底色">
@@ -300,6 +318,10 @@ import { onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../api';
 
+function isImageUrl(v) {
+  return typeof v === 'string' && /^(https?:|\/)/.test(v);
+}
+
 const SLOT_NAME = { grid: '八大分区', activity: '活动位', hidden: '不露面' };
 const SLOT_TAG = { grid: 'success', activity: 'warning', hidden: 'info' };
 const TYPE_NAME = { category: '品类标签', activity: '活动标签', operate: '运营标签', brand: '品牌标签' };
@@ -318,6 +340,22 @@ const autoTagging = ref(false);
 const form = reactive({ ...EMPTY });
 const keywordText = ref('');
 const activeType = ref('');
+const uploadingIcon = ref(false);
+const iconFileInput = ref(null);
+
+async function onIconFileChange(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  uploadingIcon.value = true;
+  try {
+    const r = await api.uploadImage(file);
+    form.icon = r.url;
+    ElMessage.success('上传成功');
+  } finally {
+    uploadingIcon.value = false;
+    e.target.value = '';
+  }
+}
 
 async function load() {
   loading.value = true;
@@ -488,8 +526,9 @@ onMounted(load);
 .hint { color: #909399; font-size: 12px; }
 .ico {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; border-radius: 7px; font-size: 15px;
+  width: 28px; height: 28px; border-radius: 7px; font-size: 15px; overflow: hidden;
 }
+.ico img { width: 100%; height: 100%; object-fit: cover; }
 .tip { color: #909399; font-size: 12px; line-height: 1.5; margin-top: 3px; }
 .tip.inline { margin-left: 8px; margin-top: 0; }
 .dlg-bar { display: flex; align-items: center; gap: 10px; margin: 10px 0; }

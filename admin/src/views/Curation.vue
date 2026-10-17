@@ -284,6 +284,7 @@
               <el-option label="价格最低" value="price" />
             </el-select>
             <el-button type="primary" :loading="finding" @click="find">查找</el-button>
+            <el-checkbox v-model="f.hideInPool" style="margin-left:12px">隐藏已入库</el-checkbox>
 
             <el-divider direction="vertical" />
             <span class="hint">导入到</span>
@@ -317,7 +318,6 @@
               />
             </el-select>
             <el-input-number v-model="f.sortWeight" :min="-999" :max="999" style="width:110px" />
-            <el-checkbox v-model="f.hideInPool" style="margin-left:8px">隐藏已入库商品</el-checkbox>
           </div>
 
           <p class="hint" style="margin:0 0 10px">
@@ -1000,7 +1000,7 @@ async function importBatch() {
     return;
   }
   const count = Math.min(f.importCount, displayFound.value.length);
-  const goods = displayFound.value.slice(0, count).map((g) => ({
+  const allGoods = displayFound.value.slice(0, count).map((g) => ({
     goodsId: g.goodsId,
     title: g.title,
     image: g.image,
@@ -1013,26 +1013,35 @@ async function importBatch() {
     commission: g.commission,
     salesVolume: g.salesVolume || 0,
   }));
-  const importedIds = new Set(goods.map((g) => g.goodsId));
+  const importedIds = new Set(allGoods.map((g) => g.goodsId));
 
   importing.value = true;
   try {
-    const r = await api.curationImportWithGoods({
-      platform: f.platform,
-      goods,
-      groupKey: f.groupKey || 'default',
-      sortWeight: f.sortWeight || 0,
-      targetStatus: f.targetStatus,
-      topicIds: f.importTopicIds?.length ? f.importTopicIds : undefined,
-    });
+    // 分批导入，每批 50 个，避免请求体过大
+    let totalFetched = 0, totalAdded = 0, totalSkipped = 0, totalErrors = 0;
+    for (let i = 0; i < allGoods.length; i += 50) {
+      const chunk = allGoods.slice(i, i + 50);
+      const r = await api.curationImportWithGoods({
+        platform: f.platform,
+        goods: chunk,
+        groupKey: f.groupKey || 'default',
+        sortWeight: f.sortWeight || 0,
+        targetStatus: f.targetStatus,
+        topicIds: f.importTopicIds?.length ? f.importTopicIds : undefined,
+      });
+      totalFetched += r.fetched || 0;
+      totalAdded += r.added || 0;
+      totalSkipped += r.skipped || 0;
+      totalErrors += r.errors || 0;
+    }
     const to = f.targetStatus === 1 ? '上架' : '待上架';
     ElMessage.success(
-      `导入完成：共 ${r.fetched} 件，入${to} ${r.added}，跳过 ${r.skipped}` +
-        `${r.errors ? `，失败 ${r.errors}` : ''}`,
+      `导入完成：共 ${totalFetched} 件，入${to} ${totalAdded}，跳过 ${totalSkipped}` +
+        `${totalErrors ? `，失败 ${totalErrors}` : ''}`,
     );
     // 刷新状态显示
     try {
-      const items = goods.map((g) => ({ platform: f.platform, goodsId: g.goodsId }));
+      const items = allGoods.map((g) => ({ platform: f.platform, goodsId: g.goodsId }));
       const m = await api.curationExistsBatch(items);
       foundStatus.value = { ...foundStatus.value, ...m };
     } catch { /* ignore */ }
