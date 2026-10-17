@@ -304,13 +304,13 @@
       <van-tabbar-item to="/madmin/withdraws" icon="gold-coin-o">提现</van-tabbar-item>
     </van-tabbar>
 
-    <!-- 返回顶部（固定在右侧最上层） -->
+    <!-- 返回顶部（右侧垂直居中，和 H5 一致） -->
     <div
       v-show="showBackTop"
-      class="back-top"
+      class="back-top-fab"
       @click="scrollToTop"
     >
-      <van-icon name="upgrade" size="22" />
+      <van-icon name="arrow-up" size="18" />
     </div>
 
     <!-- 标签编辑弹窗 -->
@@ -1109,22 +1109,25 @@ onBeforeUnmount(() => {
   margin-bottom: 10px;
   text-align: center;
 }
-.back-top {
+.back-top-fab {
   position: fixed;
-  right: 16px;
-  bottom: 90px;
-  z-index: 9999;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 40px;
   height: 40px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  color: #ff4b3a;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ff4b3a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 200;
+  transition: opacity 0.2s, transform 0.2s;
 }
-.back-top:active {
-  transform: scale(0.95);
+.back-top-fab:active {
+  transform: translateY(-50%) scale(0.92);
+  opacity: 0.8;
 }
 </style>

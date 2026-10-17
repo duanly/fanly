@@ -100,20 +100,31 @@
 
     <van-empty v-if="!loading && !keyword && channel === 'all' && !visibleList.length" description="输入关键词开始搜索" />
 
-    <!-- 悬浮按钮组：批量 + 返回顶部 -->
+    <!-- 悬浮按钮组：批量/取消 + 返回顶部 -->
     <div class="fab-group">
-      <div v-if="!batchMode" class="fab-item" @click="toggleBatchMode">
+      <div
+        v-if="batchMode"
+        class="fab-item"
+        @click="toggleBatchMode"
+      >
+        <van-icon name="close" size="20" />
+      </div>
+      <div
+        v-else
+        class="fab-item"
+        @click="toggleBatchMode"
+      >
         <van-icon name="records" size="20" />
       </div>
     </div>
 
-    <!-- 返回顶部（手动实现，固定在右侧最上层） -->
+    <!-- 返回顶部（右侧居中，和 H5 保持一致） -->
     <div
       v-show="showBackTop"
-      class="back-top"
+      class="back-top-fab"
       @click="scrollToTop"
     >
-      <van-icon name="upgrade" size="22" />
+      <van-icon name="arrow-up" size="18" />
     </div>
 
     <!-- 底部 tabbar -->
@@ -701,15 +712,12 @@ onBeforeUnmount(() => {
   gap: 6px;
 }
 
-/* 悬浮按钮组 */
+/* 批量模式切换按钮（右下角） */
 .fab-group {
   position: fixed;
   right: 16px;
-  bottom: 140px;
-  z-index: 200;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  bottom: 80px;
+  z-index: 300;
 }
 .fab-item {
   width: 44px;
@@ -726,25 +734,27 @@ onBeforeUnmount(() => {
   transform: scale(0.95);
 }
 
-/* 返回顶部按钮 */
-.back-top {
+/* 返回顶部（右侧垂直居中，和 H5 一致） */
+.back-top-fab {
   position: fixed;
-  right: 16px;
-  bottom: 90px;
-  z-index: 9999;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 40px;
   height: 40px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  color: #ff4b3a;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ff4b3a;
-  transition: opacity 0.2s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 200;
+  transition: opacity 0.2s, transform 0.2s;
 }
-.back-top:active {
-  transform: scale(0.95);
+.back-top-fab:active {
+  transform: translateY(-50%) scale(0.92);
+  opacity: 0.8;
 }
 
 /* 标签选择器 */
