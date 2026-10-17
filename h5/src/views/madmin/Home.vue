@@ -80,6 +80,30 @@
 
     <!-- 数据总览 -->
     <div class="section">
+      <div class="sec-title">运营数据</div>
+      <div class="overview-grid">
+        <div class="ov-item">
+          <div class="ov-num">{{ overview.orderTotal || 0 }}</div>
+          <div class="ov-label">订单总数</div>
+        </div>
+        <div class="ov-item">
+          <div class="ov-num">¥{{ overview.gmv || '0.00' }}</div>
+          <div class="ov-label">GMV<sup class="ov-tip">*</sup></div>
+        </div>
+        <div class="ov-item">
+          <div class="ov-num">{{ overview.agents || 0 }}</div>
+          <div class="ov-label">代理总数</div>
+        </div>
+        <div class="ov-item">
+          <div class="ov-num primary">¥{{ overview.platformCommission || '0.00' }}</div>
+          <div class="ov-label">平台佣金<sup class="ov-tip">*</sup></div>
+        </div>
+      </div>
+      <div class="ov-footnote">* GMV 和平台佣金为有效订单估值，以实际结算为准</div>
+    </div>
+
+    <!-- 今日概览 -->
+    <div class="section">
       <div class="sec-title">今日概览</div>
       <div class="overview-grid">
         <div class="ov-item">
@@ -87,16 +111,16 @@
           <div class="ov-label">今日订单</div>
         </div>
         <div class="ov-item">
-          <div class="ov-num">¥{{ overview.todayCommission || 0 }}</div>
+          <div class="ov-num">¥{{ overview.todayCommission || '0.00' }}</div>
           <div class="ov-label">今日返利</div>
-        </div>
-        <div class="ov-item">
-          <div class="ov-num">{{ overview.agents || 0 }}</div>
-          <div class="ov-label">代理数</div>
         </div>
         <div class="ov-item">
           <div class="ov-num">{{ overview.pendingWithdraw || 0 }}</div>
           <div class="ov-label">待审核提现</div>
+        </div>
+        <div class="ov-item">
+          <div class="ov-num">{{ stats.pending || 0 }}</div>
+          <div class="ov-label">待上架商品</div>
         </div>
       </div>
     </div>
@@ -157,31 +181,52 @@ const router = useRouter();
 const active = ref(0);
 const stats = reactive({ onShelf: 0, pending: 0, offShelf: 0 });
 const overview = reactive({
+  orderTotal: 0,
+  gmv: '0.00',
+  agents: 0,
+  platformCommission: '0.00',
   todayOrders: 0,
   todayCommission: '0.00',
-  agents: 0,
   pendingWithdraw: 0,
 });
 
 async function loadOverview() {
   try {
-    // 并发加载：订单数、代理数、待审核提现
+    // 并发加载：订单、代理、待审核提现
     const [orders, agents, withdraws] = await Promise.all([
-      adminApi.orders({ pageSize: 1 }),
+      adminApi.orders({ pageSize: 50, status: 'paid' }),
       adminApi.agents({ pageSize: 1 }),
       adminApi.withdraws({ status: 0, pageSize: 1 }),
     ]).catch(() => [null, null, null]);
-    overview.todayOrders = orders?.total || 0;
+
+    overview.orderTotal = orders?.total || 0;
     overview.agents = agents?.total || 0;
     overview.pendingWithdraw = withdraws?.total || 0;
 
-    // 今日返利：粗略从订单列表算（只取一页数据）
+    // GMV 和平台佣金：从本页有效订单估算
     if (orders?.list?.length) {
+      const validOrders = orders.list.filter((o) => {
+        const s = o.status || o.orderStatus;
+        // 已付款/已收货/已结算/已返利的都算有效
+        return s === 'paid' || s === 'settled' || s === 1 || s === 2 || s === 3 || s === 5;
+      });
+      const gmv = validOrders.reduce((sum, o) => sum + Number(o.payAmount || o.price || 0), 0);
+      const commission = validOrders.reduce(
+        (sum, o) => sum + Number(o.estCommission || o.settleCommission || o.commission || 0), 0,
+      );
+      overview.gmv = gmv.toFixed(2);
+      overview.platformCommission = commission.toFixed(2);
+
+      // 今日订单和今日返利
       const today = new Date().toDateString();
-      const todayAmount = orders.list
-        .filter((o) => new Date(o.createdAt || o.orderTime).toDateString() === today)
-        .reduce((sum, o) => sum + (Number(o.commission) || 0), 0);
-      overview.todayCommission = todayAmount.toFixed(2);
+      const todayOrders = orders.list.filter(
+        (o) => new Date(o.createdAt || o.orderTime).toDateString() === today,
+      );
+      overview.todayOrders = todayOrders.length;
+      const todayComm = todayOrders.reduce(
+        (sum, o) => sum + Number(o.commission || o.estCommission || 0), 0,
+      );
+      overview.todayCommission = todayComm.toFixed(2);
     }
   } catch {
     // 加载失败不影响页面
@@ -409,8 +454,23 @@ onMounted(() => {
   color: #ff4b3a;
   margin-bottom: 4px;
 }
+.ov-num.primary {
+  color: #ff4b3a;
+}
 .ov-label {
   font-size: 12px;
   color: #999;
+}
+.ov-tip {
+  font-size: 10px;
+  color: #ccc;
+  font-style: normal;
+  margin-left: 2px;
+}
+.ov-footnote {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #bbb;
+  text-align: center;
 }
 </style>

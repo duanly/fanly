@@ -30,10 +30,17 @@
     <div v-if="batchMode" class="batch-bar">
       <van-checkbox v-model="allChecked" @change="onCheckAll">全选</van-checkbox>
       <span class="picked-count">已选 {{ picked.length }} 件</span>
-      <div class="batch-actions">
-        <van-button size="small" type="warning" plain @click="batchAdd(3)">加入待上架</van-button>
-        <van-button size="small" type="primary" @click="batchAdd(1)">直接上架</van-button>
-      </div>
+    </div>
+    <div v-if="batchMode" class="batch-actions-row">
+      <van-button size="small" type="warning" plain :disabled="!picked.length" @click="batchAdd(3)">
+        加入待上架
+      </van-button>
+      <van-button size="small" type="primary" plain :disabled="!picked.length" @click="batchAdd(1)">
+        直接上架
+      </van-button>
+      <van-button size="small" type="success" :disabled="!picked.length" @click="openBatchTagShelf">
+        带标签上架
+      </van-button>
     </div>
 
     <!-- 商品列表 -->
@@ -143,8 +150,22 @@
       round
     >
       <div class="picker-header">
-        <span class="picker-title">带标签上架（{{ pickerGoods.length }} 件）</span>
-        <van-icon name="cross" size="20" @click="tagPickerShow = false" />
+        <div class="picker-head-left">
+          <span class="picker-title">带标签上架</span>
+          <span class="picker-sub">{{ pickerGoods.length }} 件 · 已选 {{ pickerTagIds.length }} 标签</span>
+        </div>
+        <div class="picker-head-right">
+          <van-button
+            type="primary"
+            size="small"
+            :loading="pickerLoading"
+            :disabled="!pickerTagIds.length"
+            @click="confirmShelfWithTags"
+          >
+            确认上架
+          </van-button>
+          <van-icon name="cross" size="20" class="picker-close" @click="tagPickerShow = false" />
+        </div>
       </div>
       <van-tabs v-model:active="pickerTagType">
         <van-tab title="品类" name="category" />
@@ -169,12 +190,6 @@
           <span class="pi-count">{{ t.goodsCount || 0 }}件</span>
           <van-icon v-if="pickerTagIds.includes(t.id)" name="success" color="#07c160" />
         </div>
-      </div>
-      <div class="picker-footer">
-        <div class="picker-tip">已选 {{ pickerTagIds.length }} 个标签</div>
-        <van-button type="primary" block :loading="pickerLoading" @click="confirmShelfWithTags">
-          确认上架
-        </van-button>
       </div>
     </van-popup>
   </div>
@@ -354,10 +369,34 @@ async function onLoad() {
     if (rows.length < pageSize) {
       finished.value = true;
     }
+
+    // 过滤掉已经在选品池中的商品（隐藏但后台仍然更新数据）
+    if (rows.length) {
+      filterExistingGoods(rows);
+    }
   } catch (e) {
     showToast(e.message || '加载失败');
   } finally {
     loading.value = false;
+  }
+}
+
+// 批量检查并隐藏已在选品池中的商品
+async function filterExistingGoods(goods) {
+  try {
+    const items = goods.map((g) => ({ platform: g.platform, goodsId: g.goodsId || g.id }));
+    const existsMap = await adminApi.curationExistsBatch(items);
+    if (existsMap && typeof existsMap === 'object') {
+      goods.forEach((g) => {
+        const key = `${g.platform}:${g.goodsId || g.id}`;
+        const curatedId = existsMap[key];
+        if (curatedId) {
+          removedKeys.value.add(gKey(g));
+        }
+      });
+    }
+  } catch {
+    // 检查失败不影响列表展示
   }
 }
 
@@ -396,6 +435,19 @@ function onCheckAll() {
   } else {
     picked.value = [];
   }
+}
+
+// 批量带标签上架
+function openBatchTagShelf() {
+  if (!picked.value.length) {
+    showToast('请先勾选商品');
+    return;
+  }
+  pickerGoods.value = [...picked.value];
+  pickerTagIds.value = [];
+  pickerTagType.value = 'category';
+  pickerTagKw.value = '';
+  tagPickerShow.value = true;
 }
 
 // 上架按钮点击：提示打标签
@@ -478,7 +530,7 @@ async function confirmShelfWithTags() {
   }
 }
 
-// 直接加入待上架
+// 直接加入待上架 / 直接上架
 async function addGoods(g, targetStatus) {
   if (addingIds.value.has(gKey(g))) return;
   addingIds.value.add(gKey(g));
@@ -490,19 +542,16 @@ async function addGoods(g, targetStatus) {
     });
     const success = r.added || 0;
     const skipped = r.skipped || 0;
-    // 成功后从列表移除
-    if (success > 0 || skipped > 0) {
-      removedKeys.value.add(gKey(g));
-    }
     if (success > 0) {
       showSuccessToast(targetStatus === 1 ? '已上架' : '已加入待上架');
     } else if (skipped > 0) {
       showToast('已在选品池中');
-      removedKeys.value.add(gKey(g));
     }
   } catch {
     // 错误已 toast
   } finally {
+    // 无论成功失败，都从搜索列表移除（避免重复操作）
+    removedKeys.value.add(gKey(g));
     addingIds.value.delete(gKey(g));
   }
 }
@@ -622,9 +671,13 @@ onBeforeUnmount(() => {
   font-size: 13px;
   color: #666;
 }
-.batch-actions {
+.batch-actions-row {
   display: flex;
   gap: 8px;
+  padding: 10px 12px;
+  background: #fff9e6;
+  border-bottom: 1px solid #ffe082;
+  justify-content: center;
 }
 .goods-list {
   padding: 8px 12px;
@@ -764,10 +817,30 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   padding: 12px 16px;
   border-bottom: 1px solid #eee;
+  gap: 12px;
+}
+.picker-head-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 .picker-title {
   font-size: 16px;
   font-weight: 600;
+}
+.picker-sub {
+  font-size: 12px;
+  color: #999;
+}
+.picker-head-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+.picker-close {
+  color: #999;
 }
 .picker-search {
   padding: 8px 12px;
@@ -809,16 +882,5 @@ onBeforeUnmount(() => {
 .pi-count {
   font-size: 12px;
   color: #999;
-}
-.picker-footer {
-  padding: 12px 16px;
-  border-top: 1px solid #eee;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
-}
-.picker-tip {
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 10px;
-  text-align: center;
 }
 </style>

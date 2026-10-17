@@ -26,12 +26,52 @@
       <van-checkbox v-model="allChecked" @change="onCheckAll">全选</van-checkbox>
       <span class="picked-count">已选 {{ pickedIds.length }} 件</span>
     </div>
-    <div v-if="batchMode" class="batch-actions">
-      <!-- 待上架、已下架：上架相关操作 -->
-      <template v-if="activeStatus !== '1'">
+    <div v-if="batchMode" class="batch-actions-row">
+      <!-- 待上架：打标签 / 上架 / 带标签上架 -->
+      <template v-if="activeStatus === '3'">
+        <van-button
+          size="small"
+          type="success"
+          plain
+          :disabled="!pickedIds.length"
+          @click="openBatchTagEdit"
+        >批量打标签</van-button>
         <van-button
           size="small"
           type="primary"
+          plain
+          :disabled="!pickedIds.length"
+          @click="batchOnShelf"
+        >批量上架</van-button>
+        <van-button
+          size="small"
+          type="primary"
+          :disabled="!pickedIds.length"
+          @click="openBatchTagShelf"
+        >带标签上架</van-button>
+      </template>
+      <!-- 已上架：打标签 / 下架 -->
+      <template v-if="activeStatus === '1'">
+        <van-button
+          size="small"
+          type="warning"
+          plain
+          :disabled="!pickedIds.length"
+          @click="openBatchTagEdit"
+        >批量打标签</van-button>
+        <van-button
+          size="small"
+          type="warning"
+          :disabled="!pickedIds.length"
+          @click="batchOffShelf"
+        >批量下架</van-button>
+      </template>
+      <!-- 已下架：上架 / 带标签上架 / 删除 -->
+      <template v-if="activeStatus === '0'">
+        <van-button
+          size="small"
+          type="primary"
+          plain
           :disabled="!pickedIds.length"
           @click="batchOnShelf"
         >批量上架</van-button>
@@ -41,25 +81,6 @@
           :disabled="!pickedIds.length"
           @click="openBatchTagShelf"
         >带标签上架</van-button>
-      </template>
-      <!-- 已上架：下架 / 打标签 -->
-      <template v-if="activeStatus === '1'">
-        <van-button
-          size="small"
-          type="warning"
-          :disabled="!pickedIds.length"
-          @click="openBatchTagEdit"
-        >批量打标签</van-button>
-        <van-button
-          size="small"
-          type="warning"
-          plain
-          :disabled="!pickedIds.length"
-          @click="batchOffShelf"
-        >批量下架</van-button>
-      </template>
-      <!-- 已下架：删除 -->
-      <template v-if="activeStatus === '0'">
         <van-button
           size="small"
           type="danger"
@@ -321,8 +342,24 @@
       round
     >
       <div class="picker-header">
-        <span class="picker-title">{{ editorTitle }}</span>
-        <van-icon name="cross" size="20" @click="tagEditorShow = false" />
+        <div class="picker-head-left">
+          <span class="picker-title">{{ editorTitle }}</span>
+          <span class="picker-sub">
+            已选 {{ editorPickedIds.length }} 个标签
+            {{ editorMode === 'shelf' ? '（上架后将打上这些标签）' : '（将替换原有标签）' }}
+          </span>
+        </div>
+        <div class="picker-head-right">
+          <van-button
+            type="primary"
+            size="small"
+            :loading="editorLoading"
+            @click="confirmTagEdit"
+          >
+            确定
+          </van-button>
+          <van-icon name="cross" size="20" class="picker-close" @click="tagEditorShow = false" />
+        </div>
       </div>
       <van-tabs v-model:active="editorTagType">
         <van-tab title="品类" name="category" />
@@ -347,15 +384,6 @@
           <span class="pi-count">{{ t.goodsCount || 0 }}件</span>
           <van-icon v-if="editorPickedIds.includes(t.id)" name="success" color="#07c160" />
         </div>
-      </div>
-      <div class="picker-footer">
-        <div class="editor-tip">
-          已选 {{ editorPickedIds.length }} 个标签
-          {{ editorMode === 'shelf' ? '（上架后将打上这些标签）' : '（将替换原有标签）' }}
-        </div>
-        <van-button type="primary" block :loading="editorLoading" @click="confirmTagEdit">
-          确定
-        </van-button>
       </div>
     </van-popup>
   </div>
@@ -901,13 +929,14 @@ onBeforeUnmount(() => {
   font-size: 13px;
   color: #666;
 }
-.batch-actions {
+.batch-actions-row {
   display: flex;
   gap: 8px;
-  padding: 8px 12px;
-  background: #fff;
-  border-bottom: 1px solid #eee;
-  overflow-x: auto;
+  padding: 10px 12px;
+  background: #fff9e6;
+  border-bottom: 1px solid #ffe082;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 .list-count {
   padding: 6px 14px;
@@ -1052,10 +1081,31 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   padding: 12px 16px;
   border-bottom: 1px solid #eee;
+  gap: 12px;
+}
+.picker-head-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 .picker-title {
   font-size: 16px;
   font-weight: 600;
+}
+.picker-sub {
+  font-size: 12px;
+  color: #999;
+  line-height: 1.3;
+}
+.picker-head-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+.picker-close {
+  color: #999;
 }
 .picker-search {
   padding: 8px 12px;
@@ -1097,17 +1147,6 @@ onBeforeUnmount(() => {
 .pi-count {
   font-size: 12px;
   color: #999;
-}
-.picker-footer {
-  padding: 12px 16px;
-  border-top: 1px solid #eee;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
-}
-.editor-tip {
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 10px;
-  text-align: center;
 }
 .back-top-fab {
   position: fixed;
