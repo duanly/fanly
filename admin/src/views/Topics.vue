@@ -123,23 +123,34 @@
         </el-form-item>
 
         <el-form-item label="图标">
-          <el-input v-model="form.icon" style="width:260px" placeholder="emoji 或图片 URL，比如 🍼 或 /uploads/xxx.png" />
-          <el-button
-            size="small"
-            type="primary"
-            plain
-            :loading="uploadingIcon"
-            style="margin-left:8px"
-            @click="$refs.iconFileInput?.click()"
-          >上传图片</el-button>
-          <input
-            ref="iconFileInput"
-            type="file"
-            accept="image/*"
-            style="display:none"
-            @change="onIconFileChange"
-          />
-          <div class="tip">可以填 emoji，也可以上传图片或填图片 URL</div>
+          <div class="icon-edit-row">
+            <div
+              class="icon-preview"
+              :style="{ background: isImageUrl(form.icon) ? 'transparent' : (form.bg || '#eee') }"
+            >
+              <img v-if="isImageUrl(form.icon)" :src="form.icon" alt="" />
+              <template v-else>{{ form.icon || '📦' }}</template>
+            </div>
+            <div class="icon-edit-right">
+              <el-input v-model="form.icon" style="width:220px" placeholder="emoji 或图片 URL，比如 🍼 或 /uploads/xxx.png" />
+              <el-button
+                size="small"
+                type="primary"
+                plain
+                :loading="uploadingIcon"
+                style="margin-left:8px"
+                @click="$refs.iconFileInput?.click()"
+              >上传图片</el-button>
+              <input
+                ref="iconFileInput"
+                type="file"
+                accept="image/*"
+                style="display:none"
+                @change="onIconFileChange"
+              />
+              <div class="tip">可以填 emoji，也可以上传图片（自动压缩到 128×128）或填图片 URL</div>
+            </div>
+          </div>
         </el-form-item>
 
         <el-form-item label="图标底色">
@@ -348,13 +359,45 @@ async function onIconFileChange(e) {
   if (!file) return;
   uploadingIcon.value = true;
   try {
-    const r = await api.uploadImage(file);
+    const compressed = await compressImage(file, 128, 128);
+    const r = await api.uploadImage(compressed);
     form.icon = r.url;
     ElMessage.success('上传成功');
+  } catch (err) {
+    ElMessage.error(err.message || '上传失败');
   } finally {
     uploadingIcon.value = false;
     e.target.value = '';
   }
+}
+
+// 前端压缩图片：裁剪成正方形后缩放到指定尺寸，输出 PNG Blob
+function compressImage(file, targetW, targetH) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+      // 居中裁剪成正方形
+      const side = Math.min(img.width, img.height);
+      const sx = (img.width - side) / 2;
+      const sy = (img.height - side) / 2;
+      ctx.drawImage(img, sx, sy, side, side, 0, 0, targetW, targetH);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject(new Error('图片压缩失败'));
+          const f = new File([blob], `icon-${Date.now()}.png`, { type: 'image/png' });
+          resolve(f);
+        },
+        'image/png',
+        0.92,
+      );
+    };
+    img.onerror = () => reject(new Error('图片加载失败'));
+    img.src = URL.createObjectURL(file);
+  });
 }
 
 async function load() {
@@ -542,4 +585,16 @@ onMounted(load);
 .banner-item { display: flex; align-items: center; margin-bottom: 8px; }
 .kw-count { color: #409eff; font-size: 12px; }
 .kw-empty { color: #c0c4cc; font-size: 12px; }
+
+.icon-edit-row { display: flex; align-items: flex-start; gap: 12px; }
+.icon-preview {
+  width: 48px; height: 48px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; color: #fff; flex: none;
+  overflow: hidden; margin-top: 2px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.icon-preview img { width: 100%; height: 100%; object-fit: cover; }
+.icon-edit-right { display: flex; flex-direction: column; gap: 4px; }
+.icon-edit-right .el-input { width: 220px; }
 </style>
