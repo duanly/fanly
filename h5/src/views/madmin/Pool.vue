@@ -304,8 +304,14 @@
       <van-tabbar-item to="/madmin/withdraws" icon="gold-coin-o">提现</van-tabbar-item>
     </van-tabbar>
 
-    <!-- 返回顶部 -->
-    <van-back-top right="16" bottom="80" />
+    <!-- 返回顶部（固定在右侧最上层） -->
+    <div
+      v-show="showBackTop"
+      class="back-top"
+      @click="scrollToTop"
+    >
+      <van-icon name="upgrade" size="22" />
+    </div>
 
     <!-- 标签编辑弹窗 -->
     <van-popup
@@ -356,7 +362,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { showToast, showSuccessToast, showConfirmDialog } from 'vant';
 import { adminApi } from '../../api';
@@ -833,6 +839,15 @@ async function confirmTagEdit() {
   }
 }
 
+// ───────── 返回顶部 ─────────
+const showBackTop = ref(false);
+function onScroll() {
+  showBackTop.value = window.scrollY > 300;
+}
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 // ───────── 初始化 ─────────
 onMounted(() => {
   if (route.query.status) {
@@ -847,6 +862,11 @@ onMounted(() => {
   if (!s.loaded && !s.loading) {
     loadPage(activeStatus.value);
   }
+  window.addEventListener('scroll', onScroll, { passive: true });
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', onScroll);
 });
 </script>
 
@@ -1088,5 +1108,23 @@ onMounted(() => {
   color: #999;
   margin-bottom: 10px;
   text-align: center;
+}
+.back-top {
+  position: fixed;
+  right: 16px;
+  bottom: 90px;
+  z-index: 9999;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff4b3a;
+}
+.back-top:active {
+  transform: scale(0.95);
 }
 </style>
