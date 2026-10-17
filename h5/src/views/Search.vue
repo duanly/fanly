@@ -82,7 +82,7 @@ async function load() {
     const rows = r.list || [];
     list.value.push(...rows);
     page.value += 1;
-    if (rows.length < 20 || page.value > 5) finished.value = true;
+    if (rows.length < 20) finished.value = true;
   } catch {
     if (seq === reqSeq) finished.value = true;
   } finally {

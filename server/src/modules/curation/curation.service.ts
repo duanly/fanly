@@ -714,7 +714,7 @@ export class CurationService {
   }
 
   /** 后台列表：不过滤状态，下架的也要看得见 */
-  async list(q: { groupKey?: string; topicId?: number; status?: number; page?: number; pageSize?: number }) {
+  async list(q: { groupKey?: string; topicId?: number; status?: number; keyword?: string; page?: number; pageSize?: number }) {
     const page = Math.max(q.page ?? 1, 1);
     const pageSize = Math.min(q.pageSize ?? 20, 100);
 
@@ -728,6 +728,9 @@ export class CurationService {
     if (q.groupKey) where.groupKey = q.groupKey;
     if (q.status !== undefined && q.status !== null) where.status = q.status;
     if (Object.keys(where).length) qb.where(where);
+    if (q.keyword) {
+      qb.andWhere('c.title LIKE :kw', { kw: `%${q.keyword}%` });
+    }
 
     qb.orderBy('c.sortWeight', 'DESC')
       .addOrderBy('c.commission', 'DESC')

@@ -113,6 +113,13 @@
               <el-option label="自动下架" :value="2" />
               <el-option label="待选品" :value="3" />
             </el-select>
+            <el-input
+              v-model="q.keyword"
+              placeholder="搜商品标题关键词"
+              style="width:220px"
+              clearable
+              @keyup.enter="loadPool"
+            />
             <el-button @click="loadPool">刷新列表</el-button>
             <el-button type="warning" :loading="refreshing" @click="refreshAll">
               全池刷新价格佣金
@@ -270,6 +277,11 @@
                 :label="c.label"
                 :value="c.value"
               />
+            </el-select>
+            <el-select v-model="f.sort" style="width:130px" @change="onSortChange">
+              <el-option label="返利最高" value="rebate" />
+              <el-option label="销量优先" value="sales" />
+              <el-option label="价格最低" value="price" />
             </el-select>
             <el-button type="primary" :loading="finding" @click="find">查找</el-button>
 
@@ -545,8 +557,15 @@ async function confirmPendingTag() {
 async function batchOnShelf() {
   if (!selectedIds.value.length) return;
   await ElMessageBox.confirm(`确认上架选中的 ${selectedIds.value.length} 件商品？`, '批量上架', { type: 'success' });
-  const r = await api.curationBatchOnShelf(selectedIds.value);
-  ElMessage.success(`已上架 ${r.updated} 件`);
+  const ids = [...selectedIds.value];
+  let updated = 0;
+  // 分批发送，每批 50 个，避免请求包体过大
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    const r = await api.curationBatchOnShelf(chunk);
+    updated += r.updated || 0;
+  }
+  ElMessage.success(`已上架 ${updated} 件`);
   selectedIds.value = [];
   loadPending();
 }
@@ -566,9 +585,17 @@ async function confirmPendingBatchTag() {
   pendingBatchTagLoading.value = true;
   try {
     const ids = selectedIds.value;
-    await api.curationBatchOnShelf(ids);
+    // 分批上架，每批 50 个
+    for (let i = 0; i < ids.length; i += 50) {
+      const chunk = ids.slice(i, i + 50);
+      await api.curationBatchOnShelf(chunk);
+    }
+    // 打标签也分批
     for (const tid of pendingBatchTagIds.value) {
-      await api.topicTagMany(tid, ids);
+      for (let i = 0; i < ids.length; i += 50) {
+        const chunk = ids.slice(i, i + 50);
+        await api.topicTagMany(tid, chunk);
+      }
     }
     ElMessage.success('已上架 ' + ids.length + ' 件' + (pendingBatchTagIds.value.length ? '并打标签' : ''));
     pendingBatchTagDlg.value = false;
@@ -628,6 +655,7 @@ const deduping = ref(false);
 const q = reactive({
   topicId: null,
   status: '',
+  keyword: '',
   page: 1,
   pageSize: 30,
 });
@@ -661,6 +689,7 @@ async function loadPool() {
     pool.value = await api.curationList({
       topicId: q.topicId || undefined,
       status: q.status === '' ? undefined : q.status,
+      keyword: q.keyword || undefined,
       page: q.page,
       pageSize: q.pageSize,
     });
@@ -842,6 +871,7 @@ const f = reactive({
   platform: 'PDD',
   keyword: '',
   channel: 'all',
+  sort: 'rebate',
   sortWeight: 0,
   page: 1,
   hasMore: false,
@@ -896,12 +926,17 @@ function onChannelChange() {
   f.page = 1;
 }
 
+function onSortChange() {
+  // 切排序时重置分页
+  f.page = 1;
+}
+
 async function load(append = false) {
   finding.value = true;
   try {
     const base = { platform: f.platform, page: f.page, pageSize: 40 };
     const r = f.keyword
-      ? await api.curationSearch({ ...base, keyword: f.keyword })
+      ? await api.curationSearch({ ...base, keyword: f.keyword, sort: f.sort })
       : f.channel === 'all'
         ? await api.curationSearch({ ...base, sort: 'sales' })
         : await api.curationRecommend({ ...base, channel: f.channel });
@@ -970,6 +1005,7 @@ async function importBatch() {
     commission: g.commission,
     salesVolume: g.salesVolume || 0,
   }));
+  const importedIds = new Set(goods.map((g) => g.goodsId));
 
   importing.value = true;
   try {
@@ -992,6 +1028,8 @@ async function importBatch() {
       const m = await api.curationExistsBatch(items);
       foundStatus.value = { ...foundStatus.value, ...m };
     } catch { /* ignore */ }
+    // 从当前列表移除已导入的商品，避免重复操作
+    found.value = found.value.filter((g) => !importedIds.has(g.goodsId));
     loadPending();
     loadPool();
   } finally {
@@ -1065,6 +1103,8 @@ async function confirmAddWithTags() {
 
     ElMessage.success('已上架' + (addDlgTags.value.length ? '并打标签' : ''));
     foundStatus.value = { ...foundStatus.value, [key]: { id: curatedId, status: 1 } };
+    // 从当前列表移除，避免重复操作
+    found.value = found.value.filter((item) => item.goodsId !== g.goodsId);
     addDlg.value = false;
     loadPending();
     loadPool();

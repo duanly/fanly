@@ -55,6 +55,7 @@ export class CurationController {
     @Query('groupKey') groupKey?: string,
     @Query('topicId') topicId?: string,
     @Query('status') status?: string,
+    @Query('keyword') keyword?: string,
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '20',
   ) {
@@ -62,6 +63,7 @@ export class CurationController {
       groupKey: groupKey || undefined,
       topicId: topicId ? +topicId : undefined,
       status: status === undefined || status === '' ? undefined : +status,
+      keyword: keyword || undefined,
       page: +page,
       pageSize: +pageSize,
     });
