@@ -317,6 +317,7 @@
               />
             </el-select>
             <el-input-number v-model="f.sortWeight" :min="-999" :max="999" style="width:110px" />
+            <el-checkbox v-model="f.hideInPool" style="margin-left:8px">隐藏已入库商品</el-checkbox>
           </div>
 
           <p class="hint" style="margin:0 0 10px">
@@ -324,7 +325,7 @@
           </p>
 
           <div v-loading="finding" class="cards">
-            <div v-for="g in found" :key="g.goodsId" class="card">
+            <div v-for="g in displayFound" :key="g.goodsId" class="card">
               <img :src="g.image" />
               <div class="t">{{ g.title }}</div>
               <div class="p">
@@ -373,11 +374,11 @@
 
           <div v-if="f.hasMore" class="more">
             <el-button :loading="finding" @click="more">
-              加载更多（已显示 {{ found.length }} 件）
+              加载更多（已显示 {{ displayFound.length }} 件）
             </el-button>
           </div>
 
-          <el-empty v-if="!finding && !found.length" description="还没有结果，先查找" />
+          <el-empty v-if="!finding && !displayFound.length" :description="found.length && f.hideInPool ? '显示的商品都已入库，可以取消「隐藏已入库」查看全部' : '还没有结果，先查找'" />
         </el-card>
       </el-tab-pane>
     
@@ -878,6 +879,7 @@ const f = reactive({
   importCount: 100,
   targetStatus: 3, // 3=待上架，1=直接上架
   importTopicIds: [], // 导入时打的标签
+  hideInPool: true, // 隐藏已在池子里的商品
 });
 
 // 不同平台的分类/榜单选项（后续调查完直接加这里）
@@ -968,6 +970,12 @@ function statusKey(g) {
 
 const foundStatus = ref({}); // { "PDD::xxx": { id, status }, ... }
 
+// 过滤后要展示的商品列表（默认隐藏已入库的）
+const displayFound = computed(() => {
+  if (!f.hideInPool) return found.value;
+  return found.value.filter((g) => !foundStatus.value[statusKey(g)]);
+});
+
 async function refreshFoundStatus(g) {
   const m = await api.curationExistsBatch([{ platform: f.platform, goodsId: g.goodsId }]);
   foundStatus.value = { ...foundStatus.value, ...m };
@@ -987,12 +995,12 @@ function more() {
 }
 
 async function importBatch() {
-  if (!found.value.length) {
-    ElMessage.warning('还没有搜索结果，先查找商品');
+  if (!displayFound.value.length) {
+    ElMessage.warning('还没有可导入的商品，先查找或取消「隐藏已入库」');
     return;
   }
-  const count = Math.min(f.importCount, found.value.length);
-  const goods = found.value.slice(0, count).map((g) => ({
+  const count = Math.min(f.importCount, displayFound.value.length);
+  const goods = displayFound.value.slice(0, count).map((g) => ({
     goodsId: g.goodsId,
     title: g.title,
     image: g.image,
