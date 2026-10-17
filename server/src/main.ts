@@ -2,9 +2,12 @@ import 'reflect-metadata';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { join } from 'path';
 import * as express from 'express';
+import * as bcrypt from 'bcryptjs';
 import { AppModule } from './app.module';
+import { AdminUser } from './entities';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,6 +16,18 @@ async function bootstrap() {
 
   // 上传的图片静态资源（公开访问）
   app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
+
+  // 启动时确保有一个默认管理员账号（开发环境自动建，生产环境只在没有任何管理员时建）
+  const adminRepo = app.get(getRepositoryToken(AdminUser));
+  const adminCount = await adminRepo.count();
+  if (adminCount === 0) {
+    await adminRepo.save(adminRepo.create({
+      username: 'admin',
+      password: bcrypt.hashSync('admin123', 10),
+      role: 'super',
+    }));
+    new Logger('Bootstrap').warn('⚠️  未检测到管理员账号，已创建默认账号 admin / admin123，请尽快修改密码！');
+  }
 
   // 生产默认不暴露接口文档，需要时 ENABLE_DOCS=true
   const showDocs = process.env.NODE_ENV !== 'production' || process.env.ENABLE_DOCS === 'true';
