@@ -4,14 +4,13 @@
     <div class="search-bar">
       <van-search
         v-model="keyword"
-        placeholder="搜索商品关键词"
-        :disabled="batchMode"
+        placeholder="输入关键词搜索商品"
         @search="onSearch"
       />
     </div>
 
-    <!-- 平台 + 排序 -->
-    <div class="filter-bar">
+    <!-- 平台 + 渠道 + 排序 -->
+    <div class="filter-section">
       <div class="platforms">
         <span
           v-for="p in platforms"
@@ -22,6 +21,7 @@
         >{{ p.name }}</span>
       </div>
       <van-dropdown-menu>
+        <van-dropdown-item v-model="channel" :options="channelOptions" @change="onChannelChange" />
         <van-dropdown-item v-model="sort" :options="sortOptions" @change="onSortChange" />
       </van-dropdown-menu>
     </div>
@@ -42,7 +42,6 @@
       :finished="finished"
       finished-text="没有更多了"
       @load="onLoad"
-      :immediate-check="false"
     >
       <div class="goods-list">
         <div
@@ -50,7 +49,7 @@
           :key="g.goodsId || g.id"
           class="goods-card"
           :class="{ selected: isPicked(g) }"
-          @click="batchMode ? togglePick(g) : onItemClick(g)"
+          @click="batchMode ? togglePick(g) : showActionSheet(g)"
         >
           <div v-if="batchMode" class="check-wrap">
             <van-checkbox :model-value="isPicked(g)" />
@@ -61,6 +60,7 @@
             <div class="g-meta">
               <span class="g-platform">{{ platName(g.platform) }}</span>
               <span v-if="g.sales" class="g-sales">销量 {{ g.sales }}</span>
+              <span v-if="g.shop" class="g-shop">{{ g.shop }}</span>
             </div>
             <div class="g-price-row">
               <div class="g-price">
@@ -78,12 +78,14 @@
               size="small"
               type="primary"
               plain
-              @click.stop="onAdd(g)"
+              @click.stop="showActionSheet(g)"
             >加入</van-button>
           </div>
         </div>
       </div>
     </van-list>
+
+    <van-empty v-if="!loading && !keyword && channel === 'all' && !list.length" description="输入关键词开始搜索" />
 
     <!-- 右下角批量模式切换按钮 -->
     <van-fab
@@ -101,7 +103,7 @@
       <van-tabbar-item to="/madmin/tags" icon="label-o">标签</van-tabbar-item>
     </van-tabbar>
 
-    <!-- 加入选品池弹窗 -->
+    <!-- 单条操作面板 -->
     <van-action-sheet
       v-model:show="showAddSheet"
       :actions="addActions"
@@ -117,7 +119,6 @@ import { showToast, showSuccessToast, showConfirmDialog } from 'vant';
 import { adminApi } from '../../api';
 
 const platforms = [
-  { key: '', name: '全部' },
   { key: 'PDD', name: '拼多多' },
   { key: 'TB', name: '淘宝' },
   { key: 'JD', name: '京东' },
@@ -128,6 +129,39 @@ function platName(p) {
   return m[p] || p;
 }
 
+const CHANNEL_OPTIONS = {
+  PDD: [
+    { text: '全品类搜索', value: 'all' },
+    { text: '实时收益榜', value: 'earn' },
+    { text: '实时热销榜', value: 'hot' },
+    { text: '9块9特卖', value: 'cheap' },
+    { text: '品牌好货', value: 'pick' },
+  ],
+  JD: [
+    { text: '全品类搜索', value: 'all' },
+    { text: '食品酒水', value: 'food' },
+    { text: '家庭清洁', value: 'home_clean' },
+    { text: '个护美妆', value: 'beauty' },
+    { text: '医药保健', value: 'health' },
+    { text: '生鲜', value: 'fresh' },
+    { text: '数码家电', value: 'digital' },
+    { text: '家居日用', value: 'home_life' },
+    { text: '时尚生活', value: 'fashion' },
+  ],
+  TB: [
+    { text: '全品类搜索', value: 'all' },
+    { text: '实时收益榜', value: 'earn' },
+    { text: '实时热销榜', value: 'hot' },
+    { text: '品牌好货', value: 'pick' },
+  ],
+  VIP: [
+    { text: '全品类搜索', value: 'all' },
+    { text: '出单爆款', value: 'hot' },
+    { text: '佣金榜', value: 'earn' },
+    { text: '价格低到高', value: 'cheap' },
+  ],
+};
+
 const sortOptions = [
   { text: '按佣金', value: 'rebate' },
   { text: '按销量', value: 'sales' },
@@ -136,6 +170,7 @@ const sortOptions = [
 
 const keyword = ref('');
 const platform = ref('PDD');
+const channel = ref('all');
 const sort = ref('rebate');
 const list = ref([]);
 const page = ref(1);
@@ -154,14 +189,24 @@ const addActions = [
   { name: '加入待上架', id: 3 },
 ];
 
+const channelOptions = computed(() => CHANNEL_OPTIONS[platform.value] || CHANNEL_OPTIONS.PDD);
+
 let reqSeq = 0;
 
 function switchPlatform(p) {
   platform.value = p;
+  // 切平台时，如果当前 channel 在新平台里没有，重置为 all
+  const valid = channelOptions.value.some((c) => c.value === channel.value);
+  if (!valid) channel.value = 'all';
+  reset();
+}
+
+function onChannelChange() {
   reset();
 }
 
 function onSortChange() {
+  // 排序只对搜索（keyword 或 all 关键词搜索）生效
   reset();
 }
 
@@ -180,14 +225,29 @@ function reset() {
 async function onLoad() {
   const seq = ++reqSeq;
   try {
-    const params = {
-      platform: platform.value || undefined,
-      keyword: keyword.value || undefined,
-      sort: sort.value,
-      page: page.value,
-      pageSize,
-    };
-    const r = await adminApi.curationSearch(params);
+    let r;
+    const useSearch = keyword.value.trim() || channel.value === 'all';
+
+    if (useSearch) {
+      // 搜索模式：keyword 或 全品类返利搜索
+      const params = {
+        platform: platform.value,
+        keyword: keyword.value.trim() || undefined,
+        sort: sort.value,
+        page: page.value,
+        pageSize,
+      };
+      r = await adminApi.curationSearch(params);
+    } else {
+      // 榜单模式：按 channel 调 recommend 接口
+      r = await adminApi.curationRecommend({
+        platform: platform.value,
+        channel: channel.value,
+        page: page.value,
+        pageSize,
+      });
+    }
+
     if (seq !== reqSeq) return;
     const rows = r.list || r || [];
     list.value = list.value.concat(rows);
@@ -232,13 +292,7 @@ function onCheckAll() {
   }
 }
 
-function onItemClick(g) {
-  // 单条点击先弹操作面板
-  currentGoods.value = g;
-  showAddSheet.value = true;
-}
-
-function onAdd(g) {
+function showActionSheet(g) {
   currentGoods.value = g;
   showAddSheet.value = true;
 }
@@ -260,7 +314,6 @@ async function batchAdd(targetStatus) {
       message: `将 ${targetStatus === 1 ? '直接上架' : '加入待上架'} ${picked.value.length} 件商品，确认？`,
     });
     await importGoods(picked.value, targetStatus);
-    // 批量完成后移除已加入的
     picked.value = [];
     allChecked.value = false;
   } catch (e) {
@@ -309,10 +362,7 @@ async function importGoods(goods, targetStatus) {
   z-index: 10;
   background: #fff;
 }
-.filter-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.filter-section {
   background: #fff;
   padding: 0 12px;
   border-bottom: 1px solid #eee;
@@ -320,14 +370,13 @@ async function importGoods(goods, targetStatus) {
 .platforms {
   display: flex;
   gap: 8px;
-  flex: 1;
   overflow-x: auto;
-  padding: 8px 0;
+  padding: 10px 0 4px;
 }
 .p-chip {
   flex: none;
-  padding: 4px 12px;
-  border-radius: 14px;
+  padding: 5px 14px;
+  border-radius: 16px;
   background: #f5f5f5;
   font-size: 13px;
   color: #666;
@@ -398,14 +447,19 @@ async function importGoods(goods, targetStatus) {
 }
 .g-meta {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   font-size: 11px;
   color: #999;
+  align-items: center;
+  flex-wrap: wrap;
 }
 .g-platform {
   padding: 1px 5px;
   background: #f5f5f5;
   border-radius: 3px;
+}
+.g-shop {
+  color: #999;
 }
 .g-price-row {
   display: flex;

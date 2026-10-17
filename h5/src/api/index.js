@@ -156,6 +156,9 @@ export const adminApi = {
   topicTagMany: (id, curatedIds) => adminHttp.post(`/api/admin/topics/${id}/tag-many`, { curatedIds }),
   topicUntagMany: (id, curatedIds) => adminHttp.post(`/api/admin/topics/${id}/untag-many`, { curatedIds }),
   topicGoods: (slug, params) => adminHttp.get(`/api/topics/${slug}/goods`, { params }),
+  topicCreate: (data) => adminHttp.post('/api/admin/topics', data),
+  topicUpdate: (id, data) => adminHttp.put(`/api/admin/topics/${id}`, data),
+  topicRemove: (id) => adminHttp.delete(`/api/admin/topics/${id}`),
 };
 
 export default http;

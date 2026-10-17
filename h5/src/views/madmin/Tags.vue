@@ -7,7 +7,11 @@
       @click-left="$router.back()"
       fixed
       placeholder
-    />
+    >
+      <template #right>
+        <span class="nav-btn" @click="openEdit()">新建</span>
+      </template>
+    </van-nav-bar>
 
     <van-tabs v-model:active="activeType" sticky offset-top="46px" @change="onTypeChange">
       <van-tab title="全部" name="" />
@@ -32,16 +36,21 @@
         @click="goTag(t)"
       >
         <div class="t-ico" :style="{ background: t.bg || gradientFromName(t.name) }">
-          {{ t.icon || '🏷️' }}
+          <img v-if="isImageUrl(t.icon)" :src="t.icon" alt="" />
+          <template v-else>{{ t.icon || '🏷️' }}</template>
         </div>
         <div class="t-info">
           <div class="t-name">{{ t.name }}</div>
           <div class="t-meta">
             <span class="t-count">{{ t.goodsCount || 0 }} 件商品</span>
             <span class="t-type">{{ typeName(t.type) }}</span>
+            <span v-if="t.autoBrand" class="t-brand">自动</span>
           </div>
         </div>
-        <van-icon name="arrow" />
+        <div class="t-actions" @click.stop>
+          <van-button size="mini" type="default" plain @click="openEdit(t)">编辑</van-button>
+          <van-button size="mini" type="danger" plain @click="removeTag(t)">删除</van-button>
+        </div>
       </div>
 
       <van-empty v-if="!loading && !filteredList.length" description="暂无标签" />
@@ -56,12 +65,85 @@
       <van-tabbar-item to="/madmin/pool" icon="shop-collect-o">选品池</van-tabbar-item>
       <van-tabbar-item to="/madmin/tags" icon="label-o">标签</van-tabbar-item>
     </van-tabbar>
+
+    <!-- 编辑弹窗 -->
+    <van-popup
+      v-model:show="editOpen"
+      position="bottom"
+      :style="{ height: 'auto', maxHeight: '85%' }"
+      round
+    >
+      <div class="edit-header">
+        <span class="edit-title">{{ form.id ? '编辑标签' : '新建标签' }}</span>
+        <van-icon name="cross" size="20" @click="editOpen = false" />
+      </div>
+      <div class="edit-body">
+        <van-field
+          v-model="form.name"
+          label="名称"
+          placeholder="比如：母婴奶粉"
+          maxlength="16"
+        />
+        <van-field
+          v-model="form.slug"
+          label="地址短名"
+          placeholder="留空自动生成，比如 baby-milk"
+          :disabled="!!form.id"
+        />
+        <van-field v-model="form.icon" label="图标" placeholder="emoji 或图片 URL" />
+        <van-field v-model="form.bg" label="底色" placeholder="CSS 渐变或颜色，留空自动分配" />
+        <van-field
+          v-model="form.intro"
+          label="简介"
+          placeholder="一句话说明"
+          maxlength="30"
+        />
+        <van-cell title="类型">
+          <template #right-icon>
+            <van-radio-group v-model="form.type" direction="horizontal">
+              <van-radio name="category">品类</van-radio>
+              <van-radio name="activity">活动</van-radio>
+              <van-radio name="operate">运营</van-radio>
+            </van-radio-group>
+          </template>
+        </van-cell>
+        <van-cell title="首页位置">
+          <template #right-icon>
+            <van-radio-group v-model="form.slot" direction="horizontal">
+              <van-radio name="grid">宫格</van-radio>
+              <van-radio name="activity">活动位</van-radio>
+              <van-radio name="hidden">不露面</van-radio>
+            </van-radio-group>
+          </template>
+        </van-cell>
+        <van-field
+          v-model="form.sortWeight"
+          type="number"
+          label="排序权重"
+          placeholder="0"
+        />
+        <van-field
+          v-model="keywordRulesText"
+          label="自动打标关键词"
+          type="textarea"
+          rows="2"
+          placeholder="多个关键词用逗号分隔，比如：奶粉,婴儿奶粉"
+        />
+        <div class="edit-tip">
+          商品标题命中任意一个关键词，就自动打上这个标签。留空不参与自动打标。
+        </div>
+      </div>
+      <div class="edit-footer">
+        <van-button type="primary" block :loading="saving" @click="save">保存</van-button>
+      </div>
+    </van-popup>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { showToast, showConfirmDialog, showSuccessToast } from 'vant';
 import { adminApi } from '../../api';
 
 const router = useRouter();
@@ -77,7 +159,10 @@ function typeName(t) {
   return TYPE_NAME[t] || t;
 }
 
-// 简单的按名称生成渐变色
+function isImageUrl(v) {
+  return typeof v === 'string' && /^(https?:|\/)/.test(v);
+}
+
 function gradientFromName(name) {
   const colors = [
     'linear-gradient(135deg,#667eea,#764ba2)',
@@ -94,11 +179,21 @@ function gradientFromName(name) {
   return colors[Math.abs(hash) % colors.length];
 }
 
+const EMPTY = {
+  id: null, name: '', slug: '', icon: '', bg: '', intro: '',
+  type: 'category', slot: 'grid', sortWeight: 0,
+};
+
 const activeType = ref('');
 const keyword = ref('');
 const list = ref([]);
 const loading = ref(false);
 const active = ref('tags');
+
+const editOpen = ref(false);
+const saving = ref(false);
+const form = reactive({ ...EMPTY });
+const keywordRulesText = ref('');
 
 const filteredList = computed(() => {
   let l = list.value || [];
@@ -125,7 +220,7 @@ async function load() {
 }
 
 function onTypeChange() {
-  // 前端过滤，不用重新加载
+  // 前端过滤
 }
 
 function onSearch() {
@@ -136,6 +231,67 @@ function goTag(t) {
   router.push(`/madmin/tag/${t.slug}`);
 }
 
+function openEdit(t) {
+  if (t) {
+    Object.assign(form, t);
+    keywordRulesText.value = (t.keywordRules || []).join(', ');
+  } else {
+    Object.assign(form, EMPTY);
+    keywordRulesText.value = '';
+  }
+  editOpen.value = true;
+}
+
+async function save() {
+  if (!form.name.trim()) {
+    showToast('请输入名称');
+    return;
+  }
+  saving.value = true;
+  try {
+    const body = {
+      name: form.name.trim(),
+      slug: form.slug || undefined,
+      icon: form.icon,
+      bg: form.bg,
+      intro: form.intro,
+      type: form.type,
+      slot: form.slot,
+      sortWeight: Number(form.sortWeight) || 0,
+      keywordRules: keywordRulesText.value
+        .split(/[,，\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    };
+    if (form.id) {
+      await adminApi.topicUpdate(form.id, body);
+    } else {
+      await adminApi.topicCreate(body);
+    }
+    showSuccessToast('保存成功');
+    editOpen.value = false;
+    load();
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function removeTag(t) {
+  try {
+    await showConfirmDialog({
+      title: '删除标签',
+      message: `确定删除「${t.name}」标签？挂在它下面的 ${t.goodsCount || 0} 件商品只会解绑，不会从选品池里删掉。`,
+      confirmButtonText: '删除',
+      confirmButtonColor: '#ee0a24',
+    });
+    await adminApi.topicRemove(t.id);
+    showSuccessToast('已删除');
+    load();
+  } catch (e) {
+    if (e === 'cancel') return;
+  }
+}
+
 onMounted(load);
 </script>
 
@@ -144,6 +300,10 @@ onMounted(load);
   min-height: 100vh;
   background: #f5f6f8;
   padding-bottom: 60px;
+}
+.nav-btn {
+  font-size: 14px;
+  color: #1989fa;
 }
 .tag-list {
   padding: 8px 12px;
@@ -170,6 +330,12 @@ onMounted(load);
   font-size: 20px;
   color: #fff;
   flex: none;
+  overflow: hidden;
+}
+.t-ico img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .t-info {
   flex: 1;
@@ -183,9 +349,11 @@ onMounted(load);
 }
 .t-meta {
   display: flex;
-  gap: 10px;
+  gap: 6px;
   font-size: 12px;
   color: #999;
+  align-items: center;
+  flex-wrap: wrap;
 }
 .t-type {
   padding: 1px 6px;
@@ -193,8 +361,47 @@ onMounted(load);
   border-radius: 3px;
   font-size: 11px;
 }
+.t-brand {
+  padding: 1px 6px;
+  background: #e8f5e9;
+  color: #4caf50;
+  border-radius: 3px;
+  font-size: 11px;
+}
+.t-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
 .loading {
   text-align: center;
   padding: 20px;
+}
+.edit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eee;
+}
+.edit-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+.edit-body {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+.edit-tip {
+  padding: 4px 16px 12px;
+  font-size: 12px;
+  color: #999;
+  line-height: 1.5;
+}
+.edit-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #eee;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
 }
 </style>
