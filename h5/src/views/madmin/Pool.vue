@@ -34,6 +34,12 @@
       >批量上架</van-button>
       <van-button
         size="small"
+        type="success"
+        :disabled="!pickedIds.length"
+        @click="openBatchTagShelf"
+      >带标签上架</van-button>
+      <van-button
+        size="small"
         type="warning"
         :disabled="!pickedIds.length"
         @click="batchOffShelf"
@@ -75,6 +81,16 @@
                 {{ statusName(g.status) }}
               </span>
             </div>
+            <div v-if="getGoodsTopics(g).length" class="g-tags">
+              <span
+                v-for="t in getGoodsTopics(g).slice(0, 3)"
+                :key="t.id"
+                class="g-tag"
+              >{{ t.name }}</span>
+              <span v-if="getGoodsTopics(g).length > 3" class="g-tag more">
+                +{{ getGoodsTopics(g).length - 3 }}
+              </span>
+            </div>
             <div class="g-price-row">
               <div class="g-price">
                 <span class="label">券后</span>
@@ -94,6 +110,13 @@
               @click.stop="onShelf(g)"
             >上架</van-button>
             <van-button
+              v-if="g.status !== 1"
+              size="mini"
+              type="success"
+              plain
+              @click.stop="openTagForShelf([g])"
+            >带标签上架</van-button>
+            <van-button
               v-if="g.status === 1"
               size="mini"
               type="warning"
@@ -112,11 +135,51 @@
       <van-tabbar-item to="/madmin/pool" icon="shop-collect-o">选品池</van-tabbar-item>
       <van-tabbar-item to="/madmin/tags" icon="label-o">标签</van-tabbar-item>
     </van-tabbar>
+
+    <!-- 上架选标签弹窗 -->
+    <van-popup
+      v-model:show="tagShelfShow"
+      position="bottom"
+      :style="{ height: '70%' }"
+      round
+    >
+      <div class="picker-header">
+        <span class="picker-title">选择标签后上架</span>
+        <van-icon name="cross" size="20" @click="tagShelfShow = false" />
+      </div>
+      <van-tabs v-model:active="shelfTagType">
+        <van-tab title="全部" name="" />
+        <van-tab title="品类" name="category" />
+        <van-tab title="品牌" name="brand" />
+        <van-tab title="活动" name="activity" />
+      </van-tabs>
+      <div class="picker-search">
+        <van-search v-model="shelfTagKw" placeholder="搜索标签" shape="round" />
+      </div>
+      <div class="picker-list">
+        <div
+          v-for="t in filteredShelfTags"
+          :key="t.id"
+          class="picker-item"
+          :class="{ picked: shelfPickedTopicIds.includes(t.id) }"
+          @click="toggleShelfTopic(t)"
+        >
+          <span class="pi-ico">{{ t.icon || '🏷️' }}</span>
+          <span class="pi-name">{{ t.name }}</span>
+          <van-icon v-if="shelfPickedTopicIds.includes(t.id)" name="success" color="#07c160" />
+        </div>
+      </div>
+      <div class="picker-footer">
+        <van-button type="primary" block :loading="shelfTagLoading" @click="confirmShelfWithTags">
+          确认上架（{{ shelfGoodsIds.length }} 件）
+        </van-button>
+      </div>
+    </van-popup>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { showToast, showConfirmDialog, showSuccessToast } from 'vant';
 import { adminApi } from '../../api';
@@ -143,6 +206,8 @@ function statusClass(s) {
 const status = ref(route.query.status ? String(route.query.status) : '1');
 const keyword = ref('');
 const list = ref([]);
+const topicMap = ref({}); // { topicId: topicObj }
+const goodsTopicMap = ref({}); // { curatedId: [topicId, ...] }
 const page = ref(1);
 const pageSize = 20;
 const loading = ref(false);
@@ -156,6 +221,24 @@ let reqSeq = 0;
 
 function onStatusChange() {
   reset();
+}
+
+async function loadAllTopics() {
+  try {
+    const r = await adminApi.topics();
+    const all = r.list || r || [];
+    const map = {};
+    all.forEach((t) => { map[t.id] = t; });
+    topicMap.value = map;
+  } catch {
+    // ignore
+  }
+}
+
+function getGoodsTopics(g) {
+  const id = g.id || g.curatedId;
+  const tids = goodsTopicMap.value[id] || [];
+  return tids.map((tid) => topicMap.value[tid]).filter(Boolean);
 }
 
 function onSearch() {
@@ -182,6 +265,18 @@ async function onLoad() {
     if (seq !== reqSeq) return;
     const rows = r.list || r || [];
     list.value = list.value.concat(rows);
+
+    // 批量获取这些商品的标签
+    if (rows.length) {
+      const ids = rows.map((g) => g.id || g.curatedId);
+      try {
+        const gtMap = await adminApi.goodsTopicsBatch(ids);
+        Object.assign(goodsTopicMap.value, gtMap || {});
+      } catch {
+        // 标签加载失败不影响列表
+      }
+    }
+
     page.value++;
     if (rows.length < pageSize) {
       finished.value = true;
@@ -312,7 +407,89 @@ async function batchRemove() {
   }
 }
 
-onMounted(reset);
+// ───────── 带标签上架 ─────────
+const tagShelfShow = ref(false);
+const shelfTagType = ref('');
+const shelfTagKw = ref('');
+const shelfPickedTopicIds = ref([]);
+const shelfGoodsIds = ref([]);
+const shelfTagLoading = ref(false);
+
+const filteredShelfTags = computed(() => {
+  let all = Object.values(topicMap.value);
+  if (shelfTagType.value) {
+    all = all.filter((t) => t.type === shelfTagType.value);
+  }
+  if (shelfTagKw.value.trim()) {
+    const kw = shelfTagKw.value.trim().toLowerCase();
+    all = all.filter((t) => t.name.toLowerCase().includes(kw));
+  }
+  return all;
+});
+
+function openTagForShelf(goodsArr) {
+  shelfGoodsIds.value = goodsArr.map((g) => g.id || g.curatedId);
+  // 预填充已有标签（取并集）
+  const existing = new Set();
+  goodsArr.forEach((g) => {
+    const tids = goodsTopicMap.value[g.id || g.curatedId] || [];
+    tids.forEach((t) => existing.add(t));
+  });
+  shelfPickedTopicIds.value = [...existing];
+  shelfTagType.value = '';
+  shelfTagKw.value = '';
+  tagShelfShow.value = true;
+}
+
+function openBatchTagShelf() {
+  const goods = list.value.filter((g) => pickedIds.value.includes(g.id || g.curatedId));
+  if (!goods.length) {
+    showToast('请先勾选商品');
+    return;
+  }
+  openTagForShelf(goods);
+}
+
+function toggleShelfTopic(t) {
+  const idx = shelfPickedTopicIds.value.indexOf(t.id);
+  if (idx >= 0) {
+    shelfPickedTopicIds.value.splice(idx, 1);
+  } else {
+    shelfPickedTopicIds.value.push(t.id);
+  }
+}
+
+async function confirmShelfWithTags() {
+  if (!shelfGoodsIds.value.length) return;
+  shelfTagLoading.value = true;
+  try {
+    const ids = [...shelfGoodsIds.value];
+    // 1. 批量上架（每批 50）
+    for (let i = 0; i < ids.length; i += 50) {
+      await adminApi.curationBatchOnShelf(ids.slice(i, i + 50));
+    }
+    // 2. 批量打标签（每个标签下每批 50）
+    if (shelfPickedTopicIds.value.length) {
+      for (const tid of shelfPickedTopicIds.value) {
+        for (let i = 0; i < ids.length; i += 50) {
+          await adminApi.topicTagMany(tid, ids.slice(i, i + 50));
+        }
+      }
+    }
+    showSuccessToast(
+      `上架 ${ids.length} 件${shelfPickedTopicIds.value.length ? `，打了 ${shelfPickedTopicIds.value.length} 个标签` : ''}`,
+    );
+    tagShelfShow.value = false;
+    reset();
+  } finally {
+    shelfTagLoading.value = false;
+  }
+}
+
+onMounted(async () => {
+  await loadAllTopics();
+  reset();
+});
 watch(status, reset);
 </script>
 
@@ -417,6 +594,24 @@ watch(status, reset);
 .g-status.s-1 { background: #e8f5e9; color: #4caf50; }
 .g-status.s-3 { background: #fff3e0; color: #ff9800; }
 .g-status.s-0 { background: #f5f5f5; color: #999; }
+.g-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.g-tag {
+  font-size: 10px;
+  padding: 1px 5px;
+  background: #ecf5ff;
+  color: #409eff;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+.g-tag.more {
+  background: #f5f5f5;
+  color: #999;
+}
 .g-price-row {
   display: flex;
   align-items: flex-end;
@@ -444,5 +639,58 @@ watch(status, reset);
   flex-direction: column;
   justify-content: center;
   gap: 6px;
+}
+.picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+}
+.picker-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+.picker-search {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f5f5f5;
+}
+.picker-search :deep(.van-search) {
+  padding: 0;
+}
+.picker-list {
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f5f5f5;
+}
+.picker-item.picked {
+  background: #f0f9eb;
+}
+.pi-ico {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: #f5f5f5;
+  flex: none;
+}
+.pi-name {
+  flex: 1;
+  font-size: 14px;
+  color: #333;
+}
+.picker-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #eee;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
 }
 </style>

@@ -38,6 +38,9 @@ const routes = [
   { path: '/madmin/goods/:id', component: () => import('./views/madmin/GoodsDetail.vue'), meta: { admin: true } },
   { path: '/madmin/tags', component: () => import('./views/madmin/Tags.vue'), meta: { admin: true } },
   { path: '/madmin/tag/:slug', component: () => import('./views/madmin/TagGoods.vue'), meta: { admin: true } },
+  { path: '/madmin/orders', component: () => import('./views/madmin/Orders.vue'), meta: { admin: true } },
+  { path: '/madmin/agents', component: () => import('./views/madmin/Agents.vue'), meta: { admin: true } },
+  { path: '/madmin/withdraws', component: () => import('./views/madmin/Withdraws.vue'), meta: { admin: true } },
 ];
 
 const router = createRouter({

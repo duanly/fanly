@@ -45,11 +45,58 @@
           </div>
           <div class="grid-name">标签管理</div>
         </div>
+        <div class="grid-item" @click="$router.push('/madmin/orders')">
+          <div class="grid-ico" style="background: linear-gradient(135deg,#fa709a,#fee140)">
+            <van-icon name="orders-o" />
+          </div>
+          <div class="grid-name">订单</div>
+        </div>
+        <div class="grid-item" @click="$router.push('/madmin/agents')">
+          <div class="grid-ico" style="background: linear-gradient(135deg,#a8edea,#fed6e3)">
+            <van-icon name="friends-o" />
+          </div>
+          <div class="grid-name">代理</div>
+        </div>
+        <div class="grid-item" @click="$router.push('/madmin/withdraws')">
+          <div class="grid-ico" style="background: linear-gradient(135deg,#30cfd0,#330867)">
+            <van-icon name="gold-coin-o" />
+          </div>
+          <div class="grid-name">提现审核</div>
+        </div>
         <div class="grid-item" @click="goPull">
           <div class="grid-ico" style="background: linear-gradient(135deg,#43e97b,#38f9d7)">
             <van-icon name="down" />
           </div>
           <div class="grid-name">自动拉取</div>
+        </div>
+        <div class="grid-item" @click="onReconcile">
+          <div class="grid-ico" style="background: linear-gradient(135deg,#ffecd2,#fcb69f)">
+            <van-icon name="balance-list-o" />
+          </div>
+          <div class="grid-name">资金对账</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 数据总览 -->
+    <div class="section">
+      <div class="sec-title">今日概览</div>
+      <div class="overview-grid">
+        <div class="ov-item">
+          <div class="ov-num">{{ overview.todayOrders || 0 }}</div>
+          <div class="ov-label">今日订单</div>
+        </div>
+        <div class="ov-item">
+          <div class="ov-num">¥{{ overview.todayCommission || 0 }}</div>
+          <div class="ov-label">今日返利</div>
+        </div>
+        <div class="ov-item">
+          <div class="ov-num">{{ overview.agents || 0 }}</div>
+          <div class="ov-label">代理数</div>
+        </div>
+        <div class="ov-item">
+          <div class="ov-num">{{ overview.pendingWithdraw || 0 }}</div>
+          <div class="ov-label">待审核提现</div>
         </div>
       </div>
     </div>
@@ -92,9 +139,10 @@
     <!-- 底部 tabbar -->
     <van-tabbar v-model="active" route fixed safe-area-inset-bottom active-color="#ff4b3a">
       <van-tabbar-item to="/madmin" icon="home-o">首页</van-tabbar-item>
-      <van-tabbar-item to="/madmin/search" icon="search">找商品</van-tabbar-item>
+      <van-tabbar-item to="/madmin/orders" icon="orders-o">订单</van-tabbar-item>
       <van-tabbar-item to="/madmin/pool" icon="shop-collect-o">选品池</van-tabbar-item>
-      <van-tabbar-item to="/madmin/tags" icon="label-o">标签</van-tabbar-item>
+      <van-tabbar-item to="/madmin/agents" icon="friends-o">代理</van-tabbar-item>
+      <van-tabbar-item to="/madmin/withdraws" icon="gold-coin-o">提现</van-tabbar-item>
     </van-tabbar>
   </div>
 </template>
@@ -108,6 +156,37 @@ import { adminApi } from '../../api';
 const router = useRouter();
 const active = ref(0);
 const stats = reactive({ onShelf: 0, pending: 0, offShelf: 0 });
+const overview = reactive({
+  todayOrders: 0,
+  todayCommission: '0.00',
+  agents: 0,
+  pendingWithdraw: 0,
+});
+
+async function loadOverview() {
+  try {
+    // 并发加载：订单数、代理数、待审核提现
+    const [orders, agents, withdraws] = await Promise.all([
+      adminApi.orders({ pageSize: 1 }),
+      adminApi.agents({ pageSize: 1 }),
+      adminApi.withdraws({ status: 0, pageSize: 1 }),
+    ]).catch(() => [null, null, null]);
+    overview.todayOrders = orders?.total || 0;
+    overview.agents = agents?.total || 0;
+    overview.pendingWithdraw = withdraws?.total || 0;
+
+    // 今日返利：粗略从订单列表算（只取一页数据）
+    if (orders?.list?.length) {
+      const today = new Date().toDateString();
+      const todayAmount = orders.list
+        .filter((o) => new Date(o.createdAt || o.orderTime).toDateString() === today)
+        .reduce((sum, o) => sum + (Number(o.commission) || 0), 0);
+      overview.todayCommission = todayAmount.toFixed(2);
+    }
+  } catch {
+    // 加载失败不影响页面
+  }
+}
 
 async function loadStats() {
   try {
@@ -127,6 +206,21 @@ async function loadStats() {
 
 function goPull() {
   showToast('自动拉取请在 PC 后台操作');
+}
+
+async function onReconcile() {
+  try {
+    const r = await adminApi.reconcile();
+    let msg = '对账正常';
+    if (r && Object.keys(r).length) {
+      msg = Object.entries(r)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join('\n');
+    }
+    showToast(msg);
+  } catch (e) {
+    showToast(e.message || '对账失败');
+  }
 }
 
 async function onDedup() {
@@ -170,7 +264,10 @@ async function onLogout() {
   }
 }
 
-onMounted(loadStats);
+onMounted(() => {
+  loadStats();
+  loadOverview();
+});
 </script>
 
 <style scoped>
@@ -278,5 +375,26 @@ onMounted(loadStats);
   gap: 10px;
   font-size: 14px;
   color: #333;
+}
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.ov-item {
+  background: #fafafa;
+  border-radius: 10px;
+  padding: 14px 12px;
+  text-align: center;
+}
+.ov-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ff4b3a;
+  margin-bottom: 4px;
+}
+.ov-label {
+  font-size: 12px;
+  color: #999;
 }
 </style>

@@ -159,6 +159,22 @@ export const adminApi = {
   topicCreate: (data) => adminHttp.post('/api/admin/topics', data),
   topicUpdate: (id, data) => adminHttp.put(`/api/admin/topics/${id}`, data),
   topicRemove: (id) => adminHttp.delete(`/api/admin/topics/${id}`),
+
+  // 订单
+  orders: (params) => adminHttp.get('/api/admin/orders', { params }),
+
+  // 代理
+  agents: (params) => adminHttp.get('/api/admin/agents', { params }),
+  updateAgent: (id, data) => adminHttp.post(`/api/admin/agents/${id}`, data),
+
+  // 提现
+  withdraws: (params) => adminHttp.get('/api/admin/withdraws', { params }),
+  auditWithdraw: (id, pass, reason) => adminHttp.post(`/api/admin/withdraws/${id}/audit`, { pass, reason }),
+  finishWithdraw: (id, success, channelOrderNo, failReason) =>
+    adminHttp.post(`/api/admin/withdraws/${id}/finish`, { success, channelOrderNo, failReason }),
+
+  // 对账
+  reconcile: () => adminHttp.get('/api/admin/reconcile'),
 };
 
 export default http;
