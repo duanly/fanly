@@ -151,6 +151,8 @@ export const adminApi = {
   // 标签 / 专题
   topics: (type) => adminHttp.get('/api/admin/topics', { params: type ? { type } : undefined }),
   goodsTopics: (curatedId) => adminHttp.get(`/api/admin/topics/of-goods/${curatedId}`),
+  goodsTopicsBatch: (curatedIds) =>
+    adminHttp.post('/api/admin/topics/of-goods-batch', { curatedIds }),
   setGoodsTopics: (curatedId, topicIds) =>
     adminHttp.post(`/api/admin/topics/of-goods/${curatedId}`, { topicIds }),
   topicTagMany: (id, curatedIds) => adminHttp.post(`/api/admin/topics/${id}/tag-many`, { curatedIds }),
