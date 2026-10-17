@@ -101,4 +101,61 @@ export const api = {
   agentInfo: (code) => http.get('/api/agent/info', { params: { code } }),
 };
 
+// ───────── 管理后台（手机端） ─────────
+// 独立的 axios 实例，用 adminToken，和用户端 token 互不干扰
+const adminHttp = axios.create({ baseURL: '/', timeout: 15000 });
+
+adminHttp.interceptors.request.use((cfg) => {
+  const token = localStorage.getItem('adminToken');
+  if (token) cfg.headers.Authorization = `Bearer ${token}`;
+  return cfg;
+});
+
+adminHttp.interceptors.response.use(
+  (res) => {
+    const body = res.data;
+    if (body && body.code === 0) return body.data;
+    showToast(body?.msg || '请求失败');
+    return Promise.reject(new Error(body?.msg));
+  },
+  (err) => {
+    const status = err.response?.status;
+    const msg = err.response?.data?.msg || err.message;
+    if (status === 401) {
+      localStorage.removeItem('adminToken');
+      if (!location.hash.includes('/madmin/login')) location.hash = '#/madmin/login';
+    } else {
+      showToast(msg || '网络错误');
+    }
+    return Promise.reject(err);
+  },
+);
+
+export const adminApi = {
+  login: (data) => adminHttp.post('/api/admin/login', data),
+
+  // 选品池
+  curationSearch: (params) => adminHttp.get('/api/admin/curation/search', { params }),
+  curationRecommend: (params) => adminHttp.get('/api/admin/curation/recommend', { params }),
+  curationList: (params) => adminHttp.get('/api/admin/curation/list', { params }),
+  curationAdd: (data) => adminHttp.post('/api/admin/curation/add', data),
+  curationImportWithGoods: (data) => adminHttp.post('/api/admin/curation/import-with-goods', data),
+  curationExistsBatch: (items) => adminHttp.post('/api/admin/curation/exists-batch', { items }),
+  curationUpdate: (id, data) => adminHttp.post(`/api/admin/curation/${id}`, data),
+  curationBatchOnShelf: (ids) => adminHttp.post('/api/admin/curation/batch-on-shelf', { ids }),
+  curationBatchRemove: (ids) => adminHttp.post('/api/admin/curation/batch-remove', { ids }),
+  curationRemove: (id) => adminHttp.delete(`/api/admin/curation/${id}`),
+  curationDedup: () => adminHttp.post('/api/admin/curation/dedup'),
+  curationRemoveOffShelf: () => adminHttp.post('/api/admin/curation/remove-off-shelf'),
+
+  // 标签 / 专题
+  topics: (type) => adminHttp.get('/api/admin/topics', { params: type ? { type } : undefined }),
+  goodsTopics: (curatedId) => adminHttp.get(`/api/admin/topics/of-goods/${curatedId}`),
+  setGoodsTopics: (curatedId, topicIds) =>
+    adminHttp.post(`/api/admin/topics/of-goods/${curatedId}`, { topicIds }),
+  topicTagMany: (id, curatedIds) => adminHttp.post(`/api/admin/topics/${id}/tag-many`, { curatedIds }),
+  topicUntagMany: (id, curatedIds) => adminHttp.post(`/api/admin/topics/${id}/untag-many`, { curatedIds }),
+  topicGoods: (slug, params) => adminHttp.get(`/api/topics/${slug}/goods`, { params }),
+};
+
 export default http;

@@ -29,6 +29,15 @@ const routes = [
   { path: '/auth/:platform', component: () => import('./views/Authorize.vue'), meta: { auth: true } },
   { path: '/login', component: () => import('./views/Login.vue') },
   { path: '/i/:code', component: () => import('./views/Invite.vue') },
+
+  // ───────── 手机端管理后台 ─────────
+  { path: '/madmin/login', component: () => import('./views/madmin/Login.vue') },
+  { path: '/madmin', component: () => import('./views/madmin/Home.vue'), meta: { admin: true } },
+  { path: '/madmin/search', component: () => import('./views/madmin/Search.vue'), meta: { admin: true } },
+  { path: '/madmin/pool', component: () => import('./views/madmin/Pool.vue'), meta: { admin: true } },
+  { path: '/madmin/goods/:id', component: () => import('./views/madmin/GoodsDetail.vue'), meta: { admin: true } },
+  { path: '/madmin/tags', component: () => import('./views/madmin/Tags.vue'), meta: { admin: true } },
+  { path: '/madmin/tag/:slug', component: () => import('./views/madmin/TagGoods.vue'), meta: { admin: true } },
 ];
 
 const router = createRouter({
@@ -42,6 +51,11 @@ const router = createRouter({
 });
 
 router.beforeEach((to) => {
+  // 管理后台鉴权
+  if (to.meta.admin && !localStorage.getItem('adminToken')) {
+    return { path: '/madmin/login', query: { redirect: to.fullPath } };
+  }
+  // 用户端鉴权
   if (to.meta.auth && !localStorage.getItem('token')) {
     return { path: '/login', query: { redirect: to.fullPath } };
   }
