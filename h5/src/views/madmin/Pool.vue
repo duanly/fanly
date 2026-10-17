@@ -304,6 +304,9 @@
       <van-tabbar-item to="/madmin/withdraws" icon="gold-coin-o">提现</van-tabbar-item>
     </van-tabbar>
 
+    <!-- 返回顶部 -->
+    <van-back-top right="16" bottom="80" />
+
     <!-- 标签编辑弹窗 -->
     <van-popup
       v-model:show="tagEditorShow"

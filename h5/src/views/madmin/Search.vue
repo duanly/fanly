@@ -54,7 +54,13 @@
           <div v-if="batchMode" class="check-wrap">
             <van-checkbox :model-value="isPicked(g)" />
           </div>
-          <img :src="g.image" class="g-img" />
+          <img
+            :src="g.image"
+            class="g-img"
+            loading="lazy"
+            decoding="async"
+            referrerpolicy="no-referrer"
+          />
           <div class="g-info">
             <div class="g-title">{{ g.title }}</div>
             <div class="g-meta">
@@ -73,13 +79,18 @@
               </div>
             </div>
           </div>
-          <div v-if="!batchMode" class="g-action">
+          <div v-if="!batchMode" class="g-actions">
             <van-button
-              size="small"
+              size="mini"
               type="primary"
+              @click.stop="addGoods(g, 1)"
+            >上架</van-button>
+            <van-button
+              size="mini"
+              type="success"
               plain
-              @click.stop="showActionSheet(g)"
-            >加入</van-button>
+              @click.stop="addGoods(g, 3)"
+            >待上架</van-button>
           </div>
         </div>
       </div>
@@ -91,9 +102,12 @@
     <van-fab
       v-if="!batchMode"
       icon="records"
-      :offset="['16px', '76px']"
+      :offset="['16px', '120px']"
       @click="toggleBatchMode"
     />
+
+    <!-- 返回顶部 -->
+    <van-back-top right="16" bottom="80" />
 
     <!-- 底部 tabbar -->
     <van-tabbar v-model="active" route fixed safe-area-inset-bottom active-color="#ff4b3a">
@@ -102,14 +116,6 @@
       <van-tabbar-item to="/madmin/pool" icon="shop-collect-o">选品池</van-tabbar-item>
       <van-tabbar-item to="/madmin/tags" icon="label-o">标签</van-tabbar-item>
     </van-tabbar>
-
-    <!-- 单条操作面板 -->
-    <van-action-sheet
-      v-model:show="showAddSheet"
-      :actions="addActions"
-      cancel-text="取消"
-      @select="onAddAction"
-    />
   </div>
 </template>
 
@@ -181,13 +187,6 @@ const batchMode = ref(false);
 const picked = ref([]);
 const allChecked = ref(false);
 const active = ref('search');
-
-const showAddSheet = ref(false);
-const currentGoods = ref(null);
-const addActions = [
-  { name: '直接上架', id: 1 },
-  { name: '加入待上架', id: 3 },
-];
 
 const channelOptions = computed(() => CHANNEL_OPTIONS[platform.value] || CHANNEL_OPTIONS.PDD);
 
@@ -293,14 +292,12 @@ function onCheckAll() {
 }
 
 function showActionSheet(g) {
-  currentGoods.value = g;
-  showAddSheet.value = true;
+  // 单条直接上架
+  addGoods(g, 1);
 }
 
-async function onAddAction(action) {
-  if (!currentGoods.value) return;
-  await importGoods([currentGoods.value], action.id);
-  currentGoods.value = null;
+async function addGoods(g, targetStatus) {
+  await importGoods([g], targetStatus);
 }
 
 async function batchAdd(targetStatus) {
@@ -482,9 +479,11 @@ async function importGoods(goods, targetStatus) {
   font-weight: 600;
   color: #ff9800;
 }
-.g-action {
+.g-actions {
   flex: none;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
 }
 </style>

@@ -147,6 +147,7 @@ export const adminApi = {
   curationRemove: (id) => adminHttp.delete(`/api/admin/curation/${id}`),
   curationDedup: () => adminHttp.post('/api/admin/curation/dedup'),
   curationRemoveOffShelf: () => adminHttp.post('/api/admin/curation/remove-off-shelf'),
+  curationAutoTagAll: () => adminHttp.post('/api/admin/curation/auto-tag/all'),
 
   // 标签 / 专题
   topics: (type) => adminHttp.get('/api/admin/topics', { params: type ? { type } : undefined }),

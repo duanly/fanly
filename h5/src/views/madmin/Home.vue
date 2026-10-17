@@ -63,11 +63,11 @@
           </div>
           <div class="grid-name">提现审核</div>
         </div>
-        <div class="grid-item" @click="goPull">
+        <div class="grid-item" @click="onAutoTag">
           <div class="grid-ico" style="background: linear-gradient(135deg,#43e97b,#38f9d7)">
-            <van-icon name="down" />
+            <van-icon name="label-o" />
           </div>
-          <div class="grid-name">自动拉取</div>
+          <div class="grid-name">自动打标</div>
         </div>
         <div class="grid-item" @click="onReconcile">
           <div class="grid-ico" style="background: linear-gradient(135deg,#ffecd2,#fcb69f)">
@@ -150,7 +150,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { showConfirmDialog, showToast } from 'vant';
+import { showConfirmDialog, showToast, showSuccessToast } from 'vant';
 import { adminApi } from '../../api';
 
 const router = useRouter();
@@ -204,8 +204,24 @@ async function loadStats() {
   }
 }
 
-function goPull() {
-  showToast('自动拉取请在 PC 后台操作');
+async function onAutoTag() {
+  try {
+    await showConfirmDialog({
+      title: '自动打标签',
+      message: '将根据所有标签的关键词规则，给选品池里没有标签的上架商品自动打标。只追加新标签，不会覆盖已有标签。商品越多越慢，耐心等一下。',
+      confirmButtonText: '开始打标',
+      confirmButtonColor: '#07c160',
+    });
+    showToast('打标中，请稍候...');
+    const r = await adminApi.curationAutoTagAll();
+    showSuccessToast(
+      `完成：${r.total || r.totalGoods || 0} 件商品，新增 ${r.tagged || r.newTags || 0} 个标签关联`,
+    );
+    loadStats();
+  } catch (e) {
+    if (e === 'cancel') return;
+    showToast(e.message || '打标失败');
+  }
 }
 
 async function onReconcile() {
