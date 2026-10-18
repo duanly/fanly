@@ -33,6 +33,14 @@ export const api = {
   sendSms: (mobile) => http.post('/api/auth/sms', { mobile }),
   login: (data) => http.post('/api/auth/login', data),
   profile: () => http.get('/api/auth/profile'),
+  updateProfile: (data) => http.post('/api/auth/profile', data),
+  uploadAvatar: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return http.post('/api/auth/avatar', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
   bindInviter: (inviteCode) => http.post('/api/auth/bind-inviter', { inviteCode }),
 
   recommend: (platform) => http.get('/api/goods/recommend', { params: { platform } }),

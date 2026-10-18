@@ -8,13 +8,16 @@
 
     <template v-else>
     <div style="background:linear-gradient(135deg,#ff6a3d,#ff3b30);padding:20px 16px 28px">
-      <div style="display:flex;align-items:center;gap:12px;color:#fff">
+      <div style="display:flex;align-items:center;gap:12px;color:#fff" @click="openEditProfile">
         <div class="mine-avatar">
           <img v-if="p?.avatar" :src="p.avatar" alt="" />
           <span v-else>{{ avatarText }}</span>
         </div>
-        <div>
-          <div style="font-size:18px;font-weight:700">{{ p?.nickname || '—' }}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:18px;font-weight:700;display:flex;align-items:center;gap:6px">
+            {{ p?.nickname || '—' }}
+            <van-icon name="edit" size="14" />
+          </div>
           <div style="opacity:.85;font-size:12px;margin-top:2px">
             {{ p?.mobile }}
             <span v-if="p?.bindAgent"> · 邀请人 {{ p.bindAgent.agentCode }}</span>
@@ -103,6 +106,49 @@
       <van-button block round plain @click="logout">退出登录</van-button>
     </div>
 
+    <!-- 编辑资料弹层 -->
+    <van-popup v-model:show="showEditProfile" position="bottom" round :style="{ padding: '20px 20px 30px' }">
+      <div style="font-size:17px;font-weight:700;margin-bottom:16px">编辑资料</div>
+
+      <!-- 头像 -->
+      <div style="text-align:center;margin-bottom:20px">
+        <div class="edit-avatar" @click="chooseAvatar">
+          <img v-if="editAvatar" :src="editAvatar" alt="" />
+          <span v-else>{{ editNickname ? editNickname.slice(0, 1) : '?' }}</span>
+          <div class="edit-avatar-camera">
+            <van-icon name="photograph" size="14" color="#fff" />
+          </div>
+        </div>
+        <div class="muted" style="font-size:12px;margin-top:8px">点击更换头像</div>
+        <input
+          ref="avatarInput"
+          type="file"
+          accept="image/*"
+          style="display:none"
+          @change="onAvatarChange"
+        />
+      </div>
+
+      <!-- 昵称 -->
+      <van-field
+        v-model="editNickname"
+        label="昵称"
+        maxlength="20"
+        placeholder="请输入昵称"
+        :border="false"
+        style="background:#f7f8fa;border-radius:10px;padding:0 12px;margin-bottom:16px"
+      />
+
+      <van-button
+        block
+        round
+        type="primary"
+        color="#ff4b3a"
+        :loading="savingProfile"
+        @click="saveProfile"
+      >保存</van-button>
+    </van-popup>
+
     <!-- 填写邀请码弹层 -->
     <van-popup v-model:show="showBindInviter" position="bottom" round :style="{ padding: '20px 20px 30px' }">
       <div style="font-size:17px;font-weight:700;margin-bottom:6px">填写邀请码</div>
@@ -147,6 +193,70 @@ const inviteCodeInput = ref('');
 const bindingInviter = ref(false);
 const router = useRouter();
 const money = (v) => (+(v || 0)).toFixed(2);
+
+// 编辑资料
+const showEditProfile = ref(false);
+const editNickname = ref('');
+const editAvatar = ref('');
+const savingProfile = ref(false);
+const uploadingAvatar = ref(false);
+const avatarInput = ref(null);
+
+function openEditProfile() {
+  editNickname.value = p.value?.nickname || '';
+  editAvatar.value = p.value?.avatar || '';
+  showEditProfile.value = true;
+}
+
+function chooseAvatar() {
+  avatarInput.value?.click();
+}
+
+function onAvatarChange(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    showToast('头像不能超过 2MB');
+    return;
+  }
+  // 本地上传服务器
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    editAvatar.value = ev.target?.result || ''; // 先显示本地预览
+  };
+  reader.readAsDataURL(file);
+  // 上传到服务器
+  uploadingAvatar.value = true;
+  api.uploadAvatar(file).then((r) => {
+    editAvatar.value = r.url;
+  }).catch((err) => {
+    showToast(err.message || '上传失败');
+  }).finally(() => {
+    uploadingAvatar.value = false;
+  });
+  e.target.value = '';
+}
+
+async function saveProfile() {
+  const name = editNickname.value.trim();
+  if (!name) return showToast('昵称不能为空');
+  if (name.length > 20) return showToast('昵称最多 20 个字符');
+
+  savingProfile.value = true;
+  try {
+    await api.updateProfile({
+      nickname: name,
+      avatar: editAvatar.value,
+    });
+    showToast('保存成功');
+    showEditProfile.value = false;
+    load();
+  } catch (e) {
+    showToast(e.message || '保存失败');
+  } finally {
+    savingProfile.value = false;
+  }
+}
 
 // 头像文字：没有头像时取昵称前三个字
 const avatarText = computed(() => {
@@ -220,4 +330,38 @@ onMounted(load);
   height: 100%;
   object-fit: cover;
 }
+
+/* 编辑资料弹层 */
+.edit-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff976a, #ff4b3a);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 auto;
+  overflow: hidden;
+  position: relative;
+}
+.edit-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.edit-avatar-camera {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 22px;
+  background: rgba(0,0,0,.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.muted { color: #999; }
 </style>

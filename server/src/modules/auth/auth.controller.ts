@@ -1,9 +1,16 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { mkdirSync } from 'fs';
 import { IsOptional, IsString, Length, Matches } from 'class-validator';
 import { AuthService } from './auth.service';
 import { Public } from '@/common/jwt.guard';
 import { CurrentUser } from '@/common/decorators';
+
+const AVATAR_DIR = join(process.cwd(), 'uploads', 'avatar');
+mkdirSync(AVATAR_DIR, { recursive: true });
 
 class SmsDto {
   @Matches(/^1[3-9]\d{9}$/, { message: '手机号格式不正确' }) mobile: string;
@@ -17,6 +24,11 @@ class LoginDto {
 
 class BindInviterDto {
   @IsString() @Length(4, 8) inviteCode: string;
+}
+
+class UpdateProfileDto {
+  @IsOptional() @IsString() @Length(1, 20) nickname?: string;
+  @IsOptional() @IsString() @Length(1, 500) avatar?: string;
 }
 
 @ApiTags('认证')
@@ -42,5 +54,35 @@ export class AuthController {
   @ApiOperation({ summary: '绑定邀请人（仅未绑定时可操作）' })
   bindInviter(@CurrentUser('sub') userId: number, @Body() dto: BindInviterDto) {
     return this.auth.bindInviter(userId, dto.inviteCode);
+  }
+
+  @Post('profile')
+  @ApiOperation({ summary: '更新用户资料（昵称、头像）' })
+  updateProfile(@CurrentUser('sub') userId: number, @Body() dto: UpdateProfileDto) {
+    return this.auth.updateProfile(userId, dto);
+  }
+
+  @Post('avatar')
+  @ApiOperation({ summary: '上传头像' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: AVATAR_DIR,
+        filename: (_req, file, cb) => {
+          const ts = Date.now();
+          const rand = Math.random().toString(36).slice(2, 8);
+          const ext = extname(file.originalname).toLowerCase();
+          cb(null, `${ts}-${rand}${ext}`);
+        },
+      }),
+      limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+      fileFilter: (_req, file, cb) => {
+        const ok = /\.(jpg|jpeg|png|gif|webp)$/i.test(file.originalname);
+        cb(ok ? null : new Error('只支持 jpg/png/gif/webp 图片'), ok);
+      },
+    }),
+  )
+  uploadAvatar(@CurrentUser('sub') userId: number, @UploadedFile() file: Express.Multer.File) {
+    return { url: `/uploads/avatar/${file.filename}` };
   }
 }

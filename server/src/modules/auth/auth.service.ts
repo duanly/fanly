@@ -216,4 +216,21 @@ export class AuthService {
     await this.userRepo.save(user);
     return { ok: true, agentCode: agent.agentCode, realName: agent.realName };
   }
+
+  /** 更新用户资料（昵称、头像） */
+  async updateProfile(userId: number, data: { nickname?: string; avatar?: string }) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new BadRequestException('用户不存在');
+    if (data.nickname !== undefined) {
+      const name = data.nickname.trim();
+      if (!name) throw new BadRequestException('昵称不能为空');
+      if (name.length > 20) throw new BadRequestException('昵称最多 20 个字符');
+      user.nickname = name;
+    }
+    if (data.avatar !== undefined) {
+      user.avatar = data.avatar;
+    }
+    await this.userRepo.save(user);
+    return { ok: true, nickname: user.nickname, avatar: user.avatar };
+  }
 }
