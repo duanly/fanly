@@ -122,6 +122,9 @@ export class PddProvider implements CpsProvider {
       goodsId: String(r.goods_sign ?? r.goods_id ?? ''),
       title: r.goods_name ?? '',
       image: r.goods_thumbnail_url || r.goods_image_url || '',
+      // 轮播图列表：详情接口回 goods_gallery_urls，搜索接口也可能有
+      images: r.goods_gallery_urls?.length ? r.goods_gallery_urls
+        : (r.goods_image_url ? [r.goods_image_url] : []),
       shopName: r.mall_name || r.merchant_name || r.mall_name_v2 || '',
       price,
       couponPrice,
