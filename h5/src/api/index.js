@@ -96,6 +96,7 @@ export const api = {
 
   agentApply: (realName) => http.post('/api/agent/apply', { realName }),
   agentQrcode: () => http.get('/api/agent/qrcode'),
+  agentInviteQrcode: () => http.get('/api/agent/invite-qrcode'),
   agentTeam: (params) => http.get('/api/agent/team', { params }),
   agentStats: () => http.get('/api/agent/stats'),
   agentInfo: (code) => http.get('/api/agent/info', { params: { code } }),

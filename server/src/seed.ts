@@ -7,7 +7,7 @@ import { AdminUser, Agent, AgentStatus, User } from './entities';
 import { AuthService } from './modules/auth/auth.service';
 import { AgentService } from './modules/agent/agent.service';
 
-/** 造一批演示数据：1 个管理员 + 2 个代理 + 4 个用户 */
+/** 造一批演示数据：1 个管理员 + 3 个等级代理 + 若干用户 */
 async function main() {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] });
   const adminRepo = app.get(getRepositoryToken(AdminUser));
@@ -28,24 +28,26 @@ async function main() {
     return auth.login(mobile, devCode, invite);
   };
 
-  // 两个代理
+  // 三个等级代理（白银 1/黄金 2/钻石 3）
+  const levels = [1, 2, 3];
   const codes: string[] = [];
-  for (const mobile of ['13800000001', '13800000002']) {
+  for (let i = 0; i < 3; i++) {
+    const mobile = `1380000000${i + 1}`;
     const r = await login(mobile);
-    let a = await agentSvc.findByUser(r.user.id);
-    if (!a) a = await agentSvc.apply(r.user.id, `代理${mobile.slice(-1)}`);
+    const a = await agentSvc.findByUser(r.user.id);
+    a.level = levels[i];
     a.status = AgentStatus.ACTIVE;
-    if (mobile.endsWith('2')) a.level = 2;
     await agentRepo.save(a);
     codes.push(a.agentCode);
-    console.log(`✓ 代理 ${mobile} 推广码 ${a.agentCode} 等级 ${a.level}`);
+    const names = ['白银', '黄金', '钻石'];
+    console.log(`✓ ${names[i]}代理 ${mobile} 推广码 ${a.agentCode}`);
   }
 
-  // 四个用户，两两挂在两个代理下
-  for (let i = 0; i < 4; i++) {
+  // 6 个用户，三三分挂在三个代理下
+  for (let i = 0; i < 6; i++) {
     const mobile = `1390000000${i + 1}`;
-    const r = await login(mobile, codes[i % 2]);
-    console.log(`✓ 用户 ${mobile} → 代理 ${codes[i % 2]}${r.isNew ? '' : '（已存在）'}`);
+    const r = await login(mobile, codes[i % 3]);
+    console.log(`✓ 用户 ${mobile} → 代理 ${codes[i % 3]}${r.isNew ? '' : '（已存在）'}`);
   }
 
   console.log(`\n共 ${await userRepo.count()} 个用户，${await agentRepo.count()} 个代理`);

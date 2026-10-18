@@ -71,7 +71,11 @@
           <span style="color:#ff4b3a;font-weight:600">{{ coinCount }} 金币</span>
         </template>
       </van-cell>
-      <van-cell title="我的邀请码" icon="friends-o" :value="p?.inviteCode" />
+      <van-cell title="我的推广码" is-link icon="friends-o" to="/invite">
+        <template #value>
+          <span class="muted">{{ p?.inviteCode }}</span>
+        </template>
+      </van-cell>
       <van-cell
         v-if="!p?.bindAgent"
         title="填写邀请码"
@@ -87,15 +91,11 @@
     </van-cell-group>
 
     <van-cell-group inset>
-      <van-cell v-if="p?.isAgent" title="推广中心" is-link icon="gold-coin-o" to="/agent">
+      <van-cell title="推广中心" is-link icon="gold-coin-o" to="/agent">
         <template #value>
-          <span v-if="p.agentStatus === 0" style="color:#ff976a">待审核</span>
-          <span v-else-if="p.agentStatus === 2" style="color:#999">已冻结</span>
-          <span v-else>{{ ['', '普通代理', '高级代理', '合伙人'][p.agentLevel] }}</span>
+          <AgentBadge v-if="p?.agentLevel != null" :level="p.agentLevel" mini />
+          <span v-else class="muted">去看看</span>
         </template>
-      </van-cell>
-      <van-cell v-else title="申请成为推广员" is-link icon="gold-coin-o" @click="apply">
-        <template #value><span class="muted">免费</span></template>
       </van-cell>
     </van-cell-group>
 
@@ -136,6 +136,7 @@ import { showConfirmDialog, showToast } from 'vant';
 import { api } from '../api';
 import NeedLogin from '../components/NeedLogin.vue';
 import BeianFooter from '../components/BeianFooter.vue';
+import AgentBadge from '../components/AgentBadge.vue';
 
 const logged = ref(!!localStorage.getItem('token'));
 const p = ref(null);

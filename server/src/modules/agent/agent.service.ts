@@ -4,9 +4,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as QRCode from 'qrcode';
 import { Agent, AgentStatus, CpsOrder, OrderStatus, User } from '@/entities';
+import { CoinType } from '@/entities/coin-ledger.entity';
 import { genCode } from '@/common/code';
 import { CommissionService } from '../commission/commission.service';
 import { SysConfigService } from '../admin/sys-config.service';
+import { CoinService } from '../coin/coin.service';
 
 @Injectable()
 export class AgentService {
@@ -17,6 +19,7 @@ export class AgentService {
     private readonly commission: CommissionService,
     private readonly cfg: SysConfigService,
     private readonly config: ConfigService,
+    private readonly coin: CoinService,
   ) {}
 
   private async uniqueCode(): Promise<string> {
@@ -54,6 +57,84 @@ export class AgentService {
     return this.agentRepo.findOneBy({ userId });
   }
 
+  /** 通过 inviteCode 找用户（用于邀请落地页） */
+  async findUserByInviteCode(inviteCode: string) {
+    return this.userRepo.findOneBy({ inviteCode: inviteCode.toUpperCase() });
+  }
+
+  /** 全员推广二维码：每个用户都有，用自己的 inviteCode */
+  async inviteQrcode(userId: number) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new BadRequestException('用户不存在');
+    const base = this.config.get('H5_BASE_URL', 'http://localhost:5173');
+    const url = `${base}/i/${user.inviteCode}`;
+    const dataUrl = await QRCode.toDataURL(url, { width: 400, margin: 1 });
+    return { inviteCode: user.inviteCode, url, qrcode: dataUrl };
+  }
+
+  /** 直属邀请人数 */
+  async inviteCount(userId: number) {
+    const agent = await this.agentRepo.findOneBy({ userId });
+    if (!agent) return 0;
+    return this.userRepo.countBy({ agentId: agent.id });
+  }
+
+  /**
+   * 检查是否升级。每次有新成员加入时调用。
+   * 只升不降，达到更高等级就升。
+   */
+  async checkAndUpgrade(agentId: number | null) {
+    if (!agentId) return null;
+    const agent = await this.agentRepo.findOneBy({ id: agentId });
+    if (!agent || agent.status !== AgentStatus.ACTIVE) return null;
+    // 手动设置等级的代理，自动升级不生效（手动优先级更高）
+    if (agent.manualLevel) return null;
+
+    const count = await this.userRepo.countBy({ agentId });
+    const silver = this.cfg.num('agent.upgrade.silver', 10);
+    const gold = this.cfg.num('agent.upgrade.gold', 30);
+    const diamond = this.cfg.num('agent.upgrade.diamond', 100);
+
+    let targetLevel = agent.level;
+    if (count >= diamond) targetLevel = 3;
+    else if (count >= gold) targetLevel = 2;
+    else if (count >= silver) targetLevel = 1;
+
+    if (targetLevel > agent.level) {
+      agent.level = targetLevel;
+      await this.agentRepo.save(agent);
+      return agent;
+    }
+    return null;
+  }
+
+  /**
+   * 新用户注册时给邀请人发奖励，并触发升级检查。
+   * 由 auth.service 调用。
+   */
+  async onNewUserInvited(inviterAgentId: number | null, newUserId: number) {
+    if (!inviterAgentId) return;
+    // 拉新金币奖励
+    const reward = this.cfg.num('coin.invite_reward', 100);
+    if (reward > 0) {
+      try {
+        const inviterAgent = await this.agentRepo.findOneBy({ id: inviterAgentId });
+        if (inviterAgent) {
+          await this.coin.addCoins(inviterAgent.userId, reward, CoinType.INVITE,
+            `邀请好友注册奖励`);
+        }
+      } catch {
+        // 发奖励失败不影响注册流程
+      }
+    }
+    // 检查升级
+    try {
+      await this.checkAndUpgrade(inviterAgentId);
+    } catch {
+      // ignore
+    }
+  }
+
   /** 专属二维码：内容 = H5 落地页 + 推广码 */
   async qrcode(userId: number) {
     const agent = await this.agentRepo.findOneBy({ userId });
@@ -64,10 +145,10 @@ export class AgentService {
     return { agentCode: agent.agentCode, url, qrcode: dataUrl };
   }
 
-  /** 我的团队 */
+  /** 我的团队（全员可用） */
   async team(userId: number, page = 1, size = 20) {
     const agent = await this.agentRepo.findOneBy({ userId });
-    if (!agent) throw new BadRequestException('你还不是代理');
+    if (!agent) return { list: [], total: 0, page, size };
     const [list, total] = await this.userRepo.findAndCount({
       where: { agentId: agent.id }, order: { id: 'DESC' },
       skip: (page - 1) * size, take: size,
@@ -144,9 +225,18 @@ export class AgentService {
     return { list: enriched, total, page, size };
   }
 
-  async adminUpdate(id: number, patch: Partial<Agent>) {
+  async adminUpdate(id: number, patch: Partial<Agent> & { manualLevel?: boolean }) {
     const agent = await this.agentRepo.findOneBy({ id });
     if (!agent) throw new BadRequestException('代理不存在');
+    // 手动调整等级时，自动标记为手动设置（优先级高于自动升级）
+    if (patch.level !== undefined && patch.level !== agent.level) {
+      agent.manualLevel = true;
+    }
+    // 如果显式传了 manualLevel，按传的值来（管理员可以取消手动标记回到自动模式）
+    if (patch.manualLevel !== undefined) {
+      agent.manualLevel = patch.manualLevel;
+      delete patch.manualLevel;
+    }
     Object.assign(agent, patch);
     return this.agentRepo.save(agent);
   }

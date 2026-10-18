@@ -6,6 +6,7 @@ import { Agent, AgentStatus, PromotionPosition, User } from '@/entities';
 import { genCode, genPositionId } from '@/common/code';
 import { PLATFORMS } from '../cps/cps.service';
 import { SysConfigService } from '../admin/sys-config.service';
+import { AgentService } from '../agent/agent.service';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +20,7 @@ export class AuthService {
     @InjectRepository(PromotionPosition) private readonly posRepo: Repository<PromotionPosition>,
     private readonly jwt: JwtService,
     private readonly cfg: SysConfigService,
+    private readonly agentSvc: AgentService,
   ) {}
 
   async sendSms(mobile: string) {
@@ -83,19 +85,54 @@ export class AuthService {
     if (!user) {
       isNew = true;
       let agentId: number | null = null;
+      let parentAgentId: number | null = null;
       if (inviteCode) {
         const agent = await this.agentRepo.findOneBy({ agentCode: inviteCode.toUpperCase() });
-        if (agent && agent.status === AgentStatus.ACTIVE) agentId = agent.id;
+        if (agent && agent.status === AgentStatus.ACTIVE) {
+          agentId = agent.id;
+          parentAgentId = agent.id;
+        }
       }
+
+      // 生成邀请码（用户和代理共用同一个码）
+      let inviteCodeStr = '';
+      for (let i = 0; i < 20; i++) {
+        const code = genCode(6);
+        const [existUser, existAgent] = await Promise.all([
+          this.userRepo.findOneBy({ inviteCode: code }),
+          this.agentRepo.findOneBy({ agentCode: code }),
+        ]);
+        if (!existUser && !existAgent) {
+          inviteCodeStr = code;
+          break;
+        }
+      }
+      if (!inviteCodeStr) throw new BadRequestException('邀请码生成失败，请重试');
+
       user = await this.userRepo.save(this.userRepo.create({
         mobile,
         nickname: `用户${mobile.slice(-4)}`,
-        inviteCode: genCode(6),
+        inviteCode: inviteCodeStr,
         agentId,
         bindTime: agentId ? new Date() : null,
         deviceId,
       }));
+
+      // 自动建 agent 记录（level=0 预备代理，全员都有）
+      await this.agentRepo.save(this.agentRepo.create({
+        userId: user.id,
+        agentCode: inviteCodeStr,
+        parentAgentId,
+        level: 0,
+        status: AgentStatus.ACTIVE,
+      }));
+
       await this.ensurePositions(user.id);
+
+      // 给邀请人发奖励 + 检查升级
+      if (parentAgentId) {
+        await this.agentSvc.onNewUserInvited(parentAgentId, user.id);
+      }
     } else if (deviceId && !user.deviceId) {
       user.deviceId = deviceId;
       await this.userRepo.save(user);
@@ -127,15 +164,41 @@ export class AuthService {
     let bindAgent = null;
     if (user.agentId) {
       const a = await this.agentRepo.findOneBy({ id: user.agentId });
-      bindAgent = a ? { agentCode: a.agentCode, realName: a.realName } : null;
+      bindAgent = a ? { agentCode: a.agentCode, realName: a.realName, level: a.level } : null;
     }
+
+    // 我的邀请人数
+    const inviteCount = agent
+      ? await this.userRepo.countBy({ agentId: agent.id })
+      : 0;
+
+    // 等级名称和升级进度
+    const level = agent?.level ?? 0;
+    const silver = this.cfg.num('agent.upgrade.silver', 10);
+    const gold = this.cfg.num('agent.upgrade.gold', 30);
+    const diamond = this.cfg.num('agent.upgrade.diamond', 100);
+    const levelNames = ['预备代理', '白银代理', '黄金代理', '钻石代理'];
+    let nextLevel = null;
+    let needForNext = 0;
+    if (level === 0 && inviteCount < silver) { nextLevel = 1; needForNext = silver - inviteCount; }
+    else if (level === 1 && inviteCount < gold) { nextLevel = 2; needForNext = gold - inviteCount; }
+    else if (level === 2 && inviteCount < diamond) { nextLevel = 3; needForNext = diamond - inviteCount; }
+
     return {
       id: user.id, mobile: user.mobile.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2'),
       nickname: user.nickname, avatar: user.avatar, inviteCode: user.inviteCode,
       balance: user.balance, frozen: user.frozen, pending: user.pending,
       totalRebate: user.totalRebate,
-      isAgent: !!agent, agentCode: agent?.agentCode, agentLevel: agent?.level,
-      agentStatus: agent?.status,
+      coins: user.coins,
+      inviteCount,
+      isAgent: !!agent && level >= 1,
+      agentCode: agent?.agentCode,
+      agentLevel: level,
+      agentLevelName: levelNames[level] || '预备代理',
+      agentStatus: agent?.status ?? 1,
+      nextLevel,
+      nextLevelName: nextLevel ? levelNames[nextLevel] : null,
+      needForNext,
       bindAgent,
       agentNeedPay: this.cfg.get('agent.need_pay') === '1',
     };

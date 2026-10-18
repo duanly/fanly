@@ -29,6 +29,7 @@ const routes = [
   { path: '/auth/:platform', component: () => import('./views/Authorize.vue'), meta: { auth: true } },
   { path: '/login', component: () => import('./views/Login.vue') },
   { path: '/i/:code', component: () => import('./views/Invite.vue') },
+  { path: '/invite', component: () => import('./views/InviteQrcode.vue'), meta: { auth: true } },
 
   // ───────── 手机端管理后台 ─────────
   { path: '/madmin/login', component: () => import('./views/madmin/Login.vue') },

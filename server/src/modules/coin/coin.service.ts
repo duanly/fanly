@@ -134,6 +134,12 @@ export class CoinService {
     return { coins: n, money };
   }
 
+  /** 给用户加金币（奖励类操作）。扣金币请直接用 changeCoins 传负数。 */
+  async addCoins(userId: number, amount: number, bizType: string, remark: string) {
+    if (amount <= 0) return 0;
+    return this.changeCoins(userId, amount, bizType, remark);
+  }
+
   async ledger(userId: number, page = 1, size = 20) {
     const [list, total] = await this.ledgerRepo.findAndCount({
       where: { userId }, order: { id: 'DESC' },

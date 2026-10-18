@@ -52,11 +52,19 @@
               <div class="a-stat-label">累计返利</div>
             </div>
             <div class="a-stat">
-              <div class="a-stat-num">L{{ a.level || 1 }}</div>
+              <div class="a-stat-num">
+                <span class="level-badge" :class="'lv-' + (a.level || 0)">
+                  {{ levelIcon(a.level) }}{{ levelName(a.level) }}
+                </span>
+                <span v-if="a.manualLevel" class="manual-tag">手动</span>
+              </div>
               <div class="a-stat-label">等级</div>
             </div>
           </div>
           <div class="agent-actions">
+            <van-button size="small" type="primary" plain @click="openSetLevel(a)">
+              设置等级
+            </van-button>
             <van-button
               v-if="a.status === 0"
               size="small"
@@ -90,6 +98,46 @@
 
     <van-empty v-if="!loading && !list.length" description="暂无代理" />
 
+    <!-- 设置等级弹层 -->
+    <van-popup v-model:show="showLevelPicker" position="bottom" round :style="{ padding: '20px 20px 30px' }">
+      <div style="font-size:17px;font-weight:700;margin-bottom:6px">设置代理等级</div>
+      <div class="muted" style="font-size:12px;margin-bottom:16px">
+        手动设置后，自动升级规则不再生效（优先级：手动 &gt; 自动）
+      </div>
+      <div class="level-picker">
+        <div
+          v-for="lv in levelOptions"
+          :key="lv.value"
+          class="lp-item"
+          :class="{ active: pickedLevel === lv.value, disabled: lv.value === 0 && currentAgent?.status === 0 }"
+          @click="pickedLevel = lv.value"
+        >
+          <div class="lp-ico">{{ lv.icon }}</div>
+          <div class="lp-name">{{ lv.name }}</div>
+          <div class="lp-rate">{{ lv.rate }}</div>
+        </div>
+      </div>
+      <van-field
+        v-if="pickedLevel > 0"
+        v-model="customRate"
+        placeholder="自定义分成比例（选填，如 0.15）"
+        type="digit"
+        style="margin-top:12px"
+      />
+      <van-checkbox v-model="backToAuto" v-if="currentAgent?.manualLevel" style="margin-top:10px">
+        取消手动标记，恢复自动升级
+      </van-checkbox>
+      <van-button
+        block
+        round
+        type="primary"
+        color="#ff4b3a"
+        style="margin-top:16px"
+        :loading="settingLevel"
+        @click="confirmSetLevel"
+      >确认设置</van-button>
+    </van-popup>
+
     <!-- 底部 tabbar -->
     <van-tabbar v-model="active" route fixed safe-area-inset-bottom active-color="#ff4b3a">
       <van-tabbar-item to="/madmin" icon="home-o">首页</van-tabbar-item>
@@ -117,6 +165,23 @@ function statusTagType(s) {
   return 'danger';
 }
 
+const levelOptions = [
+  { value: 0, name: '预备代理', icon: '🎯', rate: '0%' },
+  { value: 1, name: '白银代理', icon: '🥈', rate: '8%' },
+  { value: 2, name: '黄金代理', icon: '🥇', rate: '12%' },
+  { value: 3, name: '钻石代理', icon: '💎', rate: '18%' },
+];
+
+function levelName(l) {
+  const names = { 0: '预备', 1: '白银', 2: '黄金', 3: '钻石' };
+  return names[l] || '预备';
+}
+
+function levelIcon(l) {
+  const icons = { 0: '🎯', 1: '🥈', 2: '🥇', 3: '💎' };
+  return icons[l] || '🎯';
+}
+
 const status = ref('');
 const keyword = ref('');
 const list = ref([]);
@@ -125,6 +190,42 @@ const pageSize = 20;
 const loading = ref(false);
 const finished = ref(false);
 const active = ref('agents');
+
+// 设置等级弹层
+const showLevelPicker = ref(false);
+const currentAgent = ref(null);
+const pickedLevel = ref(1);
+const customRate = ref('');
+const backToAuto = ref(false);
+const settingLevel = ref(false);
+
+function openSetLevel(a) {
+  currentAgent.value = a;
+  pickedLevel.value = a.level ?? 0;
+  customRate.value = a.agentRate || '';
+  backToAuto.value = false;
+  showLevelPicker.value = true;
+}
+
+async function confirmSetLevel() {
+  if (!currentAgent.value) return;
+  settingLevel.value = true;
+  try {
+    const body = { level: pickedLevel.value };
+    if (customRate.value) body.agentRate = customRate.value;
+    if (backToAuto.value) body.manualLevel = false;
+    await adminApi.updateAgent(currentAgent.value.id, body);
+    showSuccessToast('设置成功');
+    currentAgent.value.level = pickedLevel.value;
+    if (customRate.value) currentAgent.value.agentRate = customRate.value;
+    currentAgent.value.manualLevel = !backToAuto.value && pickedLevel.value > 0;
+    showLevelPicker.value = false;
+  } catch (e) {
+    showToast(e.message || '设置失败');
+  } finally {
+    settingLevel.value = false;
+  }
+}
 
 let reqSeq = 0;
 
@@ -251,5 +352,68 @@ async function auditAgent(a, targetStatus) {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
+
+/* 等级徽章 */
+.level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.level-badge.lv-0 { background: #f5f5f5; color: #999; }
+.level-badge.lv-1 { background: #f0f0f0; color: #666; }
+.level-badge.lv-2 { background: #fff7e6; color: #c77700; }
+.level-badge.lv-3 { background: #e6f4ff; color: #0066cc; }
+.manual-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 5px;
+  font-size: 9px;
+  background: #ff4b3a;
+  color: #fff;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+/* 等级选择器 */
+.level-picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.lp-item {
+  text-align: center;
+  padding: 12px 6px;
+  border-radius: 10px;
+  background: #f7f8fa;
+  border: 2px solid transparent;
+  transition: all .2s;
+}
+.lp-item.active {
+  background: #fff5f0;
+  border-color: #ff4b3a;
+}
+.lp-item.disabled {
+  opacity: .4;
+}
+.lp-ico {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+.lp-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+}
+.lp-rate {
+  font-size: 11px;
+  color: #999;
+  margin-top: 2px;
+}
+.muted { color: #999; }
 </style>

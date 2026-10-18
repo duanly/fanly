@@ -10,13 +10,18 @@
 
     <div style="background:#fff;margin:20px 16px;border-radius:14px;padding:24px;text-align:center">
       <template v-if="info?.valid">
-        <van-icon name="friends-o" size="44" color="#ff4b3a" />
-        <div style="margin-top:12px;font-size:16px">
-          <b>{{ info.realName || info.agentCode }}</b> 邀请你加入
+        <div class="inviter-avatar">{{ (info.nickname || info.realName || '').slice(0, 1) }}</div>
+        <div style="margin-top:10px">
+          <AgentBadge v-if="info.isAgent" :level="info.level" />
         </div>
-        <div class="muted" style="margin-top:6px">邀请码 {{ info.agentCode }}</div>
+        <div style="margin-top:10px;font-size:16px">
+          <b>{{ info.nickname || info.realName || '好友' }}</b> 邀请你加入
+        </div>
+        <div class="muted" style="margin-top:6px">
+          邀请码 {{ info.agentCode || info.inviteCode }}
+        </div>
         <div class="muted" style="margin-top:14px;line-height:1.8">
-          注册后自动成为他的直属用户<br />你的每笔订单他都有一份分成，你的返利不受影响
+          注册后自动成为他的好友<br />购物有返利，分享还能赚金币
         </div>
       </template>
       <template v-else>
@@ -43,6 +48,7 @@
 import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '../api';
+import AgentBadge from '../components/AgentBadge.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -80,5 +86,18 @@ onMounted(async () => {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.15);
   z-index: 10;
+}
+.inviter-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff976a, #ff4b3a);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 auto;
 }
 </style>

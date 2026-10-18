@@ -4,6 +4,7 @@ export enum CoinType {
   CHECKIN = 'CHECKIN',     // 签到获得
   EXCHANGE = 'EXCHANGE',   // 兑换成余额（负数）
   ADJUST = 'ADJUST',       // 人工调整
+  INVITE = 'INVITE',       // 邀请奖励
 }
 
 /**

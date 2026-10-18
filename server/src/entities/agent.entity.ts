@@ -22,6 +22,9 @@ export class Agent {
 
   @Column({ type: 'tinyint', default: AgentLevel.NORMAL }) level: number;
 
+  /** 手动设置的等级，优先级高于自动升级（自动升级不覆盖） */
+  @Column({ type: 'boolean', default: false }) manualLevel: boolean;
+
   /** 自定义分成比例；为空则取等级模板 */
   @Column({ type: 'decimal', precision: 5, scale: 4, nullable: true }) agentRate: string | null;
 
