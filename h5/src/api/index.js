@@ -37,9 +37,7 @@ export const api = {
   uploadAvatar: (file) => {
     const form = new FormData();
     form.append('file', file);
-    return http.post('/api/auth/avatar', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    return http.post('/api/auth/avatar', form);
   },
   bindInviter: (inviteCode) => http.post('/api/auth/bind-inviter', { inviteCode }),
 

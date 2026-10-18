@@ -27,8 +27,8 @@ class BindInviterDto {
 }
 
 class UpdateProfileDto {
-  @IsOptional() @IsString() @Length(1, 20) nickname?: string;
-  @IsOptional() @IsString() @Length(1, 500) avatar?: string;
+  @IsOptional() @IsString() nickname?: string;
+  @IsOptional() @IsString() avatar?: string;
 }
 
 @ApiTags('认证')

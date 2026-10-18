@@ -227,7 +227,7 @@ export class AuthService {
       if (name.length > 20) throw new BadRequestException('昵称最多 20 个字符');
       user.nickname = name;
     }
-    if (data.avatar !== undefined) {
+    if (data.avatar !== undefined && data.avatar) {
       user.avatar = data.avatar;
     }
     await this.userRepo.save(user);

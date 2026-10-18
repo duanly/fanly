@@ -104,8 +104,6 @@ export const api = {
   uploadImage: (file) => {
     const fd = new FormData();
     fd.append('file', file);
-    return http.post('/api/admin/upload/image', fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    return http.post('/api/admin/upload/image', fd);
   },
 };

@@ -114,12 +114,15 @@
       <div style="text-align:center;margin-bottom:20px">
         <div class="edit-avatar" @click="chooseAvatar">
           <img v-if="editAvatar" :src="editAvatar" alt="" />
-          <span v-else>{{ editNickname ? editNickname.slice(0, 1) : '?' }}</span>
+          <span v-else>{{ (editNickname || '昵称').slice(0, 1) }}</span>
           <div class="edit-avatar-camera">
-            <van-icon name="photograph" size="14" color="#fff" />
+            <van-icon v-if="!uploadingAvatar" name="photograph" size="14" color="#fff" />
+            <van-loading v-else size="14" color="#fff" />
           </div>
         </div>
-        <div class="muted" style="font-size:12px;margin-top:8px">点击更换头像</div>
+        <div class="muted" style="font-size:12px;margin-top:8px">
+          {{ uploadingAvatar ? '上传中...' : '点击更换头像' }}
+        </div>
         <input
           ref="avatarInput"
           type="file"
@@ -244,10 +247,12 @@ async function saveProfile() {
 
   savingProfile.value = true;
   try {
-    await api.updateProfile({
-      nickname: name,
-      avatar: editAvatar.value,
-    });
+    const payload = { nickname: name };
+    // 只有头像真的变了才传（空字符串或 base64 不上传）
+    if (editAvatar.value && !editAvatar.value.startsWith('data:')) {
+      payload.avatar = editAvatar.value;
+    }
+    await api.updateProfile(payload);
     showToast('保存成功');
     showEditProfile.value = false;
     load();
