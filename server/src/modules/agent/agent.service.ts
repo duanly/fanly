@@ -217,11 +217,16 @@ export class AgentService {
     const [list, total] = await this.agentRepo.findAndCount({
       where, order: { id: 'DESC' }, skip: (page - 1) * size, take: size,
     });
-    const enriched = await Promise.all(list.map(async (a) => ({
-      ...a,
-      teamSize: await this.userRepo.countBy({ agentId: a.id }),
-      stats: await this.commission.agentStats(a.id),
-    })));
+    const enriched = await Promise.all(list.map(async (a) => {
+      const u = await this.userRepo.findOneBy({ id: a.userId });
+      return {
+        ...a,
+        mobile: u?.mobile || '',
+        nickname: u?.nickname || '',
+        teamSize: await this.userRepo.countBy({ agentId: a.id }),
+        stats: await this.commission.agentStats(a.id),
+      };
+    }));
     return { list: enriched, total, page, size };
   }
 

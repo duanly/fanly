@@ -11,24 +11,31 @@
 
     <el-table :data="data.list" v-loading="loading">
       <el-table-column prop="agentCode" label="推广码" width="100" />
-      <el-table-column prop="realName" label="姓名" width="100" />
-      <el-table-column label="等级" width="110">
+      <el-table-column label="用户" width="130">
+        <template #default="{ row }">
+          <div style="font-size:13px">{{ row.nickname || '-' }}</div>
+          <div style="font-size:11px;color:#999">{{ row.mobile }}</div>
+        </template>
+      </el-table-column>
+      <el-table-column label="等级" width="170">
         <template #default="{ row }">
           <el-select
             :model-value="row.level"
             size="small"
-            @change="(v) => update(row, { level: v })"
+            @change="(v) => updateLevel(row, v)"
           >
-            <el-option :value="1" label="普通代理" />
-            <el-option :value="2" label="高级代理" />
-            <el-option :value="3" label="合伙人" />
+            <el-option :value="0" label="预备代理 🎯" />
+            <el-option :value="1" label="白银代理 🥈" />
+            <el-option :value="2" label="黄金代理 🥇" />
+            <el-option :value="3" label="钻石代理 💎" />
           </el-select>
+          <el-tag v-if="row.manualLevel" type="danger" size="small" style="margin-left:4px">手动</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="分成比例" width="120">
+      <el-table-column label="分成比例" width="140">
         <template #default="{ row }">
           <span v-if="row.agentRate">{{ (+row.agentRate * 100).toFixed(0) }}% (自定义)</span>
-          <span v-else style="color:#999">按等级模板</span>
+          <span v-else style="color:#999">{{ levelRateText(row.level) }}</span>
         </template>
       </el-table-column>
       <el-table-column prop="teamSize" label="团队" width="70" />
@@ -88,6 +95,9 @@ const page = ref(1);
 const loading = ref(false);
 const money = (v) => (+(v || 0)).toFixed(2);
 
+const LEVEL_RATES = { 1: '12% (白银)', 2: '15% (黄金)', 3: '20% (钻石)', 0: '0% (预备)' };
+function levelRateText(level) { return LEVEL_RATES[level] || '按等级模板'; }
+
 async function load() {
   loading.value = true;
   try {
@@ -101,6 +111,13 @@ async function update(row, patch) {
   await api.updateAgent(row.id, patch);
   ElMessage.success('已更新');
   load();
+}
+
+async function updateLevel(row, level) {
+  await api.updateAgent(row.id, { level });
+  ElMessage.success('等级已更新');
+  row.manualLevel = true;
+  row.level = level;
 }
 
 async function setRate(row) {

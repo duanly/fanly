@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
-export enum AgentLevel { NORMAL = 1, SENIOR = 2, PARTNER = 3 }
+export enum AgentLevel { SILVER = 1, GOLD = 2, DIAMOND = 3 }
 export enum AgentStatus { PENDING = 0, ACTIVE = 1, FROZEN = 2 }
 
 @Entity('agent')
@@ -20,7 +20,7 @@ export class Agent {
   /** 预留字段：一级模式下不参与分佣，以后要做二级不用改表 */
   @Column({ type: 'int', nullable: true }) parentAgentId: number | null;
 
-  @Column({ type: 'tinyint', default: AgentLevel.NORMAL }) level: number;
+  @Column({ type: 'tinyint', default: AgentLevel.SILVER }) level: number;
 
   /** 手动设置的等级，优先级高于自动升级（自动升级不覆盖） */
   @Column({ type: 'boolean', default: false }) manualLevel: boolean;

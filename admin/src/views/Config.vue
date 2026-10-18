@@ -38,6 +38,7 @@ const list = ref([]);
 const groups = computed(() => [
   { title: '分佣比例', rows: list.value.filter((r) => r.key.startsWith('rebate.')) },
   { title: '代理规则', rows: list.value.filter((r) => r.key.startsWith('agent.')) },
+  { title: '金币规则', rows: list.value.filter((r) => r.key.startsWith('coin.')) },
   { title: '提现规则', rows: list.value.filter((r) => r.key.startsWith('withdraw.')) },
   { title: '风控阈值', rows: list.value.filter((r) => r.key.startsWith('risk.')) },
 ]);

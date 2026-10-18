@@ -35,8 +35,11 @@
         <div v-for="a in list" :key="a.id" class="agent-card">
           <div class="agent-head">
             <div class="a-info">
-              <div class="a-mobile">{{ a.mobile || '未知' }}</div>
-              <div class="a-code">邀请码: {{ a.inviteCode || '-' }}</div>
+              <div class="a-mobile">{{ a.mobile || a.nickname || '未知' }}</div>
+              <div class="a-code" @click="copyCode(a.agentCode)">
+                推广码: <b>{{ a.agentCode || '-' }}</b>
+                <van-icon name="copy-o" size="11" style="margin-left:2px" />
+              </div>
             </div>
             <van-tag :type="statusTagType(a.status)" size="medium">
               {{ statusName(a.status) }}
@@ -44,12 +47,12 @@
           </div>
           <div class="agent-stats">
             <div class="a-stat">
-              <div class="a-stat-num">{{ a.teamCount || 0 }}</div>
+              <div class="a-stat-num">{{ a.teamSize || 0 }}</div>
               <div class="a-stat-label">团队人数</div>
             </div>
             <div class="a-stat">
-              <div class="a-stat-num">¥{{ a.totalCommission || '0.00' }}</div>
-              <div class="a-stat-label">累计返利</div>
+              <div class="a-stat-num">¥{{ a.stats?.creditedBonus || '0.00' }}</div>
+              <div class="a-stat-label">已入账分成</div>
             </div>
             <div class="a-stat">
               <div class="a-stat-num">
@@ -282,6 +285,15 @@ async function auditAgent(a, targetStatus) {
     if (e === 'cancel') return;
   }
 }
+
+function copyCode(code) {
+  if (!code) return;
+  navigator.clipboard.writeText(code).then(() => {
+    showToast('推广码已复制');
+  }).catch(() => {
+    showToast('复制失败');
+  });
+}
 </script>
 
 <style scoped>
@@ -326,6 +338,13 @@ async function auditAgent(a, targetStatus) {
 .a-code {
   font-size: 12px;
   color: #999;
+  display: inline-flex;
+  align-items: center;
+}
+.a-code b {
+  color: #ff4b3a;
+  letter-spacing: 1px;
+  font-weight: 600;
 }
 .agent-stats {
   display: flex;
