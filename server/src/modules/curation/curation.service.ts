@@ -835,19 +835,19 @@ export class CurationService {
       case 'rebate':
       case 'commission':
       case 'commission_desc':
-        qb.orderBy('CAST(c.commission AS DECIMAL)', 'DESC').addOrderBy('c.id', 'DESC');
+        qb.orderBy('c.commission', 'DESC').addOrderBy('c.id', 'DESC');
         break;
       case 'price':
       case 'price_asc':
-        qb.orderBy('CAST(c.couponPrice AS DECIMAL)', 'ASC').addOrderBy('c.id', 'DESC');
+        qb.orderBy('c.couponPrice', 'ASC').addOrderBy('c.id', 'DESC');
         break;
       case 'price_desc':
-        qb.orderBy('CAST(c.couponPrice AS DECIMAL)', 'DESC').addOrderBy('c.id', 'DESC');
+        qb.orderBy('c.couponPrice', 'DESC').addOrderBy('c.id', 'DESC');
         break;
       default:
         qb
-          .orderBy('CAST(c.sortWeight AS DECIMAL)', 'DESC')
-          .addOrderBy('CAST(c.commission AS DECIMAL)', 'DESC')
+          .orderBy('c.sortWeight', 'DESC')
+          .addOrderBy('c.commission', 'DESC')
           .addOrderBy('c.id', 'DESC');
         break;
     }

@@ -14,10 +14,30 @@ import { CpsOrder, CuratedGoods, CuratedStatus } from '@/entities';
 export class RankingService {
   private readonly logger = new Logger(RankingService.name);
 
+  /** 简单内存缓存：key → { value, expireAt }，榜单变化不快，缓存 3 分钟够了 */
+  private cache = new Map<string, { value: any; expireAt: number }>();
+  private readonly CACHE_TTL_MS = 3 * 60 * 1000; // 3 分钟
+
   constructor(
     @InjectRepository(CpsOrder) private readonly orderRepo: Repository<CpsOrder>,
     @InjectRepository(CuratedGoods) private readonly goodsRepo: Repository<CuratedGoods>,
   ) {}
+
+  private getCache<T>(key: string): T | undefined {
+    const hit = this.cache.get(key);
+    if (hit && hit.expireAt > Date.now()) return hit.value as T;
+    return undefined;
+  }
+
+  private setCache(key: string, value: any) {
+    this.cache.set(key, { value, expireAt: Date.now() + this.CACHE_TTL_MS });
+  }
+
+  /** 运营改了选品后主动清缓存，让用户立刻看到新的 */
+  clearCache() {
+    this.cache.clear();
+    this.logger.debug('排行榜缓存已清空');
+  }
 
   private toGoods(r: CuratedGoods) {
     return {
@@ -145,6 +165,10 @@ export class RankingService {
    * 之后我们说什么用户都不信了。宁可少个角标，不能造个数。
    */
   async hot(days = 7, page = 1, pageSize = 20) {
+    const cacheKey = `hot|${days}|${page}|${pageSize}`;
+    const cached = this.getCache<any>(cacheKey);
+    if (cached) return cached;
+
     const skip = (page - 1) * pageSize;
 
     // 热销榜总量 = 真有订单的 + 选品池补位的，总数就是选品池上架数（上不封顶）
@@ -159,7 +183,7 @@ export class RankingService {
       .createQueryBuilder('g')
       .where('g.status = :status', { status: CuratedStatus.ON })
       .orderBy('g.salesVolume', 'DESC')
-      .addOrderBy('CAST(g.commission AS DECIMAL)', 'DESC')
+      .addOrderBy('g.commission', 'DESC')
       .addOrderBy('g.id', 'DESC')
       .take(pageSize + skip + 50) // 多取一点，防止前面全是真订单导致补位不够
       .getMany();
@@ -189,13 +213,15 @@ export class RankingService {
     if (list.length < balanced.length) {
       this.logger.debug(`热销榜第 ${page} 页：真实 ${realRows.length} 条，补位 ${balanced.length - realRows.length} 条`);
     }
-    return {
+    const result = {
       list,
       total,
       page,
       pageSize,
       hasMore: skip + list.length < total,
     };
+    this.setCache(cacheKey, result);
+    return result;
   }
 
   /** 近 N 天所有有订单的商品（全量，不做分页——一般没多少） */
@@ -245,13 +271,17 @@ export class RankingService {
 
   /** 返利榜：选品池里到手返利最高的（按佣金金额降序，等价于按返利降序） */
   async rebate(page = 1, pageSize = 20) {
+    const cacheKey = `rebate|${page}|${pageSize}`;
+    const cached = this.getCache<any>(cacheKey);
+    if (cached) return cached;
+
     const skip = (page - 1) * pageSize;
     // 先多取一些，去重 + 分档均衡后再按分页切
     const fetchSize = Math.min(pageSize * 5, 300);
     const rows = await this.goodsRepo
       .createQueryBuilder('g')
       .where('g.status = :status', { status: CuratedStatus.ON })
-      .orderBy('CAST(g.commission AS DECIMAL)', 'DESC')
+      .orderBy('g.commission', 'DESC')
       .addOrderBy('g.id', 'DESC')
       .skip(0)
       .take(skip + fetchSize)
@@ -266,13 +296,15 @@ export class RankingService {
     );
     const total = await this.goodsRepo.count({ where: { status: CuratedStatus.ON } });
     const list = balanced.slice(skip, skip + pageSize);
-    return {
+    const result = {
       list: list.map((r) => this.toGoods(r)),
       total,
       page,
       pageSize,
       hasMore: skip + list.length < balanced.length,
     };
+    this.setCache(cacheKey, result);
+    return result;
   }
 
   /**
@@ -283,13 +315,17 @@ export class RankingService {
    * 不能轻易盖掉真实的用户偏好。
    */
   async pick(page = 1, pageSize = 20) {
+    const cacheKey = `pick|${page}|${pageSize}`;
+    const cached = this.getCache<any>(cacheKey);
+    if (cached) return cached;
+
     const skip = (page - 1) * pageSize;
     const fetchSize = Math.min(pageSize * 3, 200);
     const [allRows, total] = await this.goodsRepo
       .createQueryBuilder('g')
       .where('g.status = :status', { status: CuratedStatus.ON })
-      .orderBy('CAST(g.recommendScore AS DECIMAL)', 'DESC')
-      .addOrderBy('CAST(g.sortWeight AS DECIMAL)', 'DESC')
+      .orderBy('g.recommendScore', 'DESC')
+      .addOrderBy('g.sortWeight', 'DESC')
       .addOrderBy('g.id', 'DESC')
       .skip(0)
       .take(skip + fetchSize)
@@ -303,12 +339,14 @@ export class RankingService {
       [10, 5, 1],
     );
     const rows = balanced.slice(skip, skip + pageSize);
-    return {
+    const result = {
       list: rows.map((r) => ({ ...this.toGoods(r), recommendScore: r.recommendScore })),
       total,
       page,
       pageSize,
       hasMore: skip + rows.length < balanced.length,
     };
+    this.setCache(cacheKey, result);
+    return result;
   }
 }

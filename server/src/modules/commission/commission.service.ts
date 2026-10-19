@@ -61,6 +61,16 @@ export class CommissionService {
   }
 
   /**
+   * 批量试算用户返利。
+   * 排行榜/列表页一次返回几十件商品，逐个 preview 会产生 N+1 查询，
+   * 这里一次性算好，省掉 N 次 DB 访问。
+   */
+  async batchUserRebate(items: { commission: number }[], _agentId: number | null = null): Promise<number[]> {
+    const userRate = this.cfg.num('rebate.user_rate', 0.5);
+    return items.map((it) => Math.round(Number(it.commission) * userRate * 100) / 100);
+  }
+
+  /**
    * 订单结算 → 生成三条分佣明细并入账。
    * 靠 commission_detail 的唯一键做幂等，重复跑不会多发钱。
    */

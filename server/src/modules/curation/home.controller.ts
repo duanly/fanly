@@ -39,13 +39,15 @@ export class HomeController {
       : type === 'pick' ? await this.ranking.pick(p, size)
       : await this.ranking.hot(7, p, size);
 
-    const agentId = userId
-      ? (await this.userRepo.findOneBy({ id: userId }))?.agentId ?? null
-      : null;
-    const listWithRebate = await Promise.all(result.list.map(async (g: any) => ({
+    // 批量计算返利，避免 N+1 查询
+    const rebates = await this.commission.batchUserRebate(
+      result.list.map((g: any) => ({ commission: Number(g.commission) })),
+      null,
+    );
+    const listWithRebate = result.list.map((g: any, i: number) => ({
       ...g,
-      rebate: (await this.commission.preview(g.commission, agentId)).userRebate,
-    })));
+      rebate: rebates[i],
+    }));
 
     // 顺手带上「我推过几次」，前端才画得出已推状态，省一次请求
     const mine = userId
