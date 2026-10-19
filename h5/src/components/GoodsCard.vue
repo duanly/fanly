@@ -106,6 +106,7 @@ async function doRecommend() {
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   transition: transform 0.15s, box-shadow 0.15s;
+  touch-action: manipulation;
 }
 .goods-card-v2:active {
   transform: scale(0.98);

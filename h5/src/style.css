@@ -33,6 +33,9 @@ body {
   -webkit-font-smoothing: antialiased;
   /* PWA 桌面模式：顶部安全区，避免内容被刘海/状态栏盖住 */
   padding-top: env(safe-area-inset-top);
+  /* 修复 iOS 下 fixed 元素点击区域错位 */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 
 /* 修复 PWA 模式下顶部点击穿透 / 点击无反应的问题 */
@@ -62,6 +65,10 @@ button, a, [role="button"], .van-button, .van-cell, .van-tabbar-item,
 .van-swipe {
   overflow: hidden;
   touch-action: pan-y;
+}
+/* 轮播内部的指示器，点击立刻响应 */
+.van-swipe__indicator {
+  touch-action: manipulation;
 }
 
 .page { padding-bottom: 8px; }

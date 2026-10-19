@@ -190,7 +190,7 @@
       <van-list
         v-model:loading="rankLoading"
         :finished="rankFinished"
-        finished-text="— 到底啦，已经帮你挑了这么多 —"
+        finished-text="— 更多好物去分类页逛逛 —"
         @load="loadRank"
       >
         <div class="goods-list">
@@ -550,6 +550,13 @@ async function resetRank() {
 }
 
 async function loadRank() {
+  // 最多加载 5 页（100 件），避免 DOM 太多手机卡顿
+  // 用户真的想继续翻的话可以点"更多"进列表页
+  if (rankPage.value > 5) {
+    rankFinished.value = true;
+    rankLoading.value = false;
+    return;
+  }
   try {
     const r = await api.ranking(RANKS[rankIdx.value].type, {
       page: rankPage.value,
@@ -635,10 +642,12 @@ function tryRestoreState() {
 /** 离开去详情页之前保存榜单状态 */
 function saveState() {
   try {
+    // 只存前 40 件，多了序列化慢，也用不上
+    const savedList = list.value.slice(0, 40);
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
       rankIdx: rankIdx.value,
-      list: list.value,
-      rankPage: rankPage.value,
+      list: savedList,
+      rankPage: Math.min(rankPage.value, 3),
       finished: rankFinished.value,
       scrollY: window.scrollY,
     }));
