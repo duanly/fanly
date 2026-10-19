@@ -93,8 +93,12 @@ services:
       VIP_PID: ${VIP_PID:-}
       DY_APP_KEY: ${DY_APP_KEY:-}
       DY_APP_SECRET: ${DY_APP_SECRET:-}
+      # 上传文件存储目录（容器内路径），挂载到 host 的 uploads-data volume
+      UPLOAD_DIR: /app/uploads
     expose:
       - "3000"
+    volumes:
+      - uploads-data:/app/uploads
 
   web:
     image: ${IMAGE_PREFIX}/fanly-web:${IMAGE_TAG:-latest}
@@ -119,3 +123,4 @@ volumes:
   caddy-data:
   caddy-config:
   caddy-logs:
+  uploads-data:

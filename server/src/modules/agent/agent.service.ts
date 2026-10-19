@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,7 +11,9 @@ import { SysConfigService } from '../admin/sys-config.service';
 import { CoinService } from '../coin/coin.service';
 
 @Injectable()
-export class AgentService {
+export class AgentService implements OnModuleInit {
+  private readonly logger = new Logger(AgentService.name);
+
   constructor(
     @InjectRepository(Agent) private readonly agentRepo: Repository<Agent>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
@@ -21,6 +23,52 @@ export class AgentService {
     private readonly config: ConfigService,
     private readonly coin: CoinService,
   ) {}
+
+  /**
+   * 启动时补齐数据：
+   * 1. 所有有 user 记录但没有 agent 记录的，补一条 level=0 的预备代理
+   * 2. agent.agentCode 和 user.inviteCode 不一致的，以 user.inviteCode 为准同步
+   *    （保证用户端和管理后台看到的是同一个码）
+   */
+  async onModuleInit() {
+    try {
+      const users = await this.userRepo.find();
+      let created = 0;
+      let synced = 0;
+      for (const u of users) {
+        let agent = await this.agentRepo.findOneBy({ userId: u.id });
+        if (!agent) {
+          // 补齐 agent 记录
+          agent = await this.agentRepo.save(this.agentRepo.create({
+            userId: u.id,
+            agentCode: u.inviteCode || (await this.uniqueCode()),
+            parentAgentId: u.agentId ?? null,
+            level: 0,
+            status: AgentStatus.ACTIVE,
+          }));
+          created++;
+        } else if (u.inviteCode && agent.agentCode !== u.inviteCode) {
+          // 码不一致：以 user.inviteCode 为准同步到 agent
+          // 先确认不会冲突
+          const conflict = await this.agentRepo.findOneBy({ agentCode: u.inviteCode });
+          if (!conflict || conflict.id === agent.id) {
+            agent.agentCode = u.inviteCode;
+            await this.agentRepo.save(agent);
+            synced++;
+          } else {
+            this.logger.warn(
+              `用户 ${u.id} 的 inviteCode=${u.inviteCode} 与 agent ${conflict.id} 冲突，跳过同步`,
+            );
+          }
+        }
+      }
+      if (created > 0 || synced > 0) {
+        this.logger.log(`代理数据补齐：新增 ${created} 条，同步邀请码 ${synced} 条`);
+      }
+    } catch (e: any) {
+      this.logger.error(`启动时补齐 agent 数据失败: ${e.message}`);
+    }
+  }
 
   private async uniqueCode(): Promise<string> {
     for (let i = 0; i < 20; i++) {

@@ -2,15 +2,14 @@ import { Body, Controller, Get, Post, UploadedFile, UseInterceptors } from '@nes
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { mkdirSync } from 'fs';
+import { extname, resolve } from 'path';
 import { IsOptional, IsString, Length, Matches } from 'class-validator';
 import { AuthService } from './auth.service';
 import { Public } from '@/common/jwt.guard';
 import { CurrentUser } from '@/common/decorators';
+import { UPLOAD_DIR } from '../admin/upload.controller';
 
-const AVATAR_DIR = join(process.cwd(), 'uploads', 'avatar');
-mkdirSync(AVATAR_DIR, { recursive: true });
+const AVATAR_DIR = resolve(UPLOAD_DIR, 'avatar');
 
 class SmsDto {
   @Matches(/^1[3-9]\d{9}$/, { message: '手机号格式不正确' }) mobile: string;

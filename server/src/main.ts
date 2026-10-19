@@ -3,7 +3,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { join } from 'path';
+import { resolve } from 'path';
 import * as express from 'express';
 import * as bcrypt from 'bcryptjs';
 import { AppModule } from './app.module';
@@ -15,7 +15,12 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
   // 上传的图片静态资源（公开访问）
-  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
+  // 优先用 env 里的 UPLOAD_DIR，没有就用项目根目录下的 uploads
+  const uploadDir = process.env.UPLOAD_DIR
+    ? resolve(process.env.UPLOAD_DIR)
+    : resolve(__dirname, '..', 'uploads');
+  app.use('/uploads', express.static(uploadDir));
+  new Logger('Bootstrap').log(`静态文件目录: ${uploadDir}`);
 
   // 启动时确保有一个默认管理员账号（开发环境自动建，生产环境只在没有任何管理员时建）
   const adminRepo = app.get(getRepositoryToken(AdminUser));

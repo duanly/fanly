@@ -2,13 +2,16 @@ import { Controller, Post, UseInterceptors, UploadedFile } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { extname, resolve } from 'path';
 import { mkdirSync } from 'fs';
 
-const UPLOAD_DIR = join(process.cwd(), 'uploads');
+// 统一上传目录：优先用 env 的 UPLOAD_DIR，否则用项目根目录下的 uploads
+export const UPLOAD_DIR = process.env.UPLOAD_DIR
+  ? resolve(process.env.UPLOAD_DIR)
+  : resolve(__dirname, '../../..', 'uploads');
 
-// 启动时确保目录存在（multer 的 diskStorage 不会自动建）
 mkdirSync(UPLOAD_DIR, { recursive: true });
+mkdirSync(resolve(UPLOAD_DIR, 'avatar'), { recursive: true });
 
 @ApiTags('后台·上传')
 @Controller('api/admin')

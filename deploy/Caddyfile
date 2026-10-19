@@ -13,6 +13,11 @@
         reverse_proxy server:3000
     }
 
+    # 上传的图片：由 server 提供静态文件
+    handle /uploads/* {
+        reverse_proxy server:3000
+    }
+
     # 接口文档，上线后建议加 basic_auth 或直接注释掉
     handle /docs* {
         reverse_proxy server:3000
