@@ -16,7 +16,7 @@
 
     <van-list
       v-model:loading="loading"
-      :finished="finished"
+      :finished="finished || softLimitReached"
       finished-text="没有更多了"
       @load="load"
     >
@@ -24,6 +24,13 @@
         <GoodsCard v-for="g in list" :key="g.platform + g.goodsId" :g="g" />
       </div>
     </van-list>
+
+    <!-- 软上限：到了 300 件后手动点按钮继续加载 -->
+    <div v-if="softLimitReached && !finished && list.length" class="soft-limit-bar">
+      <van-button block plain type="default" size="small" @click="continueLoad">
+        加载更多
+      </van-button>
+    </div>
 
     <van-empty v-if="!loading && !list.length" description="这个专题还没选品">
       <div class="muted" style="font-size:12px;padding:0 30px;line-height:1.6">
@@ -57,6 +64,19 @@ const page = ref(1);
 const loading = ref(false);
 const finished = ref(false);
 
+// 软上限：自动加载到 15 页（300 件）就停，用户手动点"加载更多"再继续
+const SOFT_LIMIT_INITIAL = 15;
+const SOFT_LIMIT_STEP = 5;
+const softLimitPage = ref(SOFT_LIMIT_INITIAL);
+const softLimitReached = ref(false);
+
+function continueLoad() {
+  softLimitPage.value += SOFT_LIMIT_STEP;
+  softLimitReached.value = false;
+  loading.value = true;
+  load();
+}
+
 function back() {
   if (window.history.length > 1) router.back();
   else router.replace('/');
@@ -71,14 +91,16 @@ function reset() {
   list.value = [];
   page.value = 1;
   finished.value = false;
+  softLimitPage.value = SOFT_LIMIT_INITIAL;
+  softLimitReached.value = false;
   loading.value = true;
   load();
 }
 
 async function load() {
-  // 最多加载 8 页（160 件），避免 DOM 太多手机卡顿
-  if (page.value > 8) {
-    finished.value = true;
+  // 软上限：到了就停
+  if (page.value > softLimitPage.value) {
+    softLimitReached.value = true;
     loading.value = false;
     return;
   }
@@ -206,5 +228,9 @@ onUnmounted(() => {
 .back-top-fab:active {
   transform: translateY(-50%) scale(0.92);
   opacity: 0.8;
+}
+
+.soft-limit-bar {
+  padding: 10px 16px 16px;
 }
 </style>

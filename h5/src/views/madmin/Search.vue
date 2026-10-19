@@ -46,7 +46,7 @@
     <!-- 商品列表 -->
     <van-list
       v-model:loading="loading"
-      :finished="finished"
+      :finished="finished || softLimitReached"
       finished-text="没有更多了"
       @load="onLoad"
     >
@@ -104,6 +104,13 @@
         </div>
       </div>
     </van-list>
+
+    <!-- 软上限提示：到了 400 件后手动点击继续加载，避免 DOM 太多卡顿 -->
+    <div v-if="softLimitReached && !finished && visibleList.length" class="soft-limit-bar">
+      <van-button block plain type="default" size="small" @click="continueLoad">
+        继续加载更多（当前 {{ visibleList.length }} 件）
+      </van-button>
+    </div>
 
     <van-empty v-if="!loading && !keyword && channel === 'all' && !visibleList.length" description="输入关键词开始搜索" />
 
@@ -266,6 +273,18 @@ const picked = ref([]);
 const allChecked = ref(false);
 const active = ref('search');
 
+// 软上限：20 页 / 400 件，到了之后停止自动加载，用户点按钮再继续
+// 防止运营手滑滚到底部加载几千件导致页面卡顿
+const SOFT_LIMIT_PAGES = 20;
+const softLimitReached = ref(false);
+
+function continueLoad() {
+  softLimitReached.value = false;
+  // 手动触发一次加载
+  loading.value = true;
+  onLoad();
+}
+
 // 已成功加入的商品 key 集合（从列表移除的）
 const removedKeys = ref(new Set());
 // 正在加入中的商品 key 集合
@@ -332,6 +351,7 @@ function reset() {
   list.value = [];
   page.value = 1;
   finished.value = false;
+  softLimitReached.value = false;
   picked.value = [];
   allChecked.value = false;
   removedKeys.value = new Set();
@@ -368,6 +388,10 @@ async function onLoad() {
     page.value++;
     if (rows.length < pageSize) {
       finished.value = true;
+    }
+    // 软上限：到了之后停住，让用户手动点继续
+    if (page.value > SOFT_LIMIT_PAGES && !finished.value) {
+      softLimitReached.value = true;
     }
 
     // 过滤掉已经在选品池中的商品（隐藏但后台仍然更新数据）
@@ -682,6 +706,11 @@ onBeforeUnmount(() => {
 .goods-list {
   padding: 8px 12px;
 }
+
+.soft-limit-bar {
+  padding: 12px 16px;
+}
+
 .goods-card {
   display: flex;
   gap: 10px;

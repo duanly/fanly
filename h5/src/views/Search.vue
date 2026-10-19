@@ -16,11 +16,18 @@
       <van-dropdown-item v-model="sort" :options="sortOptions" @change="reset" />
     </van-dropdown-menu>
 
-    <van-list v-model:loading="loading" :finished="finished" finished-text="— 没找到更多，换个关键词试试 —" @load="load">
+    <van-list v-model:loading="loading" :finished="finished || softLimitReached" finished-text="— 没找到更多，换个关键词试试 —" @load="load">
       <div class="goods-grid">
         <GoodsCard v-for="g in list" :key="g.platform + g.goodsId" :g="g" />
       </div>
     </van-list>
+
+    <!-- 软上限：到了 300 件后手动点按钮继续加载 -->
+    <div v-if="softLimitReached && !finished && list.length" class="soft-limit-bar">
+      <van-button block plain type="default" size="small" @click="continueLoad">
+        加载更多
+      </van-button>
+    </div>
 
     <div v-show="showBackTop" class="back-top-fab" @click="scrollToTop">
       <van-icon name="arrow-up" size="18" />
@@ -54,6 +61,19 @@ const page = ref(1);
 const loading = ref(false);
 const finished = ref(false);
 
+// 软上限：自动加载到 15 页（300 件）就停，用户手动点"加载更多"再继续
+const SOFT_LIMIT_INITIAL = 15;
+const SOFT_LIMIT_STEP = 5;
+const softLimitPage = ref(SOFT_LIMIT_INITIAL);
+const softLimitReached = ref(false);
+
+function continueLoad() {
+  softLimitPage.value += SOFT_LIMIT_STEP;
+  softLimitReached.value = false;
+  loading.value = true;
+  load();
+}
+
 // 请求序号：每次 reset 加 1，过期的请求结果直接丢弃，
 // 避免快速切换 tab 时旧请求的结果窜到当前列表里
 let reqSeq = 0;
@@ -62,6 +82,8 @@ function reset() {
   list.value = [];
   page.value = 1;
   finished.value = false;
+  softLimitPage.value = SOFT_LIMIT_INITIAL;
+  softLimitReached.value = false;
   loading.value = true;
   reqSeq += 1; // 序号自增，之前的请求结果作废
   load();
@@ -69,9 +91,9 @@ function reset() {
 
 async function load() {
   const seq = reqSeq; // 记下当前请求的序号
-  // 最多加载 8 页（160 件），避免 DOM 太多手机卡顿
-  if (page.value > 8) {
-    finished.value = true;
+  // 软上限：到了就停
+  if (page.value > softLimitPage.value) {
+    softLimitReached.value = true;
     loading.value = false;
     return;
   }
@@ -209,5 +231,9 @@ onUnmounted(() => {
 .back-top-fab:active {
   transform: translateY(-50%) scale(0.92);
   opacity: 0.8;
+}
+
+.soft-limit-bar {
+  padding: 10px 16px 16px;
 }
 </style>

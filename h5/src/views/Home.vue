@@ -189,7 +189,7 @@
 
       <van-list
         v-model:loading="rankLoading"
-        :finished="rankFinished"
+        :finished="rankFinished || rankSoftLimitReached"
         finished-text="— 更多好物去分类页逛逛 —"
         @load="loadRank"
       >
@@ -203,6 +203,13 @@
           />
         </div>
       </van-list>
+
+      <!-- 软上限：首页榜单自动加载到 10 页/200 件就停，想看更多手动点 -->
+      <div v-if="rankSoftLimitReached && !rankFinished && list.length" class="soft-limit-bar">
+        <van-button block plain type="default" size="small" @click="continueRankLoad">
+          加载更多
+        </van-button>
+      </div>
 
       <van-empty v-if="!rankLoading && !list.length" :description="emptyText" />
     </div>
@@ -308,6 +315,19 @@ const list = ref([]);
 const rankPage = ref(1);
 const rankLoading = ref(false);
 const rankFinished = ref(false);
+
+// 首页榜单软上限：自动加载到 10 页（200 件）就停，用户手动点继续
+const RANK_SOFT_LIMIT_INITIAL = 10;
+const RANK_SOFT_LIMIT_STEP = 5;
+const rankSoftLimitPage = ref(RANK_SOFT_LIMIT_INITIAL);
+const rankSoftLimitReached = ref(false);
+
+function continueRankLoad() {
+  rankSoftLimitPage.value += RANK_SOFT_LIMIT_STEP;
+  rankSoftLimitReached.value = false;
+  rankLoading.value = true;
+  loadRank();
+}
 
 const catsRef = ref(null);
 const allAuth = computed(() => PLATS.every((p) => auth[p.key] === true));
@@ -545,15 +565,16 @@ async function resetRank() {
   list.value = [];
   rankPage.value = 1;
   rankFinished.value = false;
+  rankSoftLimitPage.value = RANK_SOFT_LIMIT_INITIAL;
+  rankSoftLimitReached.value = false;
   rankLoading.value = true;
   loadRank();
 }
 
 async function loadRank() {
-  // 最多加载 5 页（100 件），避免 DOM 太多手机卡顿
-  // 用户真的想继续翻的话可以点"更多"进列表页
-  if (rankPage.value > 5) {
-    rankFinished.value = true;
+  // 软上限：到了就停，让用户手动点继续
+  if (rankPage.value > rankSoftLimitPage.value) {
+    rankSoftLimitReached.value = true;
     rankLoading.value = false;
     return;
   }
@@ -1182,6 +1203,10 @@ onUnmounted(() => {
 .back-top-fab:active {
   transform: translateY(-50%) scale(0.92);
   opacity: 0.8;
+}
+
+.soft-limit-bar {
+  padding: 10px 16px 16px;
 }
 
 /* ========== 商品列表 ========== */
