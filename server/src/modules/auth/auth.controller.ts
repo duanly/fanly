@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
+import { existsSync, mkdirSync } from 'fs';
 import { extname, resolve } from 'path';
 import { IsOptional, IsString, Length, Matches } from 'class-validator';
 import { AuthService } from './auth.service';
@@ -10,6 +11,13 @@ import { CurrentUser } from '@/common/decorators';
 import { UPLOAD_DIR } from '../admin/upload.controller';
 
 const AVATAR_DIR = resolve(UPLOAD_DIR, 'avatar');
+
+// 启动时确保目录存在（multer 的 diskStorage 不会自动建子目录）
+if (!existsSync(AVATAR_DIR)) {
+  mkdirSync(AVATAR_DIR, { recursive: true });
+}
+const logger = new Logger('AvatarUpload');
+logger.log(`头像上传目录: ${AVATAR_DIR} (存在=${existsSync(AVATAR_DIR)})`);
 
 class SmsDto {
   @Matches(/^1[3-9]\d{9}$/, { message: '手机号格式不正确' }) mobile: string;
@@ -66,22 +74,33 @@ export class AuthController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: AVATAR_DIR,
+        destination: (_req, _file, cb) => {
+          logger.log(`保存文件到: ${AVATAR_DIR}`);
+          cb(null, AVATAR_DIR);
+        },
         filename: (_req, file, cb) => {
           const ts = Date.now();
           const rand = Math.random().toString(36).slice(2, 8);
           const ext = extname(file.originalname).toLowerCase();
-          cb(null, `${ts}-${rand}${ext}`);
+          const filename = `${ts}-${rand}${ext}`;
+          logger.log(`文件: ${file.originalname} (${file.mimetype}, ${file.size} bytes) → ${filename}`);
+          cb(null, filename);
         },
       }),
       limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
       fileFilter: (_req, file, cb) => {
         const ok = /\.(jpg|jpeg|png|gif|webp)$/i.test(file.originalname);
+        logger.log(`文件过滤: ${file.originalname} → ${ok ? '通过' : '拒绝'}`);
         cb(ok ? null : new Error('只支持 jpg/png/gif/webp 图片'), ok);
       },
     }),
   )
   uploadAvatar(@CurrentUser('sub') userId: number, @UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      logger.error(`上传失败: file 为空, userId=${userId}`);
+      throw new Error('上传失败：未收到文件');
+    }
+    logger.log(`上传成功 userId=${userId}, filename=${file.filename}, size=${file.size}, path=${file.path}`);
     return { url: `/uploads/avatar/${file.filename}` };
   }
 }
