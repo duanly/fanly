@@ -53,6 +53,44 @@ export class RankingService {
   }
 
   /**
+   * 平台均衡：轮询穿插，避免单一平台霸榜。
+   *
+   * 思路：把商品按平台分组，每组保持原有排序（每组内部仍是最优质的在前），
+   * 然后按 round-robin 的方式从每组依次取一个，拼回一个列表。
+   * 这样首页翻几屏下来，每个平台的商品都能看到，不会被某一家淹没。
+   *
+   * 注意：这是"展示层面的重排"，不改变每组内部的相对顺序——
+   * 热销榜里销量最高的 PDD 商品仍然在 PDD 组第一位，只是它前面
+   * 可能插了一个 JD 第一名、一个 TB 第一名。
+   */
+  private balancePlatforms<T extends { platform: string }>(list: T[]): T[] {
+    if (list.length <= 1) return list;
+
+    // 按平台分组，保持原顺序
+    const groups = new Map<string, T[]>();
+    for (const item of list) {
+      if (!groups.has(item.platform)) groups.set(item.platform, []);
+      groups.get(item.platform)!.push(item);
+    }
+
+    // 只有一个平台就不用排了
+    if (groups.size <= 1) return list;
+
+    // 轮询穿插
+    const result: T[] = [];
+    const queues = Array.from(groups.values());
+    let maxLen = Math.max(...queues.map((q) => q.length));
+
+    for (let i = 0; i < maxLen; i++) {
+      for (const q of queues) {
+        if (i < q.length) result.push(q[i]);
+      }
+    }
+
+    return result;
+  }
+
+  /**
    * 热销榜：近 N 天我们平台下单最多的商品，不够数就用选品池补齐。
    *
    * 为什么要补：冷启动阶段一单都没有，榜单空着是首页最难看的状态——
@@ -96,9 +134,12 @@ export class RankingService {
     // 同平台同名去重（同名商品保留排在前面的那个——真订单优先、销量高优先）
     const deduped = this.dedupByTitle(ordered);
 
-    const list = deduped.slice(skip, skip + pageSize);
-    if (list.length < deduped.length) {
-      this.logger.debug(`热销榜第 ${page} 页：真实 ${realRows.length} 条，补位 ${deduped.length - realRows.length} 条`);
+    // 平台均衡：避免单一平台霸榜
+    const balanced = this.balancePlatforms(deduped);
+
+    const list = balanced.slice(skip, skip + pageSize);
+    if (list.length < balanced.length) {
+      this.logger.debug(`热销榜第 ${page} 页：真实 ${realRows.length} 条，补位 ${balanced.length - realRows.length} 条`);
     }
     return {
       list,
@@ -157,7 +198,7 @@ export class RankingService {
   /** 返利榜：选品池里到手返利最高的（按佣金金额降序，等价于按返利降序） */
   async rebate(page = 1, pageSize = 20) {
     const skip = (page - 1) * pageSize;
-    // 先多取一些，去重后再按分页切
+    // 先多取一些，去重 + 平台均衡后再按分页切
     const fetchSize = Math.min(pageSize * 3, 200);
     const rows = await this.goodsRepo
       .createQueryBuilder('g')
@@ -168,14 +209,15 @@ export class RankingService {
       .take(skip + fetchSize)
       .getMany();
     const deduped = this.dedupByTitle(rows);
+    const balanced = this.balancePlatforms(deduped);
     const total = await this.goodsRepo.count({ where: { status: CuratedStatus.ON } });
-    const list = deduped.slice(skip, skip + pageSize);
+    const list = balanced.slice(skip, skip + pageSize);
     return {
       list: list.map((r) => this.toGoods(r)),
       total,
       page,
       pageSize,
-      hasMore: skip + list.length < deduped.length,
+      hasMore: skip + list.length < balanced.length,
     };
   }
 
@@ -199,13 +241,14 @@ export class RankingService {
       .take(skip + fetchSize)
       .getManyAndCount();
     const deduped = this.dedupByTitle(allRows);
-    const rows = deduped.slice(skip, skip + pageSize);
+    const balanced = this.balancePlatforms(deduped);
+    const rows = balanced.slice(skip, skip + pageSize);
     return {
       list: rows.map((r) => ({ ...this.toGoods(r), recommendScore: r.recommendScore })),
       total,
       page,
       pageSize,
-      hasMore: skip + rows.length < deduped.length,
+      hasMore: skip + rows.length < balanced.length,
     };
   }
 }

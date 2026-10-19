@@ -178,6 +178,13 @@ export class AuthService {
     const gold = this.cfg.num('agent.upgrade.gold', 30);
     const diamond = this.cfg.num('agent.upgrade.diamond', 100);
     const levelNames = ['预备代理', '白银代理', '黄金代理', '钻石代理'];
+
+    // 用户自购返利比例
+    const userRebateRate = this.cfg.num('rebate.user_rate', 0.5);
+    // 代理分成比例（按等级，预备代理为 0）
+    const agentRate = level >= 1
+      ? (agent?.agentRate ? Number(agent.agentRate) : this.cfg.num(`rebate.agent_rate.${level}`, 0.12))
+      : 0;
     let nextLevel = null;
     let needForNext = 0;
     if (level === 0 && inviteCount < silver) { nextLevel = 1; needForNext = silver - inviteCount; }
@@ -201,6 +208,8 @@ export class AuthService {
       needForNext,
       bindAgent,
       agentNeedPay: this.cfg.get('agent.need_pay') === '1',
+      userRebateRate,
+      agentRate,
     };
   }
 

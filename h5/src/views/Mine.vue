@@ -62,6 +62,19 @@
       </div>
     </div>
 
+    <!-- 返利/分成比例 -->
+    <div class="rate-card">
+      <div class="rate-item">
+        <div class="rate-num">{{ (p?.userRebateRate * 100).toFixed(0) }}%</div>
+        <div class="rate-label">自购返利</div>
+      </div>
+      <div class="rate-divider"></div>
+      <div class="rate-item">
+        <div class="rate-num">{{ (p?.agentRate * 100).toFixed(0) }}%</div>
+        <div class="rate-label">推广分成</div>
+      </div>
+    </div>
+
     <van-cell-group inset style="margin-bottom:12px">
       <van-cell title="资金明细" is-link icon="balance-list-o" to="/ledger" />
       <van-cell title="提现记录" is-link icon="after-sale" to="/withdraws" />
@@ -369,4 +382,37 @@ onMounted(load);
   justify-content: center;
 }
 .muted { color: #999; }
+
+/* 返利比例卡片 */
+.rate-card {
+  margin: -18px 16px 12px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 0;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  position: relative;
+  z-index: 1;
+}
+.rate-item {
+  flex: 1;
+  text-align: center;
+}
+.rate-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: #ff4b3a;
+  line-height: 1.2;
+}
+.rate-label {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+.rate-divider {
+  width: 1px;
+  height: 32px;
+  background: #eee;
+}
 </style>
