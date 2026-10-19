@@ -230,7 +230,7 @@ export class AgentService implements OnModuleInit {
       agentCode: agent.agentCode,
       level: agent.level,
       levelName: ['', '普通代理', '高级代理', '合伙人'][agent.level],
-      rate: agent.agentRate ?? String(this.cfg.num(`rebate.agent_rate.${agent.level}`, 0.1)),
+      rate: agent.agentRate ?? String(this.cfg.num(`rebate.agent_rate.${agent.level}`, agent.level === 3 ? 0.2 : agent.level === 2 ? 0.15 : 0.12)),
       teamSize,
       subAgentCount: subAgents.length,
       teamSizeL2,

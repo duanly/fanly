@@ -20,7 +20,9 @@ html, body {
   overflow-x: hidden;
   /* 禁止 iOS 橡皮筋横向弹性滚动，避免页面能左右拽 */
   overscroll-behavior-x: none;
-  touch-action: pan-y;
+  /* manipulation：允许滚动缩放，但不等待双击手势，点击响应更快
+     比 pan-y 更灵敏，轻微的手指晃动也能识别为点击而不是滑动 */
+  touch-action: manipulation;
 }
 
 body {
@@ -37,6 +39,13 @@ body {
 * {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
+}
+
+/* 所有可点击元素：点击即响应，不等手势判断
+   按钮、链接、tab、cell 等交互元素立刻响应点击 */
+button, a, [role="button"], .van-button, .van-cell, .van-tabbar-item,
+.van-tab, .van-icon, .chip, .goods-card, .plat-item, .search-btn {
+  touch-action: manipulation;
 }
 
 #app {
@@ -335,6 +344,7 @@ body {
 }
 
 .goods-card { background: var(--card); border-radius: var(--radius); overflow: hidden; }
+.goods-card:active { transform: scale(0.98); transition: transform .08s; }
 
 .goods-card img {
   width: 100%;

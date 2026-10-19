@@ -33,7 +33,7 @@ export class CommissionService {
     const agent = await this.agentRepo.findOneBy({ id: agentId });
     if (!agent || agent.status !== 1) return 0;
     if (agent.agentRate) return toNum(agent.agentRate);
-    return this.cfg.num(`rebate.agent_rate.${agent.level}`, 0.1);
+    return this.cfg.num(`rebate.agent_rate.${agent.level}`, agent.level === 3 ? 0.2 : agent.level === 2 ? 0.15 : 0.12);
   }
 
   /**

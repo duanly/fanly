@@ -13,6 +13,7 @@
     fixed
     placeholder
     safe-area-inset-bottom
+    class="app-tabbar"
   >
     <van-tabbar-item to="/" icon="shop-o">首页</van-tabbar-item>
     <van-tabbar-item to="/compare" icon="balance-list-o">比价</van-tabbar-item>
@@ -60,3 +61,16 @@ async function syncBadge() {
 // 切主 Tab 时对一次角标——加购发生在详情页，回来数字得是新的
 watch(showTab, (v) => { if (v) syncBadge(); }, { immediate: true });
 </script>
+
+<style>
+/* 底部 tabbar 永远在最上层，避免被页面元素盖住点击区域 */
+.app-tabbar {
+  z-index: 999 !important;
+}
+/* 修复 iOS 下 tabbar 点击不灵敏：扩大可点击区域 */
+.app-tabbar .van-tabbar-item {
+  min-height: 50px;
+  padding-top: 4px;
+  padding-bottom: 2px;
+}
+</style>
