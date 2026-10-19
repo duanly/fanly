@@ -63,13 +63,14 @@ watch(showTab, (v) => { if (v) syncBadge(); }, { immediate: true });
 </script>
 
 <style>
-/* 底部 tabbar 永远在最上层，避免被页面元素盖住点击区域 */
+/* 底部 tabbar 永远在最上层，确保可见 */
 .app-tabbar {
   z-index: 999 !important;
-  /* 提升到独立合成层，滚动时不重绘 */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  will-change: transform;
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
 }
 /* 修复 iOS 下 tabbar 点击不灵敏：扩大可点击区域 */
 .app-tabbar .van-tabbar-item {
