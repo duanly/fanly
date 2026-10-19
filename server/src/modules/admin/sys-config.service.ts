@@ -43,7 +43,13 @@ export class SysConfigService implements OnModuleInit {
   async onModuleInit() {
     for (const [key, v] of Object.entries(DEFAULT_CONFIG)) {
       const exist = await this.repo.findOneBy({ key });
-      if (!exist) await this.repo.save(this.repo.create({ key, value: v.value, remark: v.remark }));
+      if (!exist) {
+        await this.repo.save(this.repo.create({ key, value: v.value, remark: v.remark }));
+      } else if (exist.remark !== v.remark) {
+        // 代码里更新了说明文字，同步到数据库（只改 remark，不动 value——用户可能手动调过值）
+        exist.remark = v.remark;
+        await this.repo.save(exist);
+      }
     }
     await this.reload();
   }

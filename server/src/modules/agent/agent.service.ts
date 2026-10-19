@@ -229,7 +229,7 @@ export class AgentService implements OnModuleInit {
     return {
       agentCode: agent.agentCode,
       level: agent.level,
-      levelName: ['', '普通代理', '高级代理', '合伙人'][agent.level],
+      levelName: ['预备代理', '白银代理', '黄金代理', '钻石代理'][agent.level],
       rate: agent.agentRate ?? String(this.cfg.num(`rebate.agent_rate.${agent.level}`, agent.level === 3 ? 0.2 : agent.level === 2 ? 0.15 : 0.12)),
       teamSize,
       subAgentCount: subAgents.length,
@@ -245,8 +245,8 @@ export class AgentService implements OnModuleInit {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const end = new Date(now.getFullYear(), now.getMonth(), 1);
-    const up2 = this.cfg.num('agent.level_up.2', 100);
-    const up3 = this.cfg.num('agent.level_up.3', 500);
+    const up2 = this.cfg.num('agent.upgrade.gold', 30);
+    const up3 = this.cfg.num('agent.upgrade.diamond', 100);
 
     for (const a of agents) {
       const count = await this.orderRepo.createQueryBuilder('o')

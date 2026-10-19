@@ -154,8 +154,8 @@
       <span class="sec-more" @click="showAllActs = true">全部活动 ›</span>
     </div>
     <div v-if="acts.length" class="section act-section">
-      <div class="act-marquee" ref="marqueeRef">
-        <div class="am-track" :style="{ transform: `translateX(${marqueeX}px)` }">
+      <div class="act-marquee" @mouseenter="marqueePause = true" @mouseleave="marqueePause = false" @touchstart="marqueePause = true" @touchend="marqueePause = false">
+        <div class="am-track" :style="{ animationDuration: marqueeDuration + 's', animationPlayState: marqueePause ? 'paused' : 'running' }">
           <div
             v-for="(a, i) in marqueeActs"
             :key="a.key + '-' + i"
@@ -181,7 +181,7 @@
       <span class="sec-more" @click="$router.push('/category/all')">全部 ›</span>
     </div>
     <div class="section rank-section">
-      <van-tabs class="rank-tabs" v-model:active="rankIdx" color="#ff4b3a" line-width="16" @change="resetRank">
+      <van-tabs class="rank-tabs" v-model:active="rankIdx" color="#ff4b3a" line-width="16" :swipeable="false" @change="resetRank">
         <van-tab v-for="r in RANKS" :key="r.type" :title="r.name" />
       </van-tabs>
 
@@ -420,49 +420,15 @@ const marqueeActs = computed(() => {
   return Array.from({ length: reps }, () => arr).flat();
 });
 
-// ── 跑马灯自动滚动 ──
-const marqueeRef = ref(null);
-const marqueeX = ref(0);
-let marqueeRaf = 0;
-let marqueeSpeed = 0.8; // px/frame，约 48px/s
-let marqueeLastTime = 0;
-let singleSetWidth = 0;
-
-function measureMarquee() {
-  const track = marqueeRef.value?.querySelector('.am-track');
-  if (!track || !acts.value.length) return;
-  const totalW = track.scrollWidth;
-  let reps = Math.ceil(10 / acts.value.length);
-  if (reps < 2) reps = 2;
-  if (reps % 2) reps += 1;
-  singleSetWidth = totalW / reps;
-}
-
-function marqueeLoop(ts) {
-  if (!marqueeLastTime) marqueeLastTime = ts;
-  const dt = ts - marqueeLastTime;
-  marqueeLastTime = ts;
-  if (singleSetWidth > 0) {
-    marqueeX.value -= marqueeSpeed * (dt / 16.67);
-    if (marqueeX.value <= -singleSetWidth) {
-      marqueeX.value += singleSetWidth;
-    }
-  }
-  marqueeRaf = requestAnimationFrame(marqueeLoop);
-}
-
-function startMarquee() {
-  if (marqueeRaf) return;
-  marqueeLastTime = 0;
-  marqueeRaf = requestAnimationFrame(marqueeLoop);
-}
-
-function stopMarquee() {
-  if (marqueeRaf) {
-    cancelAnimationFrame(marqueeRaf);
-    marqueeRaf = 0;
-  }
-}
+// 跑马灯动画时长：根据活动数量估算，保证速度均匀
+const marqueeDuration = computed(() => {
+  const n = acts.value.length;
+  // 每个活动卡片约 100px 宽 + 8px 间距，跑一半（无缝循环=跑一份的距离）
+  const dist = n * 108;
+  // 速度约 50px/s
+  return Math.max(15, dist / 50);
+});
+const marqueePause = ref(false);
 
 // 全部活动弹窗
 const showAllActs = ref(false);
@@ -706,11 +672,6 @@ onMounted(() => {
   } else {
     loadRank();
   }
-  // 跑马灯：等 DOM 渲染完测量宽度再启动
-  nextTick(() => {
-    measureMarquee();
-    startMarquee();
-  });
   // 返回顶部按钮
   scrollHandler = onScroll;
   window.addEventListener('scroll', scrollHandler, { passive: true });
@@ -718,7 +679,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  stopMarquee();
   if (scrollHandler) window.removeEventListener('scroll', scrollHandler);
 });
 </script>
@@ -1076,6 +1036,11 @@ onUnmounted(() => {
   gap: 10px;
   width: max-content;
   will-change: transform;
+  animation: marquee-scroll 30s linear infinite;
+}
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
 .act-card {
   flex: 0 0 auto;
@@ -1174,6 +1139,11 @@ onUnmounted(() => {
   margin: 0 -14px 10px;
   padding: 0 14px;
   font-weight: 600;
+  touch-action: manipulation;
+}
+/* tab 点击时的即时反馈，避免用户以为没点到 */
+.rank-tabs .van-tab:active {
+  opacity: 0.7;
 }
 .rank-tip {
   font-size: 11px;
@@ -1210,6 +1180,7 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+  touch-action: manipulation;
 }
 
 /* ========== 全部活动弹窗 ========== */
