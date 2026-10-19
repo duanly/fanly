@@ -91,6 +91,49 @@ export class RankingService {
   }
 
   /**
+   * 分档均衡：先按数值分档（高/中/低...），每档内部做平台均衡，
+   * 再把各档拼回来。这样整体还是从高到低，但每一档内各平台都能露脸。
+   *
+   * 适用于返利榜、销量榜这类"排序是核心诉求"的榜单——
+   * 不能为了平台均衡把低返利的插到高返利前面，那就本末倒置了。
+   *
+   * @param list 已排好序的商品列表
+   * @param getValue 取排序值的函数（如佣金、销量）
+   * @param tiers 分档阈值，从高到低，如 [10, 5, 1] 表示 >=10 一档，5-10 一档，1-5 一档，<1 一档
+   */
+  private balancePlatformsTiered<T extends { platform: string }>(
+    list: T[],
+    getValue: (item: T) => number,
+    tiers: number[],
+  ): T[] {
+    if (list.length <= 1) return list;
+
+    // 分档：每档是 [min, max)
+    const groups: T[][] = [];
+    // 第一档：最高档
+    let remaining = [...list];
+    for (const threshold of tiers) {
+      const above: T[] = [];
+      const rest: T[] = [];
+      for (const item of remaining) {
+        if (getValue(item) >= threshold) above.push(item);
+        else rest.push(item);
+      }
+      groups.push(above);
+      remaining = rest;
+    }
+    // 最后一档：低于最低阈值的
+    if (remaining.length) groups.push(remaining);
+
+    // 每档内部做平台均衡，然后按档拼回
+    const result: T[] = [];
+    for (const g of groups) {
+      if (g.length) result.push(...this.balancePlatforms(g));
+    }
+    return result;
+  }
+
+  /**
    * 热销榜：近 N 天我们平台下单最多的商品，不够数就用选品池补齐。
    *
    * 为什么要补：冷启动阶段一单都没有，榜单空着是首页最难看的状态——
@@ -134,8 +177,13 @@ export class RankingService {
     // 同平台同名去重（同名商品保留排在前面的那个——真订单优先、销量高优先）
     const deduped = this.dedupByTitle(ordered);
 
-    // 平台均衡：避免单一平台霸榜
-    const balanced = this.balancePlatforms(deduped);
+    // 分档均衡：按订单数分档，每档内各平台穿插
+    // 档位：≥5单 / ≥3单 / ≥2单 / ≥1单 / 0单补位
+    const balanced = this.balancePlatformsTiered(
+      deduped,
+      (g: any) => Number(g.orderCount) || 0,
+      [5, 3, 2, 1],
+    );
 
     const list = balanced.slice(skip, skip + pageSize);
     if (list.length < balanced.length) {
@@ -198,8 +246,8 @@ export class RankingService {
   /** 返利榜：选品池里到手返利最高的（按佣金金额降序，等价于按返利降序） */
   async rebate(page = 1, pageSize = 20) {
     const skip = (page - 1) * pageSize;
-    // 先多取一些，去重 + 平台均衡后再按分页切
-    const fetchSize = Math.min(pageSize * 3, 200);
+    // 先多取一些，去重 + 分档均衡后再按分页切
+    const fetchSize = Math.min(pageSize * 5, 300);
     const rows = await this.goodsRepo
       .createQueryBuilder('g')
       .where('g.status = :status', { status: CuratedStatus.ON })
@@ -209,7 +257,13 @@ export class RankingService {
       .take(skip + fetchSize)
       .getMany();
     const deduped = this.dedupByTitle(rows);
-    const balanced = this.balancePlatforms(deduped);
+    // 分档均衡：按佣金分档，每档内各平台穿插
+    // 档位：≥20元 / ≥10元 / ≥5元 / ≥2元 / <2元
+    const balanced = this.balancePlatformsTiered(
+      deduped,
+      (g) => Number(g.commission),
+      [20, 10, 5, 2],
+    );
     const total = await this.goodsRepo.count({ where: { status: CuratedStatus.ON } });
     const list = balanced.slice(skip, skip + pageSize);
     return {
@@ -241,7 +295,13 @@ export class RankingService {
       .take(skip + fetchSize)
       .getManyAndCount();
     const deduped = this.dedupByTitle(allRows);
-    const balanced = this.balancePlatforms(deduped);
+    // 分档均衡：按推荐分档，每档内各平台穿插
+    // 档位：≥10票 / ≥5票 / ≥1票 / 0票
+    const balanced = this.balancePlatformsTiered(
+      deduped,
+      (g) => Number(g.recommendScore) + Number(g.sortWeight),
+      [10, 5, 1],
+    );
     const rows = balanced.slice(skip, skip + pageSize);
     return {
       list: rows.map((r) => ({ ...this.toGoods(r), recommendScore: r.recommendScore })),

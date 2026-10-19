@@ -33,9 +33,6 @@ body {
   -webkit-font-smoothing: antialiased;
   /* PWA 桌面模式：顶部安全区，避免内容被刘海/状态栏盖住 */
   padding-top: env(safe-area-inset-top);
-  /* 修复 iOS 下 fixed 元素点击区域错位 */
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
 }
 
 /* 修复 PWA 模式下顶部点击穿透 / 点击无反应的问题 */

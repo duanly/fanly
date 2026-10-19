@@ -16,7 +16,7 @@
       <van-dropdown-item v-model="sort" :options="sortOptions" @change="reset" />
     </van-dropdown-menu>
 
-    <van-list v-model:loading="loading" :finished="finished" finished-text="没有更多了" @load="load">
+    <van-list v-model:loading="loading" :finished="finished" finished-text="— 没找到更多，换个关键词试试 —" @load="load">
       <div class="goods-grid">
         <GoodsCard v-for="g in list" :key="g.platform + g.goodsId" :g="g" />
       </div>
@@ -69,6 +69,12 @@ function reset() {
 
 async function load() {
   const seq = reqSeq; // 记下当前请求的序号
+  // 最多加载 8 页（160 件），避免 DOM 太多手机卡顿
+  if (page.value > 8) {
+    finished.value = true;
+    loading.value = false;
+    return;
+  }
   try {
     const r = await api.search({
       platform: platforms[platformIdx.value].key,
@@ -114,12 +120,14 @@ function tryRestore() {
 
 function saveState() {
   try {
+    // 只存前 40 件，多了序列化慢，也用不上
+    const savedList = list.value.slice(0, 40);
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
       keyword: keyword.value,
       platformIdx: platformIdx.value,
       sort: sort.value,
-      list: list.value,
-      page: page.value,
+      list: savedList,
+      page: Math.min(page.value, 3),
       finished: finished.value,
       scrollY: window.scrollY,
     }));

@@ -1,7 +1,7 @@
 <template>
   <div class="goods-card-v2" @click="go">
     <div class="img-wrap">
-      <img :src="g.image" :alt="g.title" loading="lazy" />
+      <img :src="g.image" :alt="g.title" loading="lazy" decoding="async" />
     </div>
 
     <div class="body">

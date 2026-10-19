@@ -205,6 +205,12 @@ function openBanner(b) {
 }
 
 async function load() {
+  // 最多加载 8 页（160 件），避免 DOM 太多手机卡顿
+  if (page.value >= 8) {
+    finished.value = true;
+    loading.value = false;
+    return;
+  }
   loading.value = true;
   try {
     const r = await api.topicGoods(route.params.slug, { sort: sort.value, page: page.value + 1 });
@@ -272,10 +278,12 @@ function tryRestore() {
 
 function saveState() {
   try {
+    // 只存前 40 件，多了序列化慢，也用不上
+    const savedList = list.value.slice(0, 40);
     sessionStorage.setItem(storageKey(), JSON.stringify({
       sort: sort.value,
-      list: list.value,
-      page: page.value,
+      list: savedList,
+      page: Math.min(page.value, 3),
       total: total.value,
       finished: finished.value,
       topic: topic.value,
