@@ -979,12 +979,35 @@ export class DingdanxiaJdProvider implements CpsProvider {
     const fmt = (d: Date) => d.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
       .replace('T', ' ').slice(0, 19);
 
+    // 京东 order_details2 限制单次查询时间范围不超过 1 小时
+    // 超过 1 小时的话拆成 1 小时一段，每段独立查，结果合并
+    const ONE_HOUR = 60 * 60 * 1000;
+    const spanMs = end.getTime() - start.getTime();
+    if (spanMs > ONE_HOUR) {
+      const all: UnifiedOrder[] = [];
+      let cursor = new Date(start.getTime());
+      while (cursor < end) {
+        const segEnd = new Date(Math.min(cursor.getTime() + ONE_HOUR, end.getTime()));
+        const seg = await this.fetchOrders(cursor, segEnd, page);
+        all.push(...seg);
+        cursor = segEnd;
+      }
+      // 去重（按订单号 + 子订单）
+      const seen = new Set<string>();
+      return all.filter((o) => {
+        const k = `${o.platformOrderNo}_${o.subOrderNo}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    }
+
     const data = await this.call<any>('/jd/order_details2', {
       pageIndex: page,
       pageSize: 100,
       startTime: fmt(start),
       endTime: fmt(end),
-      type: 1, // 1=下单时间 2=更新时间
+      type: 3, // 1=下单时间 2=完成时间 3=更新时间（增量拉取用更新时间）
     });
 
     const list = this.extractList(data);

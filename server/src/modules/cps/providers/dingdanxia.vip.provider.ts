@@ -446,18 +446,16 @@ export class DingdanxiaVipProvider implements CpsProvider {
   // ───────────────────────── 订单 ─────────────────────────
 
   async fetchOrders(start: Date, end: Date, page = 1): Promise<UnifiedOrder[]> {
-    const fmt = (d: Date) => {
-      const pad = (n: number) => String(n).padStart(2, '0');
-      return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-    };
-
     try {
-      const data = await this.call<any>('/vip/order_details', {
+      const data = await this.call<any>('/vip/order_details2', {
         page,
         pageSize: 100,
-        orderSn: undefined,
-        startTime: fmt(start),
-        endTime: fmt(end),
+        // 时间戳，单位毫秒
+        orderTimeStart: start.getTime(),
+        orderTimeEnd: end.getTime(),
+        // 按更新时间查更适合增量拉取，能抓到状态变更
+        updateTimeStart: start.getTime(),
+        updateTimeEnd: end.getTime(),
       });
 
       const list = this.extractList(data);
