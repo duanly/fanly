@@ -446,13 +446,33 @@ export class DingdanxiaVipProvider implements CpsProvider {
   // ───────────────────────── 订单 ─────────────────────────
 
   async fetchOrders(start: Date, end: Date, page = 1): Promise<UnifiedOrder[]> {
+    // 唯品会 order_details2 限制时间窗口不超过 1 小时
+    // 超过 1 小时的话拆成 1 小时一段，每段独立查，结果合并
+    const ONE_HOUR = 60 * 60 * 1000;
+    const spanMs = end.getTime() - start.getTime();
+    if (spanMs > ONE_HOUR) {
+      const all: UnifiedOrder[] = [];
+      let cursor = new Date(start.getTime());
+      while (cursor < end) {
+        const segEnd = new Date(Math.min(cursor.getTime() + ONE_HOUR, end.getTime()));
+        const seg = await this.fetchOrders(cursor, segEnd, page);
+        all.push(...seg);
+        cursor = segEnd;
+      }
+      // 去重（按订单号 + 子订单）
+      const seen = new Set<string>();
+      return all.filter((o) => {
+        const k = `${o.platformOrderNo}_${o.subOrderNo}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    }
+
     try {
       const data = await this.call<any>('/vip/order_details2', {
         page,
         pageSize: 100,
-        // 时间戳，单位毫秒
-        orderTimeStart: start.getTime(),
-        orderTimeEnd: end.getTime(),
         // 按更新时间查更适合增量拉取，能抓到状态变更
         updateTimeStart: start.getTime(),
         updateTimeEnd: end.getTime(),
