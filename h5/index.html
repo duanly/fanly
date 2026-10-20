@@ -7,11 +7,29 @@
     <meta name="theme-color" content="#ff3b30" />
     <meta name="description" content="省钱猫，买啥都返现。隐藏优惠券 + 返利，一键省钱。" />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/icons/icon-rounded-180.png" />
+
+    <!-- iOS 图标：必须用正方形无圆角，iOS 会自动加圆角和光泽 -->
+    <link rel="apple-touch-icon" href="/icons/icon-square-180.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="/icons/icon-square-120.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-square-180.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="省钱猫" />
+
+    <!-- 安卓/国产浏览器图标：多种尺寸，各家浏览器能识别哪套用哪套 -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-square-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-square-512.png" />
+
+    <!-- 安卓 PWA manifest -->
     <link rel="manifest" href="/manifest.json" />
+
+    <!-- 国产浏览器"添加到桌面"兼容提示（UC/QQ/百度/华为/小米/OPPO/vivo） -->
+    <meta name="apple-touch-icon-precomposed" href="/icons/icon-square-180.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="省钱猫" />
+
+    <!-- QQ 浏览器/微信分享图标 -->
+    <meta itemprop="image" content="/icons/icon-square-256.png" />
   </head>
   <body>
     <div id="app"></div>
