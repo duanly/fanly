@@ -38,6 +38,7 @@ export const api = {
 
   orders: (params) => http.get('/api/admin/orders', { params }),
   syncOrders: (hours) => http.post('/api/admin/orders/sync', { hours }),
+  recalcPending: () => http.post('/api/admin/orders/recalc-pending'),
 
   withdraws: (params) => http.get('/api/admin/withdraws', { params }),
   auditWithdraw: (id, pass, reason) => http.post(`/api/admin/withdraws/${id}/audit`, { pass, reason }),

@@ -39,6 +39,16 @@ export class OrderService {
       subOrderNo: u.subOrderNo || '',
     });
 
+    // 打印原始报文，方便排查状态映射问题
+    if (u.raw) {
+      this.logger.log(
+        `[订单原始报文] ${u.platform} ${u.platformOrderNo} `
+        + `raw_status=${u.raw.tk_status ?? u.raw.order_status ?? u.raw.status ?? u.raw.orderStatus ?? u.raw.validCode ?? '?'} `
+        + `mapped_status=${u.status} `
+        + `est=${u.estCommission} pay=${u.payAmount}`,
+      );
+    }
+
     const isNew = !order;
     if (!order) {
       const user = await this.resolveUser(u.platform, u.positionId);
@@ -57,12 +67,22 @@ export class OrderService {
 
     const prevStatus = order.orderStatus;
     const prevEstCommission = order.estCommission;
+    const prevUserId = order.userId;
     order.payAmount = String(u.payAmount);
     order.commissionRate = String(u.commissionRate);
     order.estCommission = String(u.estCommission);
     order.settleCommission = String(u.settleCommission || 0);
     order.settleTime = u.settleTime ?? order.settleTime;
     order.rawJson = u.raw ?? null;
+
+    // 老订单首次归属：之前 userId 为 null，这次解析出了用户
+    if (!isNew && !prevUserId) {
+      const user = await this.resolveUser(u.platform, u.positionId);
+      if (user) {
+        order.userId = user.id;
+        order.agentId = user.agentId ?? null;
+      }
+    }
 
     // 已入账的订单不再被平台状态回退，只认"转失效"
     if (prevStatus === OrderStatus.CREDITED && u.status !== 4) {
@@ -74,6 +94,19 @@ export class OrderService {
 
     // 新订单：把预估返利挂到用户 pending，前端显示"预估返 ¥X"
     if (isNew && order.userId) {
+      const userRate = this.cfg.num('rebate.user_rate', 0.5);
+      const user = await this.userRepo.findOneBy({ id: order.userId });
+      user.pending = add(user.pending, mul(order.estCommission, userRate));
+      await this.userRepo.save(user);
+    }
+
+    // 老订单首次归属：之前无主，这次才归属到用户，补上 pending
+    if (
+      !isNew && !prevUserId && order.userId &&
+      order.orderStatus !== OrderStatus.SETTLED &&
+      order.orderStatus !== OrderStatus.CREDITED &&
+      order.orderStatus !== OrderStatus.INVALID
+    ) {
       const userRate = this.cfg.num('rebate.user_rate', 0.5);
       const user = await this.userRepo.findOneBy({ id: order.userId });
       user.pending = add(user.pending, mul(order.estCommission, userRate));
@@ -181,5 +214,38 @@ export class OrderService {
       agentNickname: rawList[i]?.agentNickname || null,
     }));
     return { list, total, page, size };
+  }
+
+  /**
+   * 重算所有用户的 pending（预估返利池）。
+   * 历史原因导致 pending 不准时（比如订单首次归属延迟、estCommission 变更等），
+   * 用这个方法一键修复。以未结算（PAID/RECEIVED）且有归属的订单为基准重算。
+   */
+  async recalcPending(): Promise<{ fixed: number; totalPending: string }> {
+    const userRate = this.cfg.num('rebate.user_rate', 0.5);
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .select('o.userId', 'userId')
+      .addSelect('COALESCE(SUM(o.estCommission), 0)', 'totalEst')
+      .where('o.userId IS NOT NULL')
+      .andWhere('o.orderStatus IN (:...statuses)', { statuses: [OrderStatus.PAID, OrderStatus.RECEIVED] })
+      .groupBy('o.userId')
+      .getRawMany();
+
+    let fixed = 0;
+    let totalPending = '0.0000';
+    for (const row of rows) {
+      const userId = Number(row.userId);
+      const expected = mul(String(row.totalEst), userRate);
+      const user = await this.userRepo.findOneBy({ id: userId });
+      if (!user) continue;
+      if (toNum(user.pending) !== toNum(expected)) {
+        user.pending = expected;
+        await this.userRepo.save(user);
+        fixed += 1;
+      }
+      totalPending = add(totalPending, expected);
+    }
+    return { fixed, totalPending };
   }
 }

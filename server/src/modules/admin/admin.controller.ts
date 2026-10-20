@@ -102,4 +102,8 @@ export class AdminController {
   @Get('reconcile')
   @ApiOperation({ summary: '对账：用流水重放余额，返回不一致的账号' })
   reconcile() { return this.fund.reconcile(); }
+
+  @Post('orders/recalc-pending')
+  @ApiOperation({ summary: '重算所有用户的预估返利（pending），修复历史数据不准的问题' })
+  recalcPending() { return this.order.recalcPending(); }
 }

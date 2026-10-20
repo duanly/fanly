@@ -27,6 +27,9 @@
           <template #prefix><el-icon><Search /></el-icon></template>
         </el-input>
         <el-button size="small" :loading="syncing" @click="doSync">手动拉单</el-button>
+        <el-button size="small" type="warning" plain :loading="recalcing" @click="doRecalcPending">
+          重算返利中
+        </el-button>
       </div>
     </template>
 
@@ -121,6 +124,7 @@ const agentKeyword = ref('');
 const page = ref(1);
 const loading = ref(false);
 const syncing = ref(false);
+const recalcing = ref(false);
 
 const money = (v) => (+(v || 0)).toFixed(2);
 const fmt = (d) => (d ? new Date(d).toLocaleString('zh-CN') : '—');
@@ -153,6 +157,17 @@ async function doSync() {
     load();
   } finally {
     syncing.value = false;
+  }
+}
+
+async function doRecalcPending() {
+  recalcing.value = true;
+  try {
+    const r = await api.recalcPending();
+    ElMessage.success(`重算完成，修复了 ${r.fixed} 个用户，总预估返利 ¥${(+r.totalPending).toFixed(2)}`);
+    load();
+  } finally {
+    recalcing.value = false;
   }
 }
 

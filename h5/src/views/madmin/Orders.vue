@@ -60,6 +60,21 @@
               </div>
             </div>
           </div>
+          <div class="order-user">
+            <div v-if="o.userId" class="ou-row">
+              <van-icon name="user-o" size="12" color="#999" />
+              <span class="ou-name">{{ o.userNickname || '—' }}</span>
+              <span class="ou-phone">{{ o.userMobile || '' }}</span>
+            </div>
+            <span v-else style="color:#f56c6c;font-size:12px">未归属</span>
+            <div v-if="o.agentId" class="ou-row ou-agent">
+              <van-icon name="friends-o" size="12" color="#ff9800" />
+              <span class="ou-agent-code">{{ o.agentCode }}</span>
+              <span v-if="o.agentRealName || o.agentNickname" class="ou-agent-name">
+                {{ o.agentRealName || o.agentNickname }}
+              </span>
+            </div>
+          </div>
           <div class="order-foot">
             <span class="o-time">{{ formatTime(o.orderTime) }}</span>
           </div>
@@ -272,5 +287,36 @@ async function onLoad() {
   font-size: 12px;
   color: #999;
   text-align: right;
+}
+.order-user {
+  padding: 10px 12px;
+  border-top: 1px solid #f5f5f5;
+  background: #fafafa;
+  border-radius: 0 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ou-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.ou-name {
+  color: #333;
+  font-weight: 500;
+}
+.ou-phone {
+  color: #999;
+  font-size: 11px;
+}
+.ou-agent .ou-agent-code {
+  color: #ff9800;
+  font-weight: 600;
+}
+.ou-agent-name {
+  color: #666;
+  font-size: 11px;
 }
 </style>
