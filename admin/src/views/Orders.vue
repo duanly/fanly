@@ -25,11 +25,16 @@
         <template #default="{ row }">{{ names[row.platform] || row.platform }}</template>
       </el-table-column>
       <el-table-column prop="goodsTitle" label="商品" min-width="200" show-overflow-tooltip />
-      <el-table-column label="归属" width="140">
+      <el-table-column label="归属" width="160">
         <template #default="{ row }">
-          <span v-if="row.userId">用户 #{{ row.userId }}</span>
+          <div v-if="row.userId" style="line-height:1.4">
+            <div style="font-size:13px">{{ row.userNickname || '—' }}</div>
+            <div style="font-size:11px;color:#999">{{ row.userMobile || '' }}</div>
+          </div>
           <span v-else style="color:#f56c6c">未归属</span>
-          <span v-if="row.agentId" style="color:#999"> / 代理 #{{ row.agentId }}</span>
+          <div v-if="row.agentId" style="font-size:11px;color:#999;margin-top:2px">
+            代理: {{ row.agentCode || ('#' + row.agentId) }}
+          </div>
         </template>
       </el-table-column>
       <el-table-column label="实付" width="100">

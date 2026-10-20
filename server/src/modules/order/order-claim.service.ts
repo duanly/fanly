@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
 import { ClaimStatus, CpsOrder, OrderClaim, OrderStatus, User } from '@/entities';
 import { CommissionService } from '../commission/commission.service';
+import { SysConfigService } from '../admin/sys-config.service';
+import { add, mul } from '@/common/money';
 
 /** 重试这么多次还匹配不上，就不再自动重试了，转人工 */
 const MAX_RETRY = 24;
@@ -16,6 +18,7 @@ export class OrderClaimService {
     @InjectRepository(CpsOrder) private readonly orderRepo: Repository<CpsOrder>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly commission: CommissionService,
+    private readonly cfg: SysConfigService,
   ) {}
 
   private clean(no: string) {
@@ -34,6 +37,16 @@ export class OrderClaimService {
     order.userId = userId;
     order.agentId = user.agentId ?? null;
     await this.orderRepo.save(order);
+
+    // 未结算的订单：把预估返利挂到用户 pending，前端"我的"页才能显示"返利中"
+    if (
+      order.orderStatus === OrderStatus.PAID ||
+      order.orderStatus === OrderStatus.RECEIVED
+    ) {
+      const userRate = this.cfg.num('rebate.user_rate', 0.5);
+      user.pending = add(user.pending, mul(order.estCommission, userRate));
+      await this.userRepo.save(user);
+    }
 
     if (order.orderStatus === OrderStatus.SETTLED) {
       await this.commission.settleOrder(order);

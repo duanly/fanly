@@ -11,9 +11,11 @@
 
     <van-tabs v-model:active="status" sticky offset-top="46px" @change="onStatusChange">
       <van-tab title="全部" name="" />
-      <van-tab title="已付款" name="paid" />
-      <van-tab title="已结算" name="settled" />
-      <van-tab title="已失效" name="invalid" />
+      <van-tab title="已付款" name="1" />
+      <van-tab title="已收货" name="2" />
+      <van-tab title="已结算" name="3" />
+      <van-tab title="已入账" name="5" />
+      <van-tab title="已失效" name="4" />
     </van-tabs>
 
     <div class="search-row">
@@ -35,31 +37,31 @@
         <div v-for="o in list" :key="o.id" class="order-card">
           <div class="order-head">
             <span class="order-platform">{{ platName(o.platform) }}</span>
-            <span class="order-status" :class="'s-' + statusKey(o.status)">
-              {{ statusName(o.status) }}
+            <span class="order-status" :class="'s-' + statusKey(o.orderStatus)">
+              {{ statusName(o.orderStatus) }}
             </span>
           </div>
           <div class="order-body">
-            <img v-if="o.image" :src="o.image" class="o-img" />
+            <img v-if="o.goodsImg" :src="o.goodsImg" class="o-img" />
             <div class="o-info">
               <div class="o-title">{{ o.goodsTitle || o.title || '商品' }}</div>
               <div class="o-meta">
-                <span>订单号: {{ o.orderNo || o.id }}</span>
+                <span>订单号: {{ o.platformOrderNo || o.id }}</span>
               </div>
               <div class="o-price-row">
                 <div class="o-price">
                   <span class="label">金额</span>
-                  <span class="num">¥{{ o.price || o.paidAmount || 0 }}</span>
+                  <span class="num">¥{{ (+o.payAmount).toFixed(2) }}</span>
                 </div>
                 <div class="o-comm">
-                  <span class="label">返利</span>
-                  <span class="num">¥{{ o.commission || 0 }}</span>
+                  <span class="label">预估佣金</span>
+                  <span class="num">¥{{ (+o.estCommission).toFixed(2) }}</span>
                 </div>
               </div>
             </div>
           </div>
           <div class="order-foot">
-            <span class="o-time">{{ formatTime(o.createdAt || o.orderTime) }}</span>
+            <span class="o-time">{{ formatTime(o.orderTime) }}</span>
           </div>
         </div>
       </div>
@@ -90,19 +92,19 @@ function platName(p) {
 
 function statusName(s) {
   const m = {
-    pending: '待付款', paid: '已付款', settled: '已结算',
-    invalid: '已失效', refund: '已退款',
+    1: '已付款', 2: '已收货', 3: '已结算',
+    4: '已失效', 5: '已入账',
   };
-  return m[s] || s || '未知';
+  return m[s] || (s || '未知');
 }
 
 function statusKey(s) {
-  if (typeof s === 'number') {
-    if (s === 1) return 'paid';
-    if (s === 2) return 'settled';
-    if (s === 0) return 'invalid';
-  }
-  return s || 'unknown';
+  if (s === 1) return 'paid';
+  if (s === 2) return 'received';
+  if (s === 3) return 'settled';
+  if (s === 4) return 'invalid';
+  if (s === 5) return 'credited';
+  return 'unknown';
 }
 
 function formatTime(t) {
@@ -204,7 +206,9 @@ async function onLoad() {
   border-radius: 10px;
 }
 .order-status.s-paid { background: #e3f2fd; color: #1976d2; }
+.order-status.s-received { background: #fff8e1; color: #f57c00; }
 .order-status.s-settled { background: #e8f5e9; color: #388e3c; }
+.order-status.s-credited { background: #e8f5e9; color: #2e7d32; }
 .order-status.s-invalid { background: #f5f5f5; color: #999; }
 .order-status.s-refund { background: #ffebee; color: #d32f2f; }
 .order-body {

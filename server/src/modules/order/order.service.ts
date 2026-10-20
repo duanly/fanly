@@ -131,16 +131,30 @@ export class OrderService {
     };
   }
 
-  /** 后台用：全量列表 */
+  /** 后台用：全量列表，带用户昵称/手机和代理码 */
   async listAll(q: { platform?: string; status?: number; agentId?: number; page?: number; size?: number }) {
     const { page = 1, size = 20 } = q;
-    const where: any = {};
-    if (q.platform) where.platform = q.platform;
-    if (q.status) where.orderStatus = q.status;
-    if (q.agentId) where.agentId = q.agentId;
-    const [list, total] = await this.orderRepo.findAndCount({
-      where, order: { orderTime: 'DESC' }, skip: (page - 1) * size, take: size,
-    });
+    const qb = this.orderRepo.createQueryBuilder('o')
+      .leftJoin('user', 'u', 'u.id = o.userId')
+      .leftJoin('agent', 'a', 'a.id = o.agentId')
+      .addSelect('u.nickname', 'userNickname')
+      .addSelect('u.mobile', 'userMobile')
+      .addSelect('a.agentCode', 'agentCode');
+    if (q.platform) qb.andWhere('o.platform = :platform', { platform: q.platform });
+    if (q.status) qb.andWhere('o.orderStatus = :status', { status: q.status });
+    if (q.agentId) qb.andWhere('o.agentId = :agentId', { agentId: q.agentId });
+    qb.orderBy('o.orderTime', 'DESC')
+      .skip((page - 1) * size)
+      .take(size);
+
+    const [entities, total] = await qb.getManyAndCount();
+    const rawList = await qb.getRawMany();
+    const list = entities.map((entity, i) => ({
+      ...entity,
+      userNickname: rawList[i]?.userNickname || null,
+      userMobile: rawList[i]?.userMobile || null,
+      agentCode: rawList[i]?.agentCode || null,
+    }));
     return { list, total, page, size };
   }
 }
