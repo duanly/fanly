@@ -56,6 +56,7 @@ export class OrderService {
     }
 
     const prevStatus = order.orderStatus;
+    const prevEstCommission = order.estCommission;
     order.payAmount = String(u.payAmount);
     order.commissionRate = String(u.commissionRate);
     order.estCommission = String(u.estCommission);
@@ -76,6 +77,20 @@ export class OrderService {
       const userRate = this.cfg.num('rebate.user_rate', 0.5);
       const user = await this.userRepo.findOneBy({ id: order.userId });
       user.pending = add(user.pending, mul(order.estCommission, userRate));
+      await this.userRepo.save(user);
+    }
+
+    // 老订单：estCommission 变了且订单还在未结算状态，同步更新 pending
+    if (
+      !isNew && order.userId &&
+      prevEstCommission !== order.estCommission &&
+      (order.orderStatus === OrderStatus.PAID || order.orderStatus === OrderStatus.RECEIVED)
+    ) {
+      const userRate = this.cfg.num('rebate.user_rate', 0.5);
+      const user = await this.userRepo.findOneBy({ id: order.userId });
+      const diff = sub(mul(order.estCommission, userRate), mul(prevEstCommission, userRate));
+      user.pending = add(user.pending, diff);
+      if (toNum(user.pending) < 0) user.pending = '0.0000';
       await this.userRepo.save(user);
     }
 
@@ -131,18 +146,25 @@ export class OrderService {
     };
   }
 
-  /** 后台用：全量列表，带用户昵称/手机和代理码 */
-  async listAll(q: { platform?: string; status?: number; agentId?: number; page?: number; size?: number }) {
+  /** 后台用：全量列表，带用户昵称/手机和代理信息 */
+  async listAll(q: { platform?: string; status?: number; agentId?: number; page?: number; size?: number; agentKeyword?: string }) {
     const { page = 1, size = 20 } = q;
     const qb = this.orderRepo.createQueryBuilder('o')
       .leftJoin('user', 'u', 'u.id = o.userId')
       .leftJoin('agent', 'a', 'a.id = o.agentId')
+      .leftJoin('user', 'au', 'au.id = a.userId')
       .addSelect('u.nickname', 'userNickname')
       .addSelect('u.mobile', 'userMobile')
-      .addSelect('a.agentCode', 'agentCode');
+      .addSelect('a.agentCode', 'agentCode')
+      .addSelect('a.realName', 'agentRealName')
+      .addSelect('a.level', 'agentLevel')
+      .addSelect('au.nickname', 'agentNickname');
     if (q.platform) qb.andWhere('o.platform = :platform', { platform: q.platform });
     if (q.status) qb.andWhere('o.orderStatus = :status', { status: q.status });
     if (q.agentId) qb.andWhere('o.agentId = :agentId', { agentId: q.agentId });
+    if (q.agentKeyword) {
+      qb.andWhere('(a.agentCode LIKE :kw OR a.realName LIKE :kw OR au.nickname LIKE :kw)', { kw: `%${q.agentKeyword}%` });
+    }
     qb.orderBy('o.orderTime', 'DESC')
       .skip((page - 1) * size)
       .take(size);
@@ -154,6 +176,9 @@ export class OrderService {
       userNickname: rawList[i]?.userNickname || null,
       userMobile: rawList[i]?.userMobile || null,
       agentCode: rawList[i]?.agentCode || null,
+      agentRealName: rawList[i]?.agentRealName || null,
+      agentLevel: rawList[i]?.agentLevel != null ? Number(rawList[i].agentLevel) : null,
+      agentNickname: rawList[i]?.agentNickname || null,
     }));
     return { list, total, page, size };
   }

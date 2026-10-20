@@ -65,6 +65,7 @@ export class AdminController {
     return this.order.listAll({
       platform: q.platform, status: q.status ? +q.status : undefined,
       agentId: q.agentId ? +q.agentId : undefined,
+      agentKeyword: q.agentKeyword || undefined,
       page: q.page ? +q.page : 1, size: q.pageSize ? +q.pageSize : 20,
     });
   }
