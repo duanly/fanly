@@ -51,6 +51,12 @@
           </div>
           <div class="grid-name">订单</div>
         </div>
+        <div class="grid-item" @click="$router.push('/madmin/users')">
+          <div class="grid-ico" style="background: linear-gradient(135deg,#667eea,#764ba2)">
+            <van-icon name="user-o" />
+          </div>
+          <div class="grid-name">用户</div>
+        </div>
         <div class="grid-item" @click="$router.push('/madmin/agents')">
           <div class="grid-ico" style="background: linear-gradient(135deg,#a8edea,#fed6e3)">
             <van-icon name="friends-o" />
@@ -89,6 +95,10 @@
         <div class="ov-item">
           <div class="ov-num">¥{{ overview.gmv || '0.00' }}</div>
           <div class="ov-label">GMV<sup class="ov-tip">*</sup></div>
+        </div>
+        <div class="ov-item">
+          <div class="ov-num">{{ overview.users || 0 }}</div>
+          <div class="ov-label">用户总数</div>
         </div>
         <div class="ov-item">
           <div class="ov-num">{{ overview.agents || 0 }}</div>
@@ -183,6 +193,7 @@ const stats = reactive({ onShelf: 0, pending: 0, offShelf: 0 });
 const overview = reactive({
   orderTotal: 0,
   gmv: '0.00',
+  users: 0,
   agents: 0,
   platformCommission: '0.00',
   todayOrders: 0,
@@ -192,14 +203,16 @@ const overview = reactive({
 
 async function loadOverview() {
   try {
-    // 并发加载：订单、代理、待审核提现
-    const [orders, agents, withdraws] = await Promise.all([
+    // 并发加载：订单、用户、代理、待审核提现
+    const [orders, users, agents, withdraws] = await Promise.all([
       adminApi.orders({ pageSize: 50, status: 'paid' }),
+      adminApi.users({ pageSize: 1 }),
       adminApi.agents({ pageSize: 1 }),
       adminApi.withdraws({ status: 0, pageSize: 1 }),
-    ]).catch(() => [null, null, null]);
+    ]).catch(() => [null, null, null, null]);
 
     overview.orderTotal = orders?.total || 0;
+    overview.users = users?.total || 0;
     overview.agents = agents?.total || 0;
     overview.pendingWithdraw = withdraws?.total || 0;
 

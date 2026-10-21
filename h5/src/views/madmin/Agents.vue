@@ -19,10 +19,14 @@
     <div class="search-row">
       <van-search
         v-model="keyword"
-        placeholder="搜索手机号/邀请码"
+        placeholder="搜索手机号/昵称/邀请码"
         shape="round"
         @search="onSearch"
       />
+    </div>
+    <div class="filter-row">
+      <van-switch v-model="showPrep" size="18" @change="onPrepChange" />
+      <span class="filter-label">显示预备代理</span>
     </div>
 
     <van-list
@@ -35,7 +39,10 @@
         <div v-for="a in list" :key="a.id" class="agent-card">
           <div class="agent-head">
             <div class="a-info">
-              <div class="a-mobile">{{ a.mobile || a.nickname || '未知' }}</div>
+              <div class="a-mobile">{{ a.nickname || a.mobile || a.realName || '未知' }}</div>
+              <div v-if="(a.nickname && a.mobile) || a.realName" class="a-sub">
+                {{ a.mobile || (a.realName ? '实名: ' + a.realName : '') }}
+              </div>
               <div class="a-code" @click="copyCode(a.agentCode)">
                 推广码: <b>{{ a.agentCode || '-' }}</b>
                 <van-icon name="copy-o" size="11" style="margin-left:2px" />
@@ -193,6 +200,7 @@ const pageSize = 20;
 const loading = ref(false);
 const finished = ref(false);
 const active = ref('agents');
+const showPrep = ref(false); // 是否显示预备代理（默认不显示）
 
 // 设置等级弹层
 const showLevelPicker = ref(false);
@@ -240,6 +248,10 @@ function onSearch() {
   reset();
 }
 
+function onPrepChange() {
+  reset();
+}
+
 function reset() {
   list.value = [];
   page.value = 1;
@@ -255,6 +267,7 @@ async function onLoad() {
     };
     if (status.value !== '') params.status = Number(status.value);
     if (keyword.value.trim()) params.keyword = keyword.value.trim();
+    if (!showPrep.value) params.minLevel = 1; // 默认过滤预备代理（level 0）
 
     const r = await adminApi.agents(params);
     if (seq !== reqSeq) return;
@@ -303,12 +316,24 @@ function copyCode(code) {
   padding-bottom: 60px;
 }
 .search-row {
-  padding: 8px 12px;
+  padding: 8px 12px 0;
   background: #fff;
   border-bottom: 1px solid #eee;
 }
 .search-row :deep(.van-search) {
   padding: 0;
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px 10px;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+}
+.filter-label {
+  font-size: 13px;
+  color: #666;
 }
 .agent-list {
   padding: 8px 12px;
@@ -333,6 +358,11 @@ function copyCode(code) {
   font-size: 16px;
   font-weight: 600;
   color: #1a1a1a;
+  margin-bottom: 2px;
+}
+.a-sub {
+  font-size: 12px;
+  color: #999;
   margin-bottom: 4px;
 }
 .a-code {

@@ -172,10 +172,15 @@ export const adminApi = {
 
   // 订单
   orders: (params) => adminHttp.get('/api/admin/orders', { params }),
+  assignOrder: (id, userId) => adminHttp.post(`/api/admin/orders/${id}/assign`, { userId }),
+  recalcPending: () => adminHttp.post('/api/admin/orders/recalc-pending'),
 
   // 代理
   agents: (params) => adminHttp.get('/api/admin/agents', { params }),
   updateAgent: (id, data) => adminHttp.post(`/api/admin/agents/${id}`, data),
+
+  // 用户
+  users: (params) => adminHttp.get('/api/admin/users', { params }),
 
   // 提现
   withdraws: (params) => adminHttp.get('/api/admin/withdraws', { params }),

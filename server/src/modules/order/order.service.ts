@@ -180,7 +180,7 @@ export class OrderService {
   }
 
   /** 后台用：全量列表，带用户昵称/手机和代理信息 */
-  async listAll(q: { platform?: string; status?: number; agentId?: number; page?: number; size?: number; agentKeyword?: string }) {
+  async listAll(q: { platform?: string; status?: number; agentId?: number; page?: number; size?: number; agentKeyword?: string; keyword?: string; userId?: number }) {
     const { page = 1, size = 20 } = q;
     const qb = this.orderRepo.createQueryBuilder('o')
       .leftJoin('user', 'u', 'u.id = o.userId')
@@ -195,6 +195,12 @@ export class OrderService {
     if (q.platform) qb.andWhere('o.platform = :platform', { platform: q.platform });
     if (q.status) qb.andWhere('o.orderStatus = :status', { status: q.status });
     if (q.agentId) qb.andWhere('o.agentId = :agentId', { agentId: q.agentId });
+    if (q.userId) qb.andWhere('o.userId = :userId', { userId: q.userId });
+    if (q.keyword) {
+      qb.andWhere('(o.platformOrderNo LIKE :kw OR o.goodsTitle LIKE :kw OR o.subOrderNo LIKE :kw)', {
+        kw: `%${q.keyword}%`,
+      });
+    }
     if (q.agentKeyword) {
       qb.andWhere('(a.agentCode LIKE :kw OR a.realName LIKE :kw OR au.nickname LIKE :kw)', { kw: `%${q.agentKeyword}%` });
     }
@@ -247,5 +253,58 @@ export class OrderService {
       totalPending = add(totalPending, expected);
     }
     return { fixed, totalPending };
+  }
+
+  /**
+   * 手动指派订单归属人。
+   *
+   * 场景：用户通过推广链接进入，但因为种种原因（换了规格、跨店购买等）
+   * 订单里没有 custom_parameters，导致系统无法自动归属。
+   * 管理员核实后可以手动指派。
+   *
+   * 只改归属，不重新分佣——
+   *   - 未结算订单：改 userId + agentId，同步更新双方 pending
+   *   - 已结算/已入账：只改归属记录，分佣账不动（避免搞乱已结算的财务数据）
+   *   - 已失效：只改记录
+   */
+  async assignUser(orderId: number, userId: number) {
+    const order = await this.orderRepo.findOneBy({ id: orderId });
+    if (!order) throw new Error('订单不存在');
+
+    const targetUser = await this.userRepo.findOneBy({ id: userId });
+    if (!targetUser) throw new Error('目标用户不存在');
+
+    const prevUserId = order.userId;
+    const userRate = this.cfg.num('rebate.user_rate', 0.5);
+
+    // 如果订单在未结算状态，要调整两边的 pending
+    const isPendingStatus =
+      order.orderStatus === OrderStatus.PAID ||
+      order.orderStatus === OrderStatus.RECEIVED;
+
+    if (isPendingStatus) {
+      const rebate = mul(order.estCommission, userRate);
+
+      // 从原用户扣掉
+      if (prevUserId) {
+        const prevUser = await this.userRepo.findOneBy({ id: prevUserId });
+        if (prevUser) {
+          prevUser.pending = sub(prevUser.pending, rebate);
+          if (toNum(prevUser.pending) < 0) prevUser.pending = '0.0000';
+          await this.userRepo.save(prevUser);
+        }
+      }
+
+      // 加到新用户
+      targetUser.pending = add(targetUser.pending, rebate);
+      await this.userRepo.save(targetUser);
+    }
+
+    // 更新订单归属
+    order.userId = userId;
+    order.agentId = targetUser.agentId ?? null;
+    await this.orderRepo.save(order);
+
+    return { ok: true, orderId, userId, prevUserId };
   }
 }

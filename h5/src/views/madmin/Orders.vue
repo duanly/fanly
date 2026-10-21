@@ -77,12 +77,61 @@
           </div>
           <div class="order-foot">
             <span class="o-time">{{ formatTime(o.orderTime) }}</span>
+            <van-button
+              size="mini"
+              type="primary"
+              plain
+              round
+              @click.stop="openAssign(o)"
+            >指派归属</van-button>
           </div>
         </div>
       </div>
     </van-list>
 
     <van-empty v-if="!loading && !list.length" description="暂无订单" />
+
+    <!-- 指派归属弹层 -->
+    <van-popup
+      v-model:show="showAssign"
+      position="bottom"
+      round
+      :style="{ height: '70vh', padding: '16px 16px 0' }"
+    >
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:16px;font-weight:600">指派订单归属人</div>
+        <van-icon name="cross" size="20" @click="showAssign = false" />
+      </div>
+      <van-search
+        v-model="assignKeyword"
+        placeholder="搜索用户手机号/昵称/邀请码"
+        shape="round"
+        @search="onAssignSearch"
+      />
+      <div style="max-height:calc(70vh - 110px);overflow-y:auto">
+        <div v-if="assignLoading" style="text-align:center;padding:20px;color:#999">
+          <van-loading size="20px" /> 搜索中...
+        </div>
+        <div v-else-if="!assignList.length && assignSearched" style="text-align:center;padding:30px;color:#999">
+          未找到用户
+        </div>
+        <div v-else>
+          <div
+            v-for="u in assignList"
+            :key="u.id"
+            class="assign-user-item"
+            @click="doAssign(u)"
+          >
+            <div class="au-avatar">{{ (u.nickname || u.mobile || '用').slice(0,1) }}</div>
+            <div class="au-info">
+              <div class="au-name">{{ u.nickname || '—' }}</div>
+              <div class="au-mobile">{{ u.mobile || '未绑定手机' }}</div>
+            </div>
+            <van-icon name="arrow" size="14" color="#ccc" />
+          </div>
+        </div>
+      </div>
+    </van-popup>
 
     <!-- 底部 tabbar -->
     <van-tabbar v-model="active" route fixed safe-area-inset-bottom active-color="#ff4b3a">
@@ -97,7 +146,7 @@
 
 <script setup>
 import { ref } from 'vue';
-import { showToast } from 'vant';
+import { showToast, showConfirmDialog } from 'vant';
 import { adminApi } from '../../api';
 
 function platName(p) {
@@ -176,6 +225,57 @@ async function onLoad() {
     showToast(e.message || '加载失败');
   } finally {
     loading.value = false;
+  }
+}
+
+// ---- 指派归属 ----
+const showAssign = ref(false);
+const currentOrder = ref(null);
+const assignKeyword = ref('');
+const assignList = ref([]);
+const assignLoading = ref(false);
+const assignSearched = ref(false);
+
+function openAssign(o) {
+  currentOrder.value = o;
+  assignKeyword.value = '';
+  assignList.value = [];
+  assignSearched.value = false;
+  showAssign.value = true;
+}
+
+async function onAssignSearch() {
+  if (!assignKeyword.value.trim()) {
+    assignList.value = [];
+    assignSearched.value = false;
+    return;
+  }
+  assignLoading.value = true;
+  try {
+    const r = await adminApi.users({ keyword: assignKeyword.value.trim(), page: 1, pageSize: 20 });
+    assignList.value = r.list || r || [];
+    assignSearched.value = true;
+  } catch (e) {
+    showToast(e.message || '搜索失败');
+  } finally {
+    assignLoading.value = false;
+  }
+}
+
+async function doAssign(u) {
+  try {
+    await showConfirmDialog({
+      title: '确认指派',
+      message: `将订单 ${currentOrder.value.platformOrderNo} 指派给 ${u.nickname || u.mobile}？`,
+    });
+    await adminApi.assignOrder(currentOrder.value.id, u.id);
+    showToast('指派成功');
+    showAssign.value = false;
+    reset();
+  } catch (e) {
+    if (e !== 'cancel') {
+      showToast(e.message || '指派失败');
+    }
   }
 }
 </script>
@@ -318,5 +418,45 @@ async function onLoad() {
 .ou-agent-name {
   color: #666;
   font-size: 11px;
+}
+
+.order-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.assign-user-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 8px;
+  border-bottom: 1px solid #f5f5f5;
+}
+.au-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff976a, #ff4b3a);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.au-info {
+  flex: 1;
+  min-width: 0;
+}
+.au-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.au-mobile {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
 }
 </style>

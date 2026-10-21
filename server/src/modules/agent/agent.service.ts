@@ -259,12 +259,22 @@ export class AgentService implements OnModuleInit {
   }
 
   // ---- 后台 ----
-  async adminList(status?: number, page = 1, size = 20) {
-    const where: any = {};
-    if (status !== undefined) where.status = status;
-    const [list, total] = await this.agentRepo.findAndCount({
-      where, order: { id: 'DESC' }, skip: (page - 1) * size, take: size,
-    });
+  async adminList(q: { status?: number; keyword?: string; minLevel?: number; page?: number; size?: number }) {
+    const { page = 1, size = 20 } = q;
+    const qb = this.agentRepo.createQueryBuilder('a')
+      .leftJoin('user', 'u', 'u.id = a.userId');
+    if (q.status !== undefined) qb.andWhere('a.status = :status', { status: q.status });
+    if (q.minLevel) qb.andWhere('a.level >= :minLevel', { minLevel: q.minLevel });
+    if (q.keyword) {
+      qb.andWhere('(u.mobile LIKE :kw OR u.nickname LIKE :kw OR a.agentCode LIKE :kw OR a.realName LIKE :kw)', {
+        kw: `%${q.keyword}%`,
+      });
+    }
+    qb.orderBy('a.id', 'DESC')
+      .skip((page - 1) * size)
+      .take(size);
+
+    const [list, total] = await qb.getManyAndCount();
     const enriched = await Promise.all(list.map(async (a) => {
       const u = await this.userRepo.findOneBy({ id: a.userId });
       return {
@@ -292,5 +302,80 @@ export class AgentService implements OnModuleInit {
     }
     Object.assign(agent, patch);
     return this.agentRepo.save(agent);
+  }
+
+  // ---- 用户管理后台 ----
+
+  /**
+   * 用户列表（后台用）：基本信息 + 代理等级 + 上级 + 消费/返利统计
+   */
+  async adminUserList(q: {
+    keyword?: string;
+    agentId?: number;
+    minLevel?: number;
+    page?: number;
+    size?: number;
+  }) {
+    const { page = 1, size = 20 } = q;
+    const qb = this.userRepo.createQueryBuilder('u')
+      .leftJoin('agent', 'a', 'a.id = u.agentId')
+      .leftJoin('agent', 'pa', 'pa.id = a.parentId')
+      .leftJoin('user', 'pu', 'pu.id = pa.userId')
+      .addSelect('a.level', 'agentLevel')
+      .addSelect('a.agentCode', 'agentCode')
+      .addSelect('a.manualLevel', 'agentManualLevel')
+      .addSelect('pa.agentCode', 'parentAgentCode')
+      .addSelect('pu.nickname', 'parentNickname')
+      .addSelect('pu.mobile', 'parentMobile');
+
+    if (q.keyword) {
+      qb.andWhere('(u.mobile LIKE :kw OR u.nickname LIKE :kw OR u.inviteCode LIKE :kw)', {
+        kw: `%${q.keyword}%`,
+      });
+    }
+    if (q.agentId) qb.andWhere('u.agentId = :agentId', { agentId: q.agentId });
+    if (q.minLevel) qb.andWhere('a.level >= :minLevel', { minLevel: q.minLevel });
+
+    qb.orderBy('u.id', 'DESC')
+      .skip((page - 1) * size)
+      .take(size);
+
+    const [entities, total] = await qb.getManyAndCount();
+    const rawList = await qb.getRawMany();
+
+    // 批量查订单统计（消费总额 + 订单数 + 返利总额）
+    const userIds = entities.map((u) => u.id);
+    const orderStats = userIds.length > 0
+      ? await this.orderRepo
+          .createQueryBuilder('o')
+          .select('o.userId', 'userId')
+          .addSelect('COALESCE(SUM(o.payAmount), 0)', 'totalSpend')
+          .addSelect('COUNT(o.id)', 'orderCount')
+          .addSelect('COALESCE(SUM(o.settleCommission), 0)', 'totalCommission')
+          .where('o.userId IN (:...userIds)', { userIds })
+          .andWhere('o.orderStatus != :invalidStatus', { invalidStatus: 4 })
+          .groupBy('o.userId')
+          .getRawMany()
+      : [];
+    const statsMap = new Map(orderStats.map((s) => [Number(s.userId), s]));
+
+    const list = entities.map((u, i) => {
+      const raw = rawList[i] || {};
+      const stats = statsMap.get(u.id) || { totalSpend: 0, orderCount: 0, totalCommission: 0 };
+      return {
+        ...u,
+        agentLevel: raw.agentLevel != null ? Number(raw.agentLevel) : null,
+        agentCode: raw.agentCode || null,
+        agentManualLevel: raw.agentManualLevel ? Boolean(raw.agentManualLevel) : false,
+        parentAgentCode: raw.parentAgentCode || null,
+        parentNickname: raw.parentNickname || null,
+        parentMobile: raw.parentMobile || null,
+        totalSpend: Number(stats.totalSpend || 0).toFixed(2),
+        orderCount: Number(stats.orderCount || 0),
+        totalCommission: Number(stats.totalCommission || 0).toFixed(2),
+      };
+    });
+
+    return { list, total, page, size };
   }
 }

@@ -49,8 +49,18 @@ export class AdminController {
 
   @Get('agents')
   @ApiOperation({ summary: '代理列表（带业绩）' })
-  agents(@Query('status') status?: string, @Query('page') page = '1') {
-    return this.agent.adminList(status !== undefined && status !== '' ? +status : undefined, +page);
+  agents(
+    @Query('status') status?: string,
+    @Query('keyword') keyword?: string,
+    @Query('minLevel') minLevel?: string,
+    @Query('page') page = '1',
+  ) {
+    return this.agent.adminList({
+      status: status !== undefined && status !== '' ? +status : undefined,
+      keyword: keyword || undefined,
+      minLevel: minLevel ? +minLevel : undefined,
+      page: +page,
+    });
   }
 
   @Post('agents/:id')
@@ -65,6 +75,8 @@ export class AdminController {
     return this.order.listAll({
       platform: q.platform, status: q.status ? +q.status : undefined,
       agentId: q.agentId ? +q.agentId : undefined,
+      userId: q.userId ? +q.userId : undefined,
+      keyword: q.keyword || undefined,
       agentKeyword: q.agentKeyword || undefined,
       page: q.page ? +q.page : 1, size: q.pageSize ? +q.pageSize : 20,
     });
@@ -106,4 +118,29 @@ export class AdminController {
   @Post('orders/recalc-pending')
   @ApiOperation({ summary: '重算所有用户的预估返利（pending），修复历史数据不准的问题' })
   recalcPending() { return this.order.recalcPending(); }
+
+  @Post('orders/:id/assign')
+  @ApiOperation({ summary: '手动指派订单归属人（按用户ID）' })
+  assignOrder(
+    @Param('id') id: string,
+    @Body() body: { userId: number },
+  ) { return this.order.assignUser(+id, body.userId); }
+
+  @Get('users')
+  @ApiOperation({ summary: '用户列表（后台用）' })
+  users(
+    @Query('keyword') keyword?: string,
+    @Query('agentId') agentId?: string,
+    @Query('minLevel') minLevel?: string,
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '20',
+  ) {
+    return this.agent.adminUserList({
+      keyword: keyword || undefined,
+      agentId: agentId ? +agentId : undefined,
+      minLevel: minLevel ? +minLevel : undefined,
+      page: +page,
+      size: +pageSize,
+    });
+  }
 }
