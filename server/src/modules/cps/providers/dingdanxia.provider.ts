@@ -931,6 +931,8 @@ export class DingdanxiaJdProvider implements CpsProvider {
     const reqBody: Record<string, any> = {
       materialId,
       unionId: this.opt.unionId,
+      // 自定义参数，订单归属用（需要京东联盟白名单，ext1 字段会在订单里原样返回）
+      ext1: positionId,
       // 只传必填参数，其他的不传避免干扰
     };
     this.logger.debug(`京东转链请求: goodsId=${goodsId}, materialId=${materialId}, baseUrl=${this.commonBaseUrl}`);
@@ -1021,23 +1023,57 @@ export class DingdanxiaJdProvider implements CpsProvider {
   }
 
   private mapOrder(o: any): UnifiedOrder {
-    const payAmount = Number(o.actualPayPrice ?? o.pay_price ?? o.order_price ?? o.factPrice ?? 0);
-    const commissionRate = Number(o.feeRate ?? o.commission_rate ?? 0) / 100;
+    // 计佣金额：预估用 estimateCosPrice，结算用 actualCosPrice
+    const estCosPrice = Number(o.estimateCosPrice ?? o.estimate_cos_price ?? o.actualPayPrice ?? o.pay_price ?? o.order_price ?? 0);
+    const actualCosPrice = Number(o.actualCosPrice ?? o.actual_cos_price ?? 0);
+    const commissionRate = Number(o.commissionRate ?? o.commission_rate ?? o.feeRate ?? 0) / 100;
     const estCommission = Number(o.estimateFee ?? o.estimate_fee ?? o.commission ?? o.fee ?? 0);
-    const settleCommission = Number(o.settleFee ?? o.settle_fee ?? 0);
+    const settleCommission = Number(o.actualFee ?? o.settleFee ?? o.settle_fee ?? 0);
 
-    // 京东订单状态：1=完成 2=付款确认 3=取消 4=申请退款 5=退款成功 6=已结算
-    let status = 1;
-    const rawStatus = String(o.validCode ?? o.status ?? o.order_status ?? '');
-    if (rawStatus === '17' || rawStatus === '已结算' || rawStatus.includes('结算')) {
-      status = 3;
-    } else if (rawStatus === '2' || rawStatus.includes('付款')) {
-      status = 1;
-    } else if (rawStatus === '3' || rawStatus === '4' || rawStatus === '5' || rawStatus.includes('取消') || rawStatus.includes('退款')) {
-      status = 4;
+    /**
+     * 京东订单状态（validCode） — 根据官方文档：
+     *   15 - 待付款
+     *   16 - 已付款
+     *   17 - 已完成（购买用户确认收货）
+     *    2 - 无效-拆单
+     *    3 - 无效-取消
+     *    4 - 无效-京东帮帮主订单
+     *    5 - 无效-账号异常
+     *   ... 其他 2~14、19~31 全部为无效状态
+     *
+     * 归一到统一状态：
+     *   1 已付款  → validCode 16
+     *   2 已收货  → validCode 17
+     *   3 已结算  → validCode 17 且 actualFee > 0（京东没有明确的"已结算"状态码，按实际佣金>0判断）
+     *   4 已失效  → validCode 为 2~14 或 19~31 等无效值
+     */
+    const validCode = Number(o.validCode ?? o.status ?? o.order_status ?? 0);
+    let status: number;
+    if (validCode === 16) {
+      status = 1; // 已付款
+    } else if (validCode === 17) {
+      // 已完成（确认收货）→ 有实际佣金则视为已结算，否则已收货
+      status = settleCommission > 0 ? 3 : 2;
+    } else if (validCode === 15) {
+      status = 1; // 待付款也先归为已付款，后续会更新
+    } else {
+      status = 4; // 其他都是已失效
     }
 
-    const positionId = String(o.positionId ?? o.position_id ?? o.subUnionId ?? o.unionId ?? '');
+    // 订单归属：ext1 是推客生成推广链接时传入的扩展字段（需要白名单）
+    // 兼容多种格式：纯字符串 / JSON / 自定义
+    let positionId = '';
+    const ext1 = o.ext1 ?? o.ext_1 ?? o.customParameters ?? o.custom_parameters ?? '';
+    if (ext1) {
+      try {
+        const parsed = JSON.parse(String(ext1));
+        positionId = parsed.uid ?? parsed.positionId ?? parsed.userId ?? String(ext1);
+      } catch {
+        positionId = String(ext1);
+      }
+    }
+    // 兜底：subUnionId / unionId 不行，那些是联盟侧的ID不是自定义参数
+    if (!positionId) positionId = String(o.subUnionId ?? o.sub_union_id ?? '');
 
     const parseDate = (s: string | number | undefined) => {
       if (!s) return undefined;
@@ -1047,19 +1083,19 @@ export class DingdanxiaJdProvider implements CpsProvider {
 
     return {
       platform: 'JD',
-      platformOrderNo: String(o.parentId ?? o.order_id ?? o.orderId ?? o.id ?? ''),
+      platformOrderNo: String(o.orderId ?? o.order_id ?? o.parentId ?? o.id ?? ''),
       subOrderNo: String(o.id ?? o.sku_id ?? o.skuId ?? o.item_id ?? ''),
       positionId,
       goodsId: String(o.skuId ?? o.sku_id ?? o.goods_id ?? ''),
       goodsTitle: o.skuName ?? o.sku_name ?? o.goods_name ?? o.title ?? '',
       goodsImg: o.skuPic ?? o.pic ?? o.image ?? o.goods_img ?? '',
-      payAmount: round2(payAmount),
+      payAmount: round2(status === 3 ? actualCosPrice : estCosPrice),
       commissionRate,
       estCommission: round2(estCommission),
-      settleCommission: status === 3 ? round2(settleCommission || estCommission) : 0,
+      settleCommission: status === 3 ? round2(settleCommission) : 0,
       status,
-      orderTime: parseDate(o.orderTime ?? o.create_time ?? o.order_time) ?? new Date(),
-      settleTime: parseDate(o.settleTime ?? o.settle_time ?? o.finish_time),
+      orderTime: parseDate(o.orderTime ?? o.order_time ?? o.create_time) ?? new Date(),
+      settleTime: parseDate(o.finishTime ?? o.finish_time ?? o.settleTime ?? o.settle_time),
       raw: o,
     };
   }

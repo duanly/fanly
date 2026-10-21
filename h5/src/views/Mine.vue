@@ -113,6 +113,17 @@
           <span v-else class="muted">去看看</span>
         </template>
       </van-cell>
+      <van-cell
+        v-if="canInstall || isIOS"
+        title="添加到桌面"
+        is-link
+        icon="desktop-o"
+        @click="onAddToDesktop"
+      >
+        <template #value>
+          <span class="muted">访问更方便</span>
+        </template>
+      </van-cell>
     </van-cell-group>
 
     <div style="padding:24px 16px">
@@ -192,7 +203,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showConfirmDialog, showToast } from 'vant';
 import { api } from '../api';
@@ -209,6 +220,47 @@ const inviteCodeInput = ref('');
 const bindingInviter = ref(false);
 const router = useRouter();
 const money = (v) => (+(v || 0)).toFixed(2);
+
+// ─── 添加到桌面 ───
+const canInstall = ref(false);
+let deferredPrompt = null;
+
+// iOS 判断：Safari 浏览器且未安装 PWA
+const isIOS = ref(false);
+
+function onBeforeInstallPrompt(e) {
+  e.preventDefault();
+  deferredPrompt = e;
+  canInstall.value = true;
+}
+
+function onAppInstalled() {
+  canInstall.value = false;
+  deferredPrompt = null;
+}
+
+async function onAddToDesktop() {
+  // Android / Chrome 等支持 PWA 安装提示的浏览器
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      showToast('已添加到桌面');
+    }
+    deferredPrompt = null;
+    canInstall.value = false;
+    return;
+  }
+
+  // iOS Safari：显示引导提示
+  if (isIOS.value) {
+    showToast('点击底部分享按钮 → 添加到主屏幕');
+    return;
+  }
+
+  // 兜底：直接提示
+  showToast('请在浏览器菜单中选择「添加到桌面」');
+}
 
 // 编辑资料
 const showEditProfile = ref(false);
@@ -326,6 +378,28 @@ function logout() {
 }
 
 onMounted(load);
+
+// 添加到桌面：监听安装提示事件
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+  window.addEventListener('appinstalled', onAppInstalled);
+  // iOS 检测
+  const ua = navigator.userAgent.toLowerCase();
+  const isIphone = /iphone|ipad|ipod/.test(ua);
+  const isSafari = /safari/.test(ua) && !/chrome|crios|fxios|opios|edgios/.test(ua);
+  isIOS.value = isIphone && isSafari && !window.matchMedia('(display-mode: standalone)').matches;
+  // 已安装在独立模式运行时不显示
+  if (window.matchMedia('(display-mode: standalone)').matches) {
+    canInstall.value = false;
+  }
+}
+
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+    window.removeEventListener('appinstalled', onAppInstalled);
+  }
+});
 </script>
 
 <style scoped>
