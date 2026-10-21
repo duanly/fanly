@@ -220,9 +220,31 @@ export class AuthService {
     const agent = await this.agentRepo.findOneBy({ agentCode: inviteCode.toUpperCase() });
     if (!agent || agent.status !== AgentStatus.ACTIVE) throw new BadRequestException('邀请码无效');
     if (agent.userId === userId) throw new BadRequestException('不能绑定自己');
+
     user.agentId = agent.id;
     user.bindTime = new Date();
     await this.userRepo.save(user);
+
+    // 给当前用户创建 agent 记录（level=0 预备代理），纳入代理体系
+    // 注册时自动建了，但老用户可能没有，这里补齐
+    const myAgent = await this.agentRepo.findOneBy({ userId });
+    if (!myAgent) {
+      await this.agentRepo.save(this.agentRepo.create({
+        userId,
+        agentCode: user.inviteCode || genCode(6),
+        parentAgentId: agent.id,
+        level: 0,
+        status: AgentStatus.ACTIVE,
+      }));
+    } else if (!myAgent.parentAgentId) {
+      // 已有 agent 记录但没绑定上级的，补上
+      myAgent.parentAgentId = agent.id;
+      await this.agentRepo.save(myAgent);
+    }
+
+    // 给邀请人发拉新奖励 + 检查升级（和注册时逻辑一致）
+    await this.agentSvc.onNewUserInvited(agent.id, userId);
+
     return { ok: true, agentCode: agent.agentCode, realName: agent.realName };
   }
 
