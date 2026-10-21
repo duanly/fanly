@@ -114,7 +114,7 @@
         </template>
       </van-cell>
       <van-cell
-        v-if="canInstall || isIOS"
+        v-if="canShowAddDesktop"
         title="添加到桌面"
         is-link
         icon="desktop-o"
@@ -228,6 +228,19 @@ let deferredPrompt = window.__pwaInstallPrompt || null;
 // iOS 判断：Safari 浏览器且未安装 PWA
 const isIOS = ref(false);
 
+// 是否显示「添加到桌面」按钮：
+// - iOS Safari 始终显示（引导手动添加）
+// - Android：只要不是已安装为 PWA 模式就显示（即使 beforeinstallprompt 还没触发，也显示引导）
+// - 已安装为独立窗口时不显示
+const canShowAddDesktop = computed(() => {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  if (isStandalone) return false; // 已安装，不显示
+  if (isIOS.value) return true;    // iOS 始终显示引导
+  // Android：只要是浏览器环境就显示（不管 beforeinstallprompt 有没有）
+  const ua = navigator.userAgent.toLowerCase();
+  return /android/.test(ua) || canInstall.value;
+});
+
 function onPwaReady() {
   deferredPrompt = window.__pwaInstallPrompt;
   canInstall.value = true;
@@ -257,6 +270,17 @@ async function onAddToDesktop() {
   // iOS Safari：显示引导提示
   if (isIOS.value) {
     showToast('点击底部分享按钮 → 添加到主屏幕');
+    return;
+  }
+
+  // Android 但还没触发安装事件（可能是刚卸载、SW 还没注册好等）
+  const ua = navigator.userAgent.toLowerCase();
+  if (/android/.test(ua)) {
+    if (/chrome/.test(ua)) {
+      showToast('请点击右上角 ⋮ → 安装应用');
+    } else {
+      showToast('请在浏览器菜单中选择「添加到桌面」');
+    }
     return;
   }
 
@@ -379,7 +403,27 @@ function logout() {
   p.value = null;
 }
 
-onMounted(load);
+onMounted(() => {
+  load();
+
+  // 组件挂载时再检查一次全局状态（可能事件在挂载前就触发了）
+  if (window.__pwaCanInstall) {
+    canInstall.value = true;
+    deferredPrompt = window.__pwaInstallPrompt;
+  }
+
+  // 兜底：SW 注册可能比较慢，beforeinstallprompt 可能延迟触发，轮询检查
+  let checks = 0;
+  const timer = setInterval(() => {
+    checks++;
+    if (window.__pwaCanInstall) {
+      canInstall.value = true;
+      deferredPrompt = window.__pwaInstallPrompt;
+      clearInterval(timer);
+    }
+    if (checks > 30) clearInterval(timer); // 最多等 30 秒
+  }, 1000);
+});
 
 // PWA 安装状态监听（全局事件，避免错过 beforeinstallprompt）
 if (typeof window !== 'undefined') {
