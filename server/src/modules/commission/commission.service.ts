@@ -32,6 +32,8 @@ export class CommissionService {
     if (!agentId) return 0;
     const agent = await this.agentRepo.findOneBy({ id: agentId });
     if (!agent || agent.status !== 1) return 0;
+    // 预备代理（level=0）不算正式代理，没有团队分成
+    if (agent.level <= 0) return 0;
     if (agent.agentRate) return toNum(agent.agentRate);
     return this.cfg.num(`rebate.agent_rate.${agent.level}`, agent.level === 3 ? 0.2 : agent.level === 2 ? 0.15 : 0.12);
   }

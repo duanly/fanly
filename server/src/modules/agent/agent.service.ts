@@ -197,18 +197,25 @@ export class AgentService implements OnModuleInit {
   async team(userId: number, page = 1, size = 20) {
     const agent = await this.agentRepo.findOneBy({ userId });
     if (!agent) return { list: [], total: 0, page, size };
-    const [list, total] = await this.userRepo.findAndCount({
-      where: { agentId: agent.id }, order: { id: 'DESC' },
-      skip: (page - 1) * size, take: size,
-      select: ['id', 'nickname', 'mobile', 'createdAt', 'totalRebate'],
-    });
-    return {
-      list: list.map((u) => ({
-        ...u,
-        mobile: u.mobile.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2'),
-      })),
-      total, page, size,
-    };
+
+    const qb = this.userRepo.createQueryBuilder('u')
+      .leftJoin('agent', 'a', 'a.userId = u.id')
+      .addSelect('a.level', 'agentLevel')
+      .where('u.agentId = :agentId', { agentId: agent.id })
+      .orderBy('u.id', 'DESC')
+      .skip((page - 1) * size)
+      .take(size);
+
+    const [entities, total] = await qb.getManyAndCount();
+    const rawList = await qb.getRawMany();
+
+    const list = entities.map((u, i) => ({
+      ...u,
+      agentLevel: rawList[i]?.agentLevel != null ? Number(rawList[i].agentLevel) : 0,
+      mobile: u.mobile ? u.mobile.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : '',
+    }));
+
+    return { list, total, page, size };
   }
 
   /** 业绩统计 */

@@ -62,8 +62,8 @@
       </div>
     </div>
 
-    <!-- 代理团队待结算收益（仅代理可见） -->
-    <div v-if="p?.agentLevel != null && p.agentLevel >= 0 && agentStats?.pendingBonus > 0" class="team-bonus-card" @click="$router.push('/agent')">
+    <!-- 代理团队待结算收益（仅白银及以上代理可见） -->
+    <div v-if="p?.agentLevel >= 1 && agentStats?.pendingBonus > 0" class="team-bonus-card" @click="$router.push('/agent')">
       <div class="tb-left">
         <van-icon name="gold-coin-o" size="20" color="#ff9800" />
         <div class="tb-info">

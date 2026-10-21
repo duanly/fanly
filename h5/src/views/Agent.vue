@@ -132,7 +132,12 @@
       <!-- 团队列表（所有用户都能看） -->
       <div class="section-title">我的团队（{{ team.total }} 人）</div>
       <van-cell-group inset v-if="team.list?.length">
-        <van-cell v-for="u in team.list" :key="u.id" :title="u.nickname" :label="u.mobile">
+        <van-cell v-for="u in team.list" :key="u.id" :title="u.nickname">
+          <template #label>
+            <span>{{ u.mobile }}</span>
+            <AgentBadge v-if="u.agentLevel >= 1" :level="u.agentLevel" style="margin-left:6px" />
+            <span v-else style="margin-left:6px;font-size:10px;color:#bbb">普通</span>
+          </template>
           <template #value>
             <span class="muted">贡献 ¥{{ money(u.totalRebate) }}</span>
           </template>
