@@ -6,6 +6,7 @@ import { PddProvider } from './providers/pdd.provider';
 import { JdProvider } from './providers/jd.provider';
 import { DingdanxiaProvider, DingdanxiaJdProvider } from './providers/dingdanxia.provider';
 import { DingdanxiaVipProvider } from './providers/dingdanxia.vip.provider';
+import { DingdanxiaPddProvider } from './providers/dingdanxia.pdd.provider';
 import { ConvertedLink, CpsProvider, GoodsPage, RecommendParams, SearchParams, UnifiedGoods, UnifiedOrder } from './cps.types';
 import { TtlCache } from '@/common/ttl-cache';
 import { explainParseFailure, parseShareContent } from '@/common/share-content';
@@ -94,7 +95,19 @@ export class CpsService implements OnModuleInit {
           continue;
         }
       }
-      if (p === 'PDD' && pddId && pddSecret) {
+    // 拼多多：优先走订单侠（同一个 apikey），没有的话再试官方直连
+    if (p === 'PDD') {
+      if (this.config.get('DDX_API_KEY')) {
+        this.providers.set(p, new DingdanxiaPddProvider({
+          apiKey: this.config.get<string>('DDX_API_KEY', ''),
+          pid: this.config.get<string>('PDD_PID', ''),
+          baseUrl: this.config.get<string>('DDX_BASE_URL', ''),
+        }));
+        used.push('PDD=dingdanxia');
+        if (!this.config.get('PDD_PID')) this.logger.warn('PDD_PID 为空，拼多多转链会失败——去多多进宝后台拿推广位 ID');
+        continue;
+      }
+      if (pddId && pddSecret) {
         this.providers.set(p, new PddProvider({
           clientId: pddId,
           clientSecret: pddSecret,
@@ -105,6 +118,7 @@ export class CpsService implements OnModuleInit {
         if (!pddPid) this.logger.warn('PDD_PID 为空，转链会失败——去多多进宝后台拿推广位 ID');
         continue;
       }
+    }
       // 淘宝单独开口子：填了订单侠 API key 就走订单侠
       if (p === 'TB' && this.config.get('DDX_API_KEY')) {
         this.providers.set(p, new DingdanxiaProvider({
