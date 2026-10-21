@@ -62,6 +62,21 @@
       </div>
     </div>
 
+    <!-- 代理团队待结算收益（仅代理可见） -->
+    <div v-if="p?.agentLevel != null && p.agentLevel >= 0 && agentStats?.pendingBonus > 0" class="team-bonus-card" @click="$router.push('/agent')">
+      <div class="tb-left">
+        <van-icon name="gold-coin-o" size="20" color="#ff9800" />
+        <div class="tb-info">
+          <div class="tb-label">团队待结算分成</div>
+          <div class="tb-desc">下线性待确认，结算后自动到账</div>
+        </div>
+      </div>
+      <div class="tb-right">
+        <div class="tb-amount">¥{{ money(agentStats?.pendingBonus) }}</div>
+        <van-icon name="arrow" size="12" color="#ccc" />
+      </div>
+    </div>
+
     <!-- 返利/分成比例 -->
     <div class="rate-card">
       <div class="rate-item">
@@ -215,6 +230,7 @@ const logged = ref(!!localStorage.getItem('token'));
 const p = ref(null);
 const s = ref(null);
 const coinInfo = ref(null);
+const agentStats = ref(null);
 const showBindInviter = ref(false);
 const inviteCodeInput = ref('');
 const bindingInviter = ref(false);
@@ -370,6 +386,12 @@ async function load() {
   try { s.value = await api.summary(); } catch { s.value = null; }
   // 金币单独查
   try { coinInfo.value = await api.coinStatus(); } catch { coinInfo.value = null; }
+  // 代理业绩（仅代理有数据，普通用户接口会返回空或报错，静默处理）
+  if (p.value?.agentId || p.value?.agentLevel != null) {
+    try { agentStats.value = await api.agentStats(); } catch { agentStats.value = null; }
+  } else {
+    agentStats.value = null;
+  }
 }
 
 async function apply() {
@@ -505,6 +527,43 @@ onUnmounted(() => {
 .muted { color: #999; }
 
 /* 返利比例卡片 */
+.team-bonus-card {
+  margin: -24px 16px 12px;
+  background: linear-gradient(135deg, #fff7e6 0%, #ffe8cc 100%);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 2px 12px rgba(255, 152, 0, .15);
+}
+.tb-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tb-info .tb-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e67700;
+  margin-bottom: 2px;
+}
+.tb-info .tb-desc {
+  font-size: 11px;
+  color: #ffa94d;
+}
+.tb-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tb-amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: #e67700;
+}
 .rate-card {
   margin: -18px 16px 12px;
   background: #fff;
