@@ -34,12 +34,16 @@ function parseSales(v: any): number {
  * 订单侠拼多多聚合渠道。
  *
  * 接口路径前缀：/pdd/
- *   - 搜索：/pdd/goods_search
- *   - 推荐：/pdd/recommend
- *   - 转链：/pdd/convert
- *   - 详情：搜索/推荐结果中已有完整字段，详情复用搜索（按 goods_sign 搜）
- *   - 订单：/pdd/order_list（TODO：待确认路径与字段）
+ *   - 搜索：/pdd/goods_search  （data 直接是数组）
+ *   - 推荐：/pdd/recommend      （data.list 是数组，data.total 是总数）
+ *   - 转链：/pdd/convert        （p_id + goods_sign + custom_parameters）
+ *   - 详情：搜索接口兜底，按 goods_sign 匹配
+ *   - 订单：/pdd/orderlist      （start_update_time / end_update_time，时间窗 ≤24h）
  *   - 解析：从文本抠 goods_sign / goods_id，再走详情
+ *
+ * 注意：custom_parameters 非空时会触发渠道备案检查（60001 错误）。
+ * 如果没做渠道备案，custom_parameters 需要传空字符串，
+ * 此时订单归属靠 pid 维度，需要其他机制反解用户。
  */
 export class DingdanxiaPddProvider implements CpsProvider {
   readonly platform = 'PDD';
@@ -81,7 +85,10 @@ export class DingdanxiaPddProvider implements CpsProvider {
     if (!res.ok) throw new Error(`订单侠拼多多 ${path} HTTP ${res.status}`);
     const json: any = await res.json();
     if (json.code !== undefined && json.code !== 200 && json.code !== 0) {
-      throw new Error(`订单侠拼多多 ${path}: ${json.code} ${json.msg || json.message || ''}`);
+      throw new Error(
+        `订单侠拼多多 ${path}: ${json.code} ${json.msg || json.message || ''}`
+        + (json.data?.sub_msg ? ` / ${json.data.sub_msg}` : ''),
+      );
     }
     return json;
   }
@@ -106,6 +113,7 @@ export class DingdanxiaPddProvider implements CpsProvider {
     if (Array.isArray(gallery)) {
       images = gallery.filter(Boolean);
     }
+    if (!images.length && r.goods_image_url) images = [r.goods_image_url];
 
     return {
       platform: 'PDD',
@@ -138,18 +146,20 @@ export class DingdanxiaPddProvider implements CpsProvider {
     const page = Math.max(p.page ?? 1, 1);
     const pageSize = Math.min(Math.max(p.pageSize ?? 20, 10), 100);
 
+    // 注意：传 custom_parameters 会触发渠道备案检查（60001 错误），
+    // 搜索接口不需要归属，所以不传
     const data = await this.call<any>('/pdd/goods_search', {
       keyword: p.keyword,
       page,
       page_size: pageSize,
       sort_type: sortMap[p.sort ?? ''] ?? 0,
       pid: this.opt.pid,
-      with_coupon: true,
     });
 
-    // 订单侠拼多多搜索返回的商品列表可能在 data.list / data.goods_list / 直接就是数组
-    const rawList = data?.list ?? data?.goods_list ?? (Array.isArray(data) ? data : []);
-    const list = rawList.map((r: any) => this.mapGoods(r));
+    // 订单侠拼多多搜索的 data 直接是数组，不是 { list: [...] }
+    const list = (Array.isArray(data) ? data : (data?.list ?? data?.goods_list ?? [])).map(
+      (r: any) => this.mapGoods(r),
+    );
     const total = Number(data?.total_results ?? data?.total ?? list.length);
     return { list, total, page, hasMore: page * pageSize < total };
   }
@@ -179,7 +189,8 @@ export class DingdanxiaPddProvider implements CpsProvider {
       pid: this.opt.pid,
     });
 
-    const rawList = data?.list ?? data?.goods_list ?? (Array.isArray(data) ? data : []);
+    // 推荐接口返回 { list: [...], total: N, search_id: '...' }
+    const rawList = data?.list ?? (Array.isArray(data) ? data : []);
     const list = rawList.map((r: any) => this.mapGoods(r));
     const total = Number(data?.total ?? 0);
     const hasMore = total ? offset + list.length < total : list.length === limit;
@@ -188,15 +199,16 @@ export class DingdanxiaPddProvider implements CpsProvider {
 
   async getGoodsDetail(goodsSign: string): Promise<UnifiedGoods | null> {
     if (!goodsSign) return null;
-    // 订单侠拼多多没有单独的详情接口，用 goods_sign 当关键词搜，取第一条匹配
+    // 订单侠拼多多没有单独的详情接口，用搜索接口兜底（关键词搜索，取匹配项）
     try {
       const data = await this.call<any>('/pdd/goods_search', {
-        goods_sign_list: [goodsSign],
+        keyword: goodsSign,
         page: 1,
-        page_size: 10,
+        page_size: 20,
+        sort_type: 0,
         pid: this.opt.pid,
       });
-      const rawList = data?.list ?? data?.goods_list ?? (Array.isArray(data) ? data : []);
+      const rawList = Array.isArray(data) ? data : (data?.list ?? data?.goods_list ?? []);
       const hit = rawList.find((g: any) =>
         String(g.goods_sign ?? g.goods_id ?? '') === goodsSign,
       ) ?? rawList[0];
@@ -210,40 +222,29 @@ export class DingdanxiaPddProvider implements CpsProvider {
   async convertLink(goodsSign: string, positionId: string): Promise<ConvertedLink> {
     if (!this.opt.pid) throw new Error('拼多多未配置推广位：请在 .env 填 PDD_PID');
 
-    // custom_parameters 有 64 字节硬上限
-    const custom = JSON.stringify({ uid: positionId });
-    if (Buffer.byteLength(custom, 'utf8') > 64) {
-      throw new Error(`custom_parameters 超长(${Buffer.byteLength(custom)}B)，positionId 需要缩短`);
-    }
-
     const data = await this.call<any>('/pdd/convert', {
       p_id: this.opt.pid,
       goods_sign: goodsSign,
-      custom_parameters: custom,
+      custom_parameters: positionId,
       generate_short_url: true,
       generate_schema_url: true,
       multi_group: true,
       generate_we_app: true,
-      itemInfo: false,
     });
 
     if (!data) throw new Error('拼多多转链返回为空');
 
-    // 订单侠转链返回字段：short_url, url, mobile_short_url, mobile_url, schema_url, we_app_info
     return {
       platform: 'PDD',
       goodsId: goodsSign,
+      // 优先「唤起 App」的短链
       shortUrl: data.mobile_short_url || data.short_url || data.url || data.mobile_url || '',
       deeplink: data.schema_url || data.mobile_url || '',
-      password: '', // 拼多多没有淘口令
+      password: '',
       positionId,
     };
   }
 
-  /**
-   * 分享内容解析：从文本里抠 goods_sign 或 goods_id，再走详情。
-   * 短链靠 302 跳转还原。
-   */
   async parseContent(text: string): Promise<UnifiedGoods | null> {
     const sign = await this.resolveGoodsSign(text);
     if (!sign) return null;
@@ -253,31 +254,54 @@ export class DingdanxiaPddProvider implements CpsProvider {
   /**
    * 拉取订单。
    *
-   * TODO：订单侠拼多多订单接口路径和字段待确认。
-   * 猜测路径：/pdd/order_list 或 /pdd/order_details
-   * 暂时走直连 provider 的兜底，等联调时再补。
+   * 接口：/pdd/orderlist
+   * 参数：start_update_time / end_update_time（秒级时间戳，时间窗 ≤24h）
+   * 返回：data.list = 订单数组，data.total_count = 总数
+   *
+   * 时间窗超过 24h 会报错，所以按 23h 分段拉取。
    */
   async fetchOrders(start: Date, end: Date, page = 1): Promise<UnifiedOrder[]> {
-    // 先按常见的订单侠命名试一下，如果失败返回空数组，上层会记录错误
-    try {
-      const data = await this.call<any>('/pdd/order_list', {
-        start_time: Math.floor(start.getTime() / 1000),
-        end_time: Math.floor(end.getTime() / 1000),
-        page,
-        page_size: 100,
-      });
-      const rawList = data?.list ?? data?.order_list ?? (Array.isArray(data) ? data : []);
-      return rawList.map((r: any) => this.mapOrder(r));
-    } catch (e: any) {
-      this.logger.warn(`拼多多订单接口暂不可用: ${e.message}`);
-      return [];
+    const MAX_WINDOW = 23 * 3600 * 1000; // 23h，留点余量
+    const all: UnifiedOrder[] = [];
+    let cursor = new Date(start);
+
+    while (cursor < end) {
+      const segEnd = new Date(Math.min(cursor.getTime() + MAX_WINDOW, end.getTime()));
+      const seg = await this.fetchOrdersOneWindow(cursor, segEnd, page);
+      if (seg.length === 0) {
+        cursor = segEnd;
+        continue;
+      }
+      // 去重：同一订单号只保留一条
+      const seen = new Set(all.map((o) => `${o.platformOrderNo}_${o.subOrderNo}`));
+      for (const o of seg) {
+        const k = `${o.platformOrderNo}_${o.subOrderNo}`;
+        if (!seen.has(k)) {
+          all.push(o);
+          seen.add(k);
+        }
+      }
+      cursor = segEnd;
     }
+
+    return all;
+  }
+
+  private async fetchOrdersOneWindow(start: Date, end: Date, page = 1): Promise<UnifiedOrder[]> {
+    const data = await this.call<any>('/pdd/orderlist', {
+      start_update_time: Math.floor(start.getTime() / 1000),
+      end_update_time: Math.floor(end.getTime() / 1000),
+      page,
+      page_size: 100,
+    });
+    const rawList = data?.list ?? data?.order_list ?? (Array.isArray(data) ? data : []);
+    return rawList.map((o: any) => this.mapOrder(o));
   }
 
   /**
    * 拼多多订单状态映射：
-   *   -1 已取消 / 0 已支付 / 1 已成团 / 2 确认收货 / 3 审核成功
-   *   / 4 审核失败 / 5 已结算 / 8 非多多进宝商品 / 10 已处罚
+   *   -1 未支付 / 0-已支付；1-已成团；2-确认收货；3-审核成功；4-审核失败（不可提现）；
+   *   5-已经结算；8-非多多进宝商品（无佣金订单）;10-已处罚
    * 归一到：1 已付款 / 2 已收货 / 3 已结算 / 4 已失效
    */
   private mapOrder(r: any): UnifiedOrder {
@@ -291,7 +315,13 @@ export class DingdanxiaPddProvider implements CpsProvider {
     let positionId = '';
     const cp = r.custom_parameters;
     if (cp) {
-      try { positionId = JSON.parse(cp).uid ?? ''; } catch { positionId = String(cp); }
+      try {
+        // 可能是 JSON 也可能是纯字符串
+        const parsed = JSON.parse(cp);
+        positionId = parsed.uid ?? parsed.positionId ?? String(cp);
+      } catch {
+        positionId = String(cp);
+      }
     }
 
     const est = yuan(r.promotion_amount ?? r.commission ?? 0);
@@ -354,10 +384,11 @@ export class DingdanxiaPddProvider implements CpsProvider {
       const data = await this.call<any>('/pdd/goods_search', {
         keyword: goodsId,
         page: 1,
-        page_size: 10,
+        page_size: 20,
+        sort_type: 0,
         pid: this.opt.pid,
       });
-      const rawList = data?.list ?? data?.goods_list ?? (Array.isArray(data) ? data : []);
+      const rawList = Array.isArray(data) ? data : (data?.list ?? data?.goods_list ?? []);
       const hit = rawList.find((g: any) => String(g.goods_id) === goodsId) ?? rawList[0];
       return hit?.goods_sign ?? null;
     } catch (e: any) {
