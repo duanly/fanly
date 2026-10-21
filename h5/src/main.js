@@ -72,10 +72,33 @@ createApp(App).use(router).use(Vant).mount('#app');
 // ─── 注册 Service Worker（PWA 必需，Android 上才能触发安装提示） ───
 if ('serviceWorker' in navigator && !location.hostname.includes('localhost')) {
   window.addEventListener('load', () => {
-    const isAdmin = location.hash.startsWith('#/madmin');
-    // 管理后台和用户端共用一个 sw，核心缓存一样
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
+}
+
+// ─── PWA 安装提示（全局监听，避免组件加载晚了错过事件） ───
+window.__pwaInstallPrompt = null;
+window.__pwaCanInstall = false;
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    window.__pwaInstallPrompt = e;
+    window.__pwaCanInstall = true;
+    // 通知所有监听的组件
+    window.dispatchEvent(new CustomEvent('pwa-install-ready'));
+  });
+
+  window.addEventListener('appinstalled', () => {
+    window.__pwaInstallPrompt = null;
+    window.__pwaCanInstall = false;
+    window.dispatchEvent(new CustomEvent('pwa-install-changed'));
+  });
+
+  // 检查是否已安装（独立窗口运行）
+  if (window.matchMedia('(display-mode: standalone)').matches) {
+    window.__pwaCanInstall = false;
+  }
 }
 
 // ───────── PWA 动态切换：管理后台 vs 用户端 ─────────

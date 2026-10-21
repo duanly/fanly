@@ -222,31 +222,33 @@ const router = useRouter();
 const money = (v) => (+(v || 0)).toFixed(2);
 
 // ─── 添加到桌面 ───
-const canInstall = ref(false);
-let deferredPrompt = null;
+const canInstall = ref(window.__pwaCanInstall || false);
+let deferredPrompt = window.__pwaInstallPrompt || null;
 
 // iOS 判断：Safari 浏览器且未安装 PWA
 const isIOS = ref(false);
 
-function onBeforeInstallPrompt(e) {
-  e.preventDefault();
-  deferredPrompt = e;
+function onPwaReady() {
+  deferredPrompt = window.__pwaInstallPrompt;
   canInstall.value = true;
 }
 
-function onAppInstalled() {
-  canInstall.value = false;
-  deferredPrompt = null;
+function onPwaChanged() {
+  deferredPrompt = window.__pwaInstallPrompt;
+  canInstall.value = window.__pwaCanInstall || false;
 }
 
 async function onAddToDesktop() {
   // Android / Chrome 等支持 PWA 安装提示的浏览器
-  if (deferredPrompt) {
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
+  const prompt = window.__pwaInstallPrompt || deferredPrompt;
+  if (prompt) {
+    prompt.prompt();
+    const { outcome } = await prompt.userChoice;
     if (outcome === 'accepted') {
       showToast('已添加到桌面');
     }
+    window.__pwaInstallPrompt = null;
+    window.__pwaCanInstall = false;
     deferredPrompt = null;
     canInstall.value = false;
     return;
@@ -379,10 +381,11 @@ function logout() {
 
 onMounted(load);
 
-// 添加到桌面：监听安装提示事件
+// PWA 安装状态监听（全局事件，避免错过 beforeinstallprompt）
 if (typeof window !== 'undefined') {
-  window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
-  window.addEventListener('appinstalled', onAppInstalled);
+  window.addEventListener('pwa-install-ready', onPwaReady);
+  window.addEventListener('pwa-install-changed', onPwaChanged);
+
   // iOS 检测
   const ua = navigator.userAgent.toLowerCase();
   const isIphone = /iphone|ipad|ipod/.test(ua);
@@ -396,8 +399,8 @@ if (typeof window !== 'undefined') {
 
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
-    window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
-    window.removeEventListener('appinstalled', onAppInstalled);
+    window.removeEventListener('pwa-install-ready', onPwaReady);
+    window.removeEventListener('pwa-install-changed', onPwaChanged);
   }
 });
 </script>
