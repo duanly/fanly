@@ -119,6 +119,10 @@ export class AdminController {
   @ApiOperation({ summary: '重算所有用户的预估返利（pending），修复历史数据不准的问题' })
   recalcPending() { return this.order.recalcPending(); }
 
+  @Post('orders/rebuild-pending-details')
+  @ApiOperation({ summary: '重建所有未结算订单的预估分佣明细（代理待结算收益）' })
+  rebuildPendingDetails() { return this.order.rebuildPendingDetails(); }
+
   @Post('orders/:id/assign')
   @ApiOperation({ summary: '手动指派订单归属人（按用户ID）' })
   assignOrder(

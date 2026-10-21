@@ -12,7 +12,28 @@ http.interceptors.request.use((cfg) => {
 http.interceptors.response.use(
   (res) => {
     const body = res.data;
-    if (body && body.code === 0) return body.data;
+    if (body && body.code === 0) {
+      // 对商品列表类数据统一过滤：过滤掉佣金为 0 或价格为 0 的已下架/无返利商品
+      if (body.data && typeof body.data === 'object') {
+        if (Array.isArray(body.data.list) && body.data.list.length && body.data.list[0]?.goodsId !== undefined) {
+          body.data = {
+            ...body.data,
+            list: body.data.list.filter((g) => {
+              const comm = Number(g.commission ?? g.estCommission ?? 0);
+              const price = Number(g.price ?? g.finalPrice ?? g.couponPrice ?? 0);
+              return comm > 0 && price > 0;
+            }),
+          };
+        } else if (Array.isArray(body.data) && body.data.length && body.data[0]?.goodsId !== undefined) {
+          body.data = body.data.filter((g) => {
+            const comm = Number(g.commission ?? g.estCommission ?? 0);
+            const price = Number(g.price ?? g.finalPrice ?? g.couponPrice ?? 0);
+            return comm > 0 && price > 0;
+          });
+        }
+      }
+      return body.data;
+    }
     showToast(body?.msg || '请求失败');
     return Promise.reject(new Error(body?.msg));
   },
@@ -121,7 +142,28 @@ adminHttp.interceptors.request.use((cfg) => {
 adminHttp.interceptors.response.use(
   (res) => {
     const body = res.data;
-    if (body && body.code === 0) return body.data;
+    if (body && body.code === 0) {
+      // 对商品列表类数据统一过滤：过滤掉佣金为 0 或价格为 0 的已下架/无返利商品
+      if (body.data && typeof body.data === 'object') {
+        if (Array.isArray(body.data.list) && body.data.list.length && body.data.list[0]?.goodsId !== undefined) {
+          body.data = {
+            ...body.data,
+            list: body.data.list.filter((g) => {
+              const comm = Number(g.commission ?? g.estCommission ?? 0);
+              const price = Number(g.price ?? g.finalPrice ?? g.couponPrice ?? 0);
+              return comm > 0 && price > 0;
+            }),
+          };
+        } else if (Array.isArray(body.data) && body.data.length && body.data[0]?.goodsId !== undefined) {
+          body.data = body.data.filter((g) => {
+            const comm = Number(g.commission ?? g.estCommission ?? 0);
+            const price = Number(g.price ?? g.finalPrice ?? g.couponPrice ?? 0);
+            return comm > 0 && price > 0;
+          });
+        }
+      }
+      return body.data;
+    }
     showToast(body?.msg || '请求失败');
     return Promise.reject(new Error(body?.msg));
   },

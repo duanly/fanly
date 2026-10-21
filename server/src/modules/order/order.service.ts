@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { CpsOrder, OrderStatus, PromotionPosition, User } from '@/entities';
+import { DataSource, Repository } from 'typeorm';
+import { CommissionDetail, CpsOrder, OrderStatus, PromotionPosition, User } from '@/entities';
 import { UnifiedOrder } from '../cps/cps.types';
 import { CpsService, PLATFORMS } from '../cps/cps.service';
 import { CommissionService } from '../commission/commission.service';
@@ -19,6 +19,7 @@ export class OrderService {
     private readonly cps: CpsService,
     private readonly commission: CommissionService,
     private readonly cfg: SysConfigService,
+    private readonly ds: DataSource,
   ) {}
 
   /** 反解子渠道参数 → 用户 */
@@ -98,6 +99,17 @@ export class OrderService {
       const user = await this.userRepo.findOneBy({ id: order.userId });
       user.pending = add(user.pending, mul(order.estCommission, userRate));
       await this.userRepo.save(user);
+
+      // 同时创建分佣预估明细（用户 + 一级代理 + 二级代理），
+      // 代理可以在"待结算"里看到团队预估收益
+      if (
+        order.orderStatus === OrderStatus.PAID ||
+        order.orderStatus === OrderStatus.RECEIVED
+      ) {
+        this.commission.pendingOrder(order).catch((e) =>
+          this.logger.error(`创建预估分佣失败 ${order.platformOrderNo}: ${e.message}`),
+        );
+      }
     }
 
     // 老订单首次归属：之前无主，这次才归属到用户，补上 pending
@@ -111,6 +123,11 @@ export class OrderService {
       const user = await this.userRepo.findOneBy({ id: order.userId });
       user.pending = add(user.pending, mul(order.estCommission, userRate));
       await this.userRepo.save(user);
+
+      // 首次归属也创建预估分佣明细
+      this.commission.pendingOrder(order).catch((e) =>
+        this.logger.error(`首次归属创建预估分佣失败 ${order.platformOrderNo}: ${e.message}`),
+      );
     }
 
     // 老订单：estCommission 变了且订单还在未结算状态，同步更新 pending
@@ -125,6 +142,11 @@ export class OrderService {
       user.pending = add(user.pending, diff);
       if (toNum(user.pending) < 0) user.pending = '0.0000';
       await this.userRepo.save(user);
+
+      // 同步更新预估分佣明细的金额
+      this.commission.pendingOrder(order).catch((e) =>
+        this.logger.error(`更新预估分佣失败 ${order.platformOrderNo}: ${e.message}`),
+      );
     }
 
     if (u.status === OrderStatus.SETTLED) {
@@ -305,6 +327,71 @@ export class OrderService {
     order.agentId = targetUser.agentId ?? null;
     await this.orderRepo.save(order);
 
+    // 未结算订单：同步重建双方的预估分佣明细（原用户的失效，新用户的创建）
+    if (isPendingStatus) {
+      try {
+        await this.commission.pendingOrder(order);
+      } catch (e: any) {
+        this.logger.error(`指派订单后重建预估明细失败 ${order.platformOrderNo}: ${e.message}`);
+      }
+    }
+
     return { ok: true, orderId, userId, prevUserId };
+  }
+
+  /**
+   * 重建所有未结算订单的预估分佣明细。
+   * 用于上线时补历史数据，或数据错乱时一键修复。
+   *
+   * 会清理掉现有的 PENDING 明细然后重建，以当前 estCommission 为准。
+   */
+  async rebuildPendingDetails(): Promise<{ rebuilt: number; totalBonus: string }> {
+    // 先清掉所有 PENDING 状态的明细（只清待结算的，已结算/已冲销的不动）
+    await this.ds.getRepository(CommissionDetail)
+      .createQueryBuilder()
+      .delete()
+      .where('status = :status', { status: 1 }) // CommissionStatus.PENDING = 1
+      .execute();
+
+    const qb = this.orderRepo.createQueryBuilder('o')
+      .where('o.userId IS NOT NULL')
+      .andWhere('o.orderStatus IN (:...statuses)', {
+        statuses: [OrderStatus.PAID, OrderStatus.RECEIVED],
+      });
+
+    let rebuilt = 0;
+    let totalBonus = '0.0000';
+    let page = 1;
+    const pageSize = 200;
+
+    while (true) {
+      const orders = await qb
+        .orderBy('o.id', 'ASC')
+        .skip((page - 1) * pageSize)
+        .take(pageSize)
+        .getMany();
+      if (!orders.length) break;
+
+      for (const order of orders) {
+        try {
+          await this.commission.pendingOrder(order);
+          rebuilt++;
+        } catch (e: any) {
+          this.logger.error(`重建预估明细失败 ${order.platformOrderNo}: ${e.message}`);
+        }
+      }
+      page++;
+    }
+
+    // 统计一下所有 PENDING 的代理分成总额
+    const pendingSum = await this.ds.getRepository(CommissionDetail)
+      .createQueryBuilder('d')
+      .select('COALESCE(SUM(d.amount), 0)', 'total')
+      .where('d.beneficiaryType IN (:...types)', { types: [2, 4] }) // AGENT + AGENT_L2
+      .andWhere('d.status = :status', { status: 1 }) // PENDING
+      .getRawOne();
+    totalBonus = pendingSum?.total || '0.0000';
+
+    return { rebuilt, totalBonus };
   }
 }

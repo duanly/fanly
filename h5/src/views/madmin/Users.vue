@@ -249,7 +249,7 @@ function viewOrders(u) {
 
 async function assignOrders(u) {
   try {
-    const { values } = await showDialog({
+    const result = await showDialog({
       title: '指派订单给该用户',
       message: '请输入订单号（平台订单号）',
       showInput: true,
@@ -257,18 +257,8 @@ async function assignOrders(u) {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       showCancelButton: true,
-      beforeClose: (action, params) => {
-        if (action === 'confirm') {
-          const val = params.inputValue?.trim();
-          if (!val) {
-            showToast('请输入订单号');
-            return false;
-          }
-        }
-        return true;
-      },
     });
-    const orderNo = values?.inputValue?.trim();
+    const orderNo = (result?.value || result?.inputValue || '').trim();
     if (!orderNo) return;
     // 先搜索该订单，再指派
     const r = await adminApi.orders({ keyword: orderNo, page: 1, pageSize: 10 });

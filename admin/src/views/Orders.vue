@@ -30,6 +30,9 @@
         <el-button size="small" type="warning" plain :loading="recalcing" @click="doRecalcPending">
           重算返利中
         </el-button>
+        <el-button size="small" type="info" plain :loading="rebuilding" @click="doRebuildPending">
+          重建代理预估
+        </el-button>
       </div>
     </template>
 
@@ -92,7 +95,72 @@
       <el-table-column label="下单时间" width="160">
         <template #default="{ row }">{{ fmt(row.orderTime) }}</template>
       </el-table-column>
+      <el-table-column label="操作" width="100" fixed="right">
+        <template #default="{ row }">
+          <el-button type="primary" size="small" link @click="openAssign(row)">
+            指派归属
+          </el-button>
+        </template>
+      </el-table-column>
     </el-table>
+
+    <!-- 指派归属对话框 -->
+    <el-dialog v-model="assignVisible" title="指派订单归属" width="480px">
+      <el-alert
+        v-if="assignOrder"
+        :title="'订单：' + assignOrder.platformOrderNo"
+        type="info"
+        :closable="false"
+        style="margin-bottom:16px"
+      >
+        <template #default>
+          <div>{{ assignOrder.goodsTitle }}</div>
+          <div style="margin-top:4px">
+            实付 ¥{{ money(assignOrder.payAmount) }} /
+            预估佣金 ¥{{ money(assignOrder.estCommission) }}
+          </div>
+        </template>
+      </el-alert>
+
+      <el-input
+        v-model="searchUserKw"
+        placeholder="搜索用户（手机号/昵称/邀请码）"
+        clearable
+        @keyup.enter="searchUsers"
+        @clear="userList = []"
+      >
+        <template #append>
+          <el-button :loading="userSearching" @click="searchUsers">搜索</el-button>
+        </template>
+      </el-input>
+
+      <div style="margin-top:12px;max-height:320px;overflow-y:auto;border:1px solid #ebeef5;border-radius:4px">
+        <div
+          v-for="u in userList"
+          :key="u.id"
+          :class="['user-item', { active: selectedUserId === u.id }]"
+          @click="selectedUserId = u.id"
+        >
+          <div style="font-weight:500">{{ u.nickname || '—' }}</div>
+          <div style="font-size:12px;color:#909399">
+            {{ u.mobile || '未绑定手机' }}
+            <span v-if="u.agentLevel" style="margin-left:8px">
+              <el-tag size="small" effect="plain">{{ agentLevelName(u.agentLevel) }}</el-tag>
+            </span>
+          </div>
+        </div>
+        <div v-if="!userSearching && userList.length === 0 && searchUserKw" style="text-align:center;padding:30px;color:#c0c4cc">
+          未找到用户
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="assignVisible = false">取消</el-button>
+        <el-button type="primary" :disabled="!selectedUserId" :loading="assigning" @click="doAssign">
+          确认指派
+        </el-button>
+      </template>
+    </el-dialog>
 
     <el-pagination
       v-model:current-page="page"
@@ -107,7 +175,7 @@
 
 <script setup>
 import { onMounted, ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search } from '@element-plus/icons-vue';
 import { api } from '../api';
 
@@ -125,6 +193,16 @@ const page = ref(1);
 const loading = ref(false);
 const syncing = ref(false);
 const recalcing = ref(false);
+const rebuilding = ref(false);
+
+// 指派归属
+const assignVisible = ref(false);
+const assignOrder = ref(null);
+const selectedUserId = ref(null);
+const searchUserKw = ref('');
+const userList = ref([]);
+const userSearching = ref(false);
+const assigning = ref(false);
 
 const money = (v) => (+(v || 0)).toFixed(2);
 const fmt = (d) => (d ? new Date(d).toLocaleString('zh-CN') : '—');
@@ -171,5 +249,86 @@ async function doRecalcPending() {
   }
 }
 
+async function doRebuildPending() {
+  try {
+    await ElMessageBox.confirm(
+      '重建所有未结算订单的代理预估分佣明细。已结算/已冲销的明细不会受影响。',
+      '确认重建',
+      { type: 'info' },
+    );
+  } catch {
+    return;
+  }
+  rebuilding.value = true;
+  try {
+    const r = await api.rebuildPendingDetails();
+    ElMessage.success(`重建完成，共 ${r.rebuilt} 笔订单，待结算代理分成 ¥${(+r.totalBonus).toFixed(2)}`);
+    load();
+  } finally {
+    rebuilding.value = false;
+  }
+}
+
+// ---- 指派归属 ----
+function openAssign(row) {
+  assignOrder.value = row;
+  selectedUserId.value = null;
+  searchUserKw.value = '';
+  userList.value = [];
+  assignVisible.value = true;
+}
+
+async function searchUsers() {
+  const kw = searchUserKw.value.trim();
+  if (!kw) return;
+  userSearching.value = true;
+  try {
+    const r = await api.users({ keyword: kw, page: 1, pageSize: 20 });
+    userList.value = r.list || r || [];
+  } finally {
+    userSearching.value = false;
+  }
+}
+
+async function doAssign() {
+  if (!selectedUserId.value || !assignOrder.value) return;
+  try {
+    await ElMessageBox.confirm(
+      `确认将订单 ${assignOrder.value.platformOrderNo} 指派给该用户？`,
+      '确认指派',
+      { type: 'warning' },
+    );
+  } catch {
+    return;
+  }
+  assigning.value = true;
+  try {
+    await api.assignOrder(assignOrder.value.id, selectedUserId.value);
+    ElMessage.success('指派成功');
+    assignVisible.value = false;
+    load();
+  } finally {
+    assigning.value = false;
+  }
+}
+
 onMounted(load);
 </script>
+
+<style scoped>
+.user-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f5f7fa;
+  transition: background 0.2s;
+}
+.user-item:last-child {
+  border-bottom: none;
+}
+.user-item:hover {
+  background: #f5f7fa;
+}
+.user-item.active {
+  background: #ecf5ff;
+}
+</style>

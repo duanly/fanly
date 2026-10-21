@@ -39,6 +39,11 @@ export const api = {
   orders: (params) => http.get('/api/admin/orders', { params }),
   syncOrders: (hours) => http.post('/api/admin/orders/sync', { hours }),
   recalcPending: () => http.post('/api/admin/orders/recalc-pending'),
+  assignOrder: (id, userId) => http.post(`/api/admin/orders/${id}/assign`, { userId }),
+  rebuildPendingDetails: () => http.post('/api/admin/orders/rebuild-pending-details'),
+
+  // 用户
+  users: (params) => http.get('/api/admin/users', { params }),
 
   withdraws: (params) => http.get('/api/admin/withdraws', { params }),
   auditWithdraw: (id, pass, reason) => http.post(`/api/admin/withdraws/${id}/audit`, { pass, reason }),
