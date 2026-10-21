@@ -258,16 +258,23 @@ export class CpsService implements OnModuleInit {
     const key = `rec|${platform}|${p.channel ?? 'earn'}|${p.page ?? 1}|${p.pageSize ?? 20}`;
 
     return this.remember(await this.goodsCache.wrap(key, async () => {
+      let list: UnifiedGoods[] = [];
       if (typeof provider.recommendGoods === 'function') {
         try {
-          const list = await provider.recommendGoods(p);
+          list = await provider.recommendGoods(p);
+          if (list.length) {
+            // 过滤掉佣金为 0 或价格为 0 的异常商品（可能已下架或无返利）
+            list = list.filter((g) => g.commission > 0 && g.price > 0);
+          }
           if (list.length) return list;
-          this.logger.warn(`${platform} 榜单返回空，回落到搜索`);
+          this.logger.warn(`${platform} 榜单返回空（过滤后 ${list.length} 条），回落到搜索`);
         } catch (e: any) {
           this.logger.warn(`${platform} 榜单失败，回落到搜索: ${e.message}`);
         }
       }
-      return provider.searchGoods({ pageSize: p.pageSize ?? 20, sort: 'sales' });
+      list = await provider.searchGoods({ pageSize: p.pageSize ?? 20, sort: 'sales' });
+      // 搜索结果也过滤一遍
+      return list.filter((g) => g.commission > 0 && g.price > 0);
     }));
   }
 
@@ -311,6 +318,8 @@ export class CpsService implements OnModuleInit {
       return batches
         .flat()
         .filter((g) => {
+          // 过滤掉佣金为 0 或价格为 0 的异常商品（可能已下架或无返利）
+          if (!(g.commission > 0) || !(g.price > 0)) return false;
           const k = `${g.platform}:${g.goodsId}`;
           if (seen.has(k)) return false;
           seen.add(k);
@@ -357,7 +366,7 @@ export class CpsService implements OnModuleInit {
       return batches
         .flat()
         .filter((g) => {
-          if (!(g.commission > 0) || seen.has(g.goodsId)) return false;
+          if (!(g.commission > 0) || !(g.price > 0) || seen.has(g.goodsId)) return false;
           seen.add(g.goodsId);
           return true;
         })

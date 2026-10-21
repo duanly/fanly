@@ -89,7 +89,18 @@
       </div>
     </template>
 
-    <van-empty v-else description="商品不存在" />
+    <div v-else class="offline-page">
+      <van-empty description="商品已下架" />
+      <div class="offline-tip">该商品可能已售罄或商家结束推广</div>
+      <div class="offline-actions">
+        <van-button round type="primary" color="#ff4b3a" @click="$router.back()">
+          返回上一页
+        </van-button>
+        <van-button round plain @click="$router.push('/')">
+          去首页看看
+        </van-button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -220,5 +231,24 @@ onMounted(async () => {
   font-weight: 600;
   border-radius: 4px;
   vertical-align: middle;
+}
+
+.offline-page {
+  padding: 60px 30px;
+  text-align: center;
+}
+.offline-tip {
+  color: #999;
+  font-size: 13px;
+  margin-top: -10px;
+  margin-bottom: 24px;
+}
+.offline-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.offline-actions .van-button {
+  flex: 0 0 auto;
 }
 </style>
