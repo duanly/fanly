@@ -13,23 +13,30 @@ http.interceptors.response.use(
   (res) => {
     const body = res.data;
     if (body && body.code === 0) {
-      // 对商品列表类数据统一过滤：过滤掉佣金为 0 或价格为 0 的已下架/无返利商品
-      if (body.data && typeof body.data === 'object') {
+      // 只对明确的商品列表接口做兜底过滤：剔除佣金为 0 或价格为 0 的商品
+      const url = res.config?.url || '';
+      const isGoodsListApi =
+        url.includes('/api/goods/feed') ||
+        url.includes('/api/goods/recommend') ||
+        url.includes('/api/goods/search') ||
+        url.includes('/api/goods/group') ||
+        url.includes('/api/goods/groups') ||
+        url.includes('/api/topics/') ||
+        url.includes('/api/home/ranking') ||
+        url.includes('/api/compare/list') ||
+        url.includes('/api/compare/search') ||
+        url.includes('/api/cart');
+
+      if (isGoodsListApi && body.data && typeof body.data === 'object') {
+        const filterGoods = (list) => list.filter((g) => {
+          const comm = Number(g.commission ?? g.estCommission ?? 0);
+          const price = Number(g.price ?? g.finalPrice ?? g.couponPrice ?? g.actualPrice ?? 0);
+          return comm > 0 && price > 0;
+        });
         if (Array.isArray(body.data.list) && body.data.list.length && body.data.list[0]?.goodsId !== undefined) {
-          body.data = {
-            ...body.data,
-            list: body.data.list.filter((g) => {
-              const comm = Number(g.commission ?? g.estCommission ?? 0);
-              const price = Number(g.price ?? g.finalPrice ?? g.couponPrice ?? 0);
-              return comm > 0 && price > 0;
-            }),
-          };
+          body.data = { ...body.data, list: filterGoods(body.data.list) };
         } else if (Array.isArray(body.data) && body.data.length && body.data[0]?.goodsId !== undefined) {
-          body.data = body.data.filter((g) => {
-            const comm = Number(g.commission ?? g.estCommission ?? 0);
-            const price = Number(g.price ?? g.finalPrice ?? g.couponPrice ?? 0);
-            return comm > 0 && price > 0;
-          });
+          body.data = filterGoods(body.data);
         }
       }
       return body.data;
@@ -142,28 +149,7 @@ adminHttp.interceptors.request.use((cfg) => {
 adminHttp.interceptors.response.use(
   (res) => {
     const body = res.data;
-    if (body && body.code === 0) {
-      // 对商品列表类数据统一过滤：过滤掉佣金为 0 或价格为 0 的已下架/无返利商品
-      if (body.data && typeof body.data === 'object') {
-        if (Array.isArray(body.data.list) && body.data.list.length && body.data.list[0]?.goodsId !== undefined) {
-          body.data = {
-            ...body.data,
-            list: body.data.list.filter((g) => {
-              const comm = Number(g.commission ?? g.estCommission ?? 0);
-              const price = Number(g.price ?? g.finalPrice ?? g.couponPrice ?? 0);
-              return comm > 0 && price > 0;
-            }),
-          };
-        } else if (Array.isArray(body.data) && body.data.length && body.data[0]?.goodsId !== undefined) {
-          body.data = body.data.filter((g) => {
-            const comm = Number(g.commission ?? g.estCommission ?? 0);
-            const price = Number(g.price ?? g.finalPrice ?? g.couponPrice ?? 0);
-            return comm > 0 && price > 0;
-          });
-        }
-      }
-      return body.data;
-    }
+    if (body && body.code === 0) return body.data;
     showToast(body?.msg || '请求失败');
     return Promise.reject(new Error(body?.msg));
   },
