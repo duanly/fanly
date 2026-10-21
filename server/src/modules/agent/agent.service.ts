@@ -319,7 +319,7 @@ export class AgentService implements OnModuleInit {
     const { page = 1, size = 20 } = q;
     const qb = this.userRepo.createQueryBuilder('u')
       .leftJoin('agent', 'a', 'a.id = u.agentId')
-      .leftJoin('agent', 'pa', 'pa.id = a.parentId')
+      .leftJoin('agent', 'pa', 'pa.id = a.parentAgentId')
       .leftJoin('user', 'pu', 'pu.id = pa.userId')
       .addSelect('a.level', 'agentLevel')
       .addSelect('a.agentCode', 'agentCode')
