@@ -113,13 +113,18 @@ export class AggregatorProvider implements CpsProvider {
     }));
   }
 
-  /** 各平台状态码 → 统一状态，接哪家改哪家 */
+  /** 各平台状态码 → 统一状态（淘宝 tk_status 标准）：
+   *   12 - 付款       → 1 已付款
+   *   14 - 确认收货   → 2 已收货
+   *   3  - 结算成功   → 3 已结算
+   *   13 - 关闭/失效  → 4 已失效
+   */
   private mapStatus(s: any): number {
     const n = Number(s);
-    if ([13, 1].includes(n)) return 1;  // 已付款
-    if ([14, 2].includes(n)) return 2;  // 已收货
-    if ([3, 12].includes(n)) return 3;  // 已结算
-    if ([0, 4, 5, 8].includes(n)) return 4; // 已失效
+    if (n === 12) return 1;        // 付款 → 已付款
+    if (n === 14) return 2;        // 确认收货 → 已收货
+    if (n === 3) return 3;         // 结算成功 → 已结算
+    if (n === 13 || n === 4) return 4;  // 关闭/失效 → 已失效
     return 1;
   }
 }

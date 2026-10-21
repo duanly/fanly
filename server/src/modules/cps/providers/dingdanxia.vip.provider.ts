@@ -492,16 +492,18 @@ export class DingdanxiaVipProvider implements CpsProvider {
     const estCommission = Number(o.commission ?? o.estimateCommission ?? o.est_commission ?? 0);
     const settleCommission = Number(o.settleCommission ?? o.settle_commission ?? 0);
 
-    // 唯品会订单状态（根据文档 + 常识猜测，联调时修正）：
-    //   status: 0=不合格, 1=待付款, 2=已付款, 3=已收货/已结算, 4=已退款
+    // 唯品会订单状态（订单虾返回）：
+    //   validCode / status: 1=待付款 2=已付款 3=已收货 5=已结算 4=已退款
     // 统一状态：1=已付款 2=已收货 3=已结算 4=已失效
     let status = 1;
-    const rawStatus = String(o.status ?? o.orderStatus ?? o.order_status ?? '');
-    if (rawStatus === '3' || rawStatus === '已结算' || rawStatus.includes('结算')) {
+    const rawStatus = String(o.validCode ?? o.status ?? o.orderStatus ?? o.order_status ?? '');
+    if (rawStatus === '5' || rawStatus === '已结算' || rawStatus.includes('结算')) {
       status = 3;
+    } else if (rawStatus === '3' || rawStatus.includes('收货') || rawStatus.includes('完成')) {
+      status = 2;
     } else if (rawStatus === '2' || rawStatus.includes('付款') || rawStatus.includes('下单')) {
       status = 1;
-    } else if (rawStatus === '4' || rawStatus.includes('退款') || rawStatus.includes('取消') || rawStatus === '0') {
+    } else if (rawStatus === '4' || rawStatus.includes('退款') || rawStatus.includes('取消') || rawStatus === '0' || rawStatus === '1') {
       status = 4;
     }
 

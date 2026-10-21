@@ -530,12 +530,12 @@ export class DingdanxiaProvider implements CpsProvider {
   }
 
   /**
-   * 淘宝订单状态（tk_status）：
-   *   1 - 已付款
-   *   3 - 结算成功
-   *   12 - 已收货/确认收货
-   *   13 - 维权成功
-   *   14 - 结算失败
+   * 淘宝订单状态（tk_status）— 官方文档：
+   *   12 - 付款
+   *   13 - 关闭
+   *   14 - 确认收货
+   *   3  - 结算成功
+   * 统一状态：1=已付款 2=已收货 3=已结算 4=已失效
    */
   private mapOrder(o: any): UnifiedOrder {
     const tkStatus = Number(o.tk_status ?? o.order_status ?? o.status ?? 0);
@@ -543,11 +543,17 @@ export class DingdanxiaProvider implements CpsProvider {
     // 统一状态：1=已付款 2=已收货 3=已结算 4=已失效
     let status: number;
     switch (tkStatus) {
-      case 1: status = 1; break;
-      case 12: status = 2; break;
-      case 3: status = 3; break;
-      case 13: case 14: case 4: status = 4; break;
-      default: status = tkStatus >= 3 ? 3 : tkStatus === 12 ? 2 : tkStatus === 1 ? 1 : 4;
+      case 12: status = 1; break;   // 付款 → 已付款
+      case 14: status = 2; break;   // 确认收货 → 已收货
+      case 3:  status = 3; break;   // 结算成功 → 已结算
+      case 13: status = 4; break;   // 关闭 → 已失效
+      default:
+        // 兜底：已知值之外的按逻辑猜
+        if (tkStatus === 3) status = 3;
+        else if (tkStatus === 12) status = 1;
+        else if (tkStatus === 14) status = 2;
+        else if (tkStatus === 13) status = 4;
+        else status = 1;  // 未知状态先按已付款处理，后续同步会修正
     }
 
     // 订单归属：external_id / special_id / custom_parameters 里的自定义参数
