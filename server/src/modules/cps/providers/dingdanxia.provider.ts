@@ -868,12 +868,21 @@ export class DingdanxiaJdProvider implements CpsProvider {
     };
     const sortType = sortMap[p.channel ?? 'hot'] ?? 3;
 
-    const json = await this.callRaw('/jd/query_goods_rank', {
-      rankId,
-      sortType,
-      pageIndex: page,
-      pageSize,
-    });
+    let json: any;
+    try {
+      json = await this.callRaw('/jd/query_goods_rank', {
+        rankId,
+        sortType,
+        pageIndex: page,
+        pageSize,
+      });
+    } catch (e: any) {
+      // 「已到最后一页」是正常结束，不是错误
+      if (e.message?.includes('已达到最后一页') || e.message?.includes('无更多查询结果')) {
+        return { list: [], total: 0, page, hasMore: false };
+      }
+      throw e;
+    }
 
     const list = this.extractList(json.data ?? json).map((r: any) => this.mapGoods(r));
     const total = Number(json.total_results ?? json.totalCount ?? json.total ?? list.length);

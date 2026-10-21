@@ -69,6 +69,15 @@ router.beforeEach((to) => {
 
 createApp(App).use(router).use(Vant).mount('#app');
 
+// ─── 注册 Service Worker（PWA 必需，Android 上才能触发安装提示） ───
+if ('serviceWorker' in navigator && !location.hostname.includes('localhost')) {
+  window.addEventListener('load', () => {
+    const isAdmin = location.hash.startsWith('#/madmin');
+    // 管理后台和用户端共用一个 sw，核心缓存一样
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
 // ───────── PWA 动态切换：管理后台 vs 用户端 ─────────
 // 访问 /madmin/* 时切换成运营中心的 PWA 配置，这样可以单独添加到桌面
 const USER_MANIFEST = '/manifest.json';
