@@ -161,19 +161,17 @@ async function onActClick(item) {
     const h5 = r.h5 || r.longH5 || r.jump_url || r.url;
     h5Url.value = h5 || '';
 
-    // 微信环境：直接跳 H5，微信里会自动唤起小程序
-    if (isWechat && h5) {
+    // 有 H5 链接 → 直接打开
+    if (h5) {
       window.location.href = h5;
       return;
     }
 
-    // 非微信环境：有小程序码 → 弹引导层；没有 → 直接跳 H5
+    // 没有 H5 但有小程序码 → 弹引导层
     const miniCode = r.weAppInfo?.miniCode || r.we_app_info?.mini_code;
     if (miniCode) {
       qrCode.value = miniCode;
       showQrPopup.value = true;
-    } else if (h5) {
-      window.location.href = h5;
     } else {
       showToast('跳转链接获取失败');
     }
