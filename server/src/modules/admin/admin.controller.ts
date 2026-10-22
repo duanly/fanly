@@ -11,6 +11,7 @@ import { SysConfigService } from './sys-config.service';
 import { AgentService } from '../agent/agent.service';
 import { OrderService } from '../order/order.service';
 import { FundService } from '../fund/fund.service';
+import { JutuikeService } from '../jutuike/jutuike.service';
 
 @ApiTags('管理后台')
 @Controller('api/admin')
@@ -23,6 +24,7 @@ export class AdminController {
     private readonly agent: AgentService,
     private readonly order: OrderService,
     private readonly fund: FundService,
+    private readonly jtk: JutuikeService,
   ) {}
 
   @Public() @Post('login')
@@ -129,6 +131,27 @@ export class AdminController {
     @Param('id') id: string,
     @Body() body: { userId: number },
   ) { return this.order.assignUser(+id, body.userId); }
+
+  // ─── 聚推客订单（本地生活） ───
+
+  @Get('jutuike/orders')
+  @ApiOperation({ summary: '聚推客订单列表' })
+  jutuikeOrders(@Query() q: any) {
+    return this.order.listAll({
+      platform: 'JTK',
+      status: q.status ? +q.status : undefined,
+      brandId: q.brandId ? +q.brandId : undefined,
+      keyword: q.keyword || undefined,
+      page: q.page ? +q.page : 1,
+      size: q.pageSize ? +q.pageSize : 20,
+    });
+  }
+
+  @Post('jutuike/sync')
+  @ApiOperation({ summary: '手动同步聚推客订单' })
+  jutuikeSync(@Body() body: { hours?: number }) {
+    return this.jtk.syncOrders(body?.hours ?? 24);
+  }
 
   @Get('users')
   @ApiOperation({ summary: '用户列表（后台用）' })

@@ -15,6 +15,7 @@ const routes = [
   { path: '/home-ops', component: () => import('./views/HomeOps.vue') },
   { path: '/agents', component: () => import('./views/Agents.vue') },
   { path: '/orders', component: () => import('./views/Orders.vue') },
+  { path: '/jutuike', component: () => import('./views/JtkOrders.vue') },
   { path: '/claims', component: () => import('./views/Claims.vue') },
   { path: '/withdraws', component: () => import('./views/Withdraws.vue') },
   { path: '/config', component: () => import('./views/Config.vue') },

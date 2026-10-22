@@ -222,6 +222,10 @@ export const adminApi = {
 
   // 对账
   reconcile: () => adminHttp.get('/api/admin/reconcile'),
+
+  // 聚推客订单
+  jtkOrders: (params) => adminHttp.get('/api/admin/jutuike/orders', { params }),
+  jtkSync: (hours) => adminHttp.post('/api/admin/jutuike/sync', { hours }),
 };
 
 export default http;

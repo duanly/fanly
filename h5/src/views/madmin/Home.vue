@@ -51,6 +51,12 @@
           </div>
           <div class="grid-name">订单</div>
         </div>
+        <div class="grid-item" @click="$router.push('/madmin/jtk')">
+          <div class="grid-ico" style="background: linear-gradient(135deg,#ff9500,#ff6b35)">
+            <van-icon name="shopping-cart-o" />
+          </div>
+          <div class="grid-name">聚推客</div>
+        </div>
         <div class="grid-item" @click="$router.push('/madmin/users')">
           <div class="grid-ico" style="background: linear-gradient(135deg,#667eea,#764ba2)">
             <van-icon name="user-o" />

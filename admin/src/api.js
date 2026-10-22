@@ -106,6 +106,10 @@ export const api = {
   claimAudit: (id, pass, reason) => http.post(`/api/admin/claim/${id}/audit`, { pass, reason }),
   claimRetry: () => http.post('/api/admin/claim/retry'),
 
+  // 聚推客订单（本地生活）
+  jtkOrders: (params) => http.get('/api/admin/jutuike/orders', { params }),
+  jtkSync: (hours) => http.post('/api/admin/jutuike/sync', { hours }),
+
   // 上传
   uploadImage: (file) => {
     const fd = new FormData();
