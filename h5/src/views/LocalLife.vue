@@ -20,36 +20,38 @@
     </van-tabs>
 
     <!-- 活动列表 -->
-    <van-list
-      v-model:loading="loading"
-      :finished="finished"
-      finished-text="— 没有更多活动了 —"
-      @load="loadList"
-      class="ll-list"
-    >
-      <div class="act-grid">
-        <div
-          v-for="item in list"
-          :key="item.actId"
-          class="act-card"
-          @click="onActClick(item)"
-        >
-          <div class="ac-img">
-            <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
-            <div v-else class="ac-img-fallback">🎁</div>
-          </div>
-          <div class="ac-body">
-            <div class="ac-name">{{ item.actName }}</div>
-            <div class="ac-desc">{{ item.actDesc || '限时优惠' }}</div>
-            <div class="ac-foot">
-              <div class="ac-btn">立即领券 ›</div>
+    <div class="ll-section">
+      <van-list
+        v-model:loading="loading"
+        :finished="finished"
+        finished-text="— 没有更多活动了 —"
+        @load="loadList"
+        class="ll-list"
+      >
+        <div class="act-grid">
+          <div
+            v-for="item in list"
+            :key="item.actId"
+            class="act-card"
+            @click="onActClick(item)"
+          >
+            <div class="ac-img">
+              <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
+              <div v-else class="ac-img-fallback">🎁</div>
+            </div>
+            <div class="ac-body">
+              <div class="ac-name">{{ item.actName }}</div>
+              <div class="ac-desc">{{ item.actDesc || '限时优惠' }}</div>
+              <div class="ac-foot">
+                <div class="ac-btn">立即领券 ›</div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </van-list>
 
       <van-empty v-if="!loading && !list.length" description="该分类暂无活动，看看其他分类吧～" />
-    </van-list>
+    </div>
   </div>
 </template>
 
@@ -160,24 +162,29 @@ onMounted(() => {
 }
 
 .ll-list {
-  padding: 10px 12px 20px;
-}
-.ll-list :deep(.van-list__finished-text),
-.ll-list :deep(.van-list__loading) {
   padding: 0;
+}
+
+.ll-section {
+  margin: 10px 12px 0;
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px 14px 14px;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  overflow: hidden;
 }
 
 .act-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
-  width: 100%;
   touch-action: manipulation;
 }
 
 .act-card {
-  background: #fff;
-  border-radius: 10px;
+  background: #fafafa;
+  border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
@@ -186,13 +193,13 @@ onMounted(() => {
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
-/* 图片区（活动横幅图，横版比例） */
+/* 图片区（1:1 方形，跟商品卡一致） */
 .ac-img {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1;
   overflow: hidden;
-  background: linear-gradient(135deg, #ffecd2, #fcb69f);
+  background: #f7f8fa;
 }
 .ac-img img {
   width: 100%;
@@ -205,19 +212,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36px;
+  font-size: 40px;
 }
 
 /* 内容区 */
 .ac-body {
   padding: 8px 10px 10px;
+  background: #fff;
+  border-radius: 0 0 12px 12px;
 }
 .ac-name {
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.35;
-  height: 35px;
-  color: #1a1a1a;
+  font-size: 12px;
+  line-height: 1.4;
+  height: 34px;
+  color: #333;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -226,23 +234,23 @@ onMounted(() => {
 .ac-desc {
   font-size: 11px;
   color: #999;
-  margin-top: 4px;
+  margin-top: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* 底部 */
+/* 底部按钮 */
 .ac-foot {
   margin-top: 8px;
 }
 .ac-btn {
   display: inline-block;
-  font-size: 12px;
+  font-size: 11px;
   color: #fff;
   background: linear-gradient(135deg, #ff9500, #ff6b35);
   border-radius: 999px;
-  padding: 4px 12px;
+  padding: 3px 10px;
   font-weight: 600;
   white-space: nowrap;
 }
