@@ -35,22 +35,15 @@
           @click="onActClick(item)"
         >
           <div class="ac-img">
-            <img v-if="item.icon" :src="item.icon" :alt="item.actName" loading="lazy" />
+            <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
             <div v-else class="ac-img-fallback">🎁</div>
           </div>
           <div class="ac-body">
             <div class="ac-name">{{ item.actName }}</div>
-            <div class="ac-rebate">
-              <span class="ar-text">返</span>
-              <span class="ar-amt">
-                <span class="ar-symbol">¥</span>
-                <span class="ar-num">{{ formatFee(item.estCommission) }}</span>
-              </span>
-            </div>
-            <div class="ac-desc">{{ item.actDesc || item.subTitle || '限时优惠' }}</div>
+            <div class="ac-desc">{{ item.actDesc || '限时优惠' }}</div>
             <div class="ac-foot">
-              <div class="ac-brand">本地生活</div>
-              <div class="ac-btn">去领券</div>
+              <div class="ac-tag">领券立减</div>
+              <div class="ac-btn">去领券 ›</div>
             </div>
           </div>
         </div>
@@ -85,12 +78,6 @@ const finished = ref(false);
 
 const currentCate = computed(() => CATEGORIES.find((c) => c.key === activeCate.value));
 
-function formatFee(val) {
-  const n = Number(val || 0);
-  if (n === 0) return '待定';
-  return n.toFixed(2);
-}
-
 function onCateChange() {
   list.value = [];
   page.value = 1;
@@ -111,10 +98,8 @@ async function loadList() {
       actId: item.actId || item.act_id || item.id,
       actName: item.actName || item.act_name || item.title || item.name,
       actDesc: item.desc || item.act_desc || item.subtitle,
-      subTitle: item.subTitle || item.sub_title || item.subtitle,
-      icon: item.icon || item.img || item.pic,
-      topPrice: item.topPrice || item.top_price || item.price,
-      estCommission: item.jtkShareFee ?? item.shareFee ?? item.jtk_share_fee ?? item.commission ?? 0,
+      img: item.img || item.image || item.pic || item.banner,
+      icon: item.icon || item.logo,
     }));
     list.value.push(...rows);
     page.value += 1;
@@ -180,13 +165,13 @@ onMounted(() => {
 .act-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 8px;
   touch-action: manipulation;
 }
 
 .act-card {
-  background: #fafafa;
-  border-radius: 12px;
+  background: #fff;
+  border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
@@ -195,11 +180,11 @@ onMounted(() => {
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
-/* 图片区 */
+/* 图片区（活动横幅图，横版比例） */
 .ac-img {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   background: linear-gradient(135deg, #ffecd2, #fcb69f);
 }
@@ -214,66 +199,28 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40px;
+  font-size: 36px;
 }
 
 /* 内容区 */
 .ac-body {
   padding: 8px 10px 10px;
-  background: #fff;
-  border-radius: 0 0 12px 12px;
 }
 .ac-name {
-  font-size: 12px;
-  line-height: 1.4;
-  height: 34px;
-  color: #333;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  height: 35px;
+  color: #1a1a1a;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
-/* 返利区（核心卖点，放大突出） */
-.ac-rebate {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 8px;
-}
-.ar-text {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 18px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #ff4b3a;
-  border: 1.5px solid #ff4b3a;
-  border-radius: 3px;
-  line-height: 1;
-}
-.ar-amt {
-  display: inline-flex;
-  align-items: baseline;
-  color: #ff4b3a;
-  font-weight: 700;
-  line-height: 1;
-}
-.ar-symbol {
-  font-size: 13px;
-  margin-right: 1px;
-}
-.ar-num {
-  font-size: 20px;
-  letter-spacing: -0.5px;
-}
-
 .ac-desc {
   font-size: 11px;
   color: #999;
-  margin-top: 6px;
+  margin-top: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -285,19 +232,18 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #f5f6f8;
 }
-.ac-brand {
-  font-size: 11px;
-  color: #999;
+.ac-tag {
+  font-size: 10px;
+  color: #ff9500;
+  background: #fff5e6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
 }
 .ac-btn {
   font-size: 11px;
-  color: #fff;
-  background: linear-gradient(135deg, #ff9500, #ff6b35);
-  border-radius: 999px;
-  padding: 3px 10px;
+  color: #ff6b35;
   font-weight: 600;
   white-space: nowrap;
 }
