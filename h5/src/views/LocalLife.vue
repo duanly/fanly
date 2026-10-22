@@ -42,8 +42,7 @@
             <div class="ac-name">{{ item.actName }}</div>
             <div class="ac-desc">{{ item.actDesc || '限时优惠' }}</div>
             <div class="ac-foot">
-              <div class="ac-tag">领券立减</div>
-              <div class="ac-btn">去领券 ›</div>
+              <div class="ac-btn">立即领券 ›</div>
             </div>
           </div>
         </div>
@@ -136,6 +135,8 @@ onMounted(() => {
 .local-life {
   min-height: 100vh;
   background: #f7f8fa;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ll-header {
@@ -161,11 +162,16 @@ onMounted(() => {
 .ll-list {
   padding: 10px 12px 20px;
 }
+.ll-list :deep(.van-list__finished-text),
+.ll-list :deep(.van-list__loading) {
+  padding: 0;
+}
 
 .act-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  width: 100%;
   touch-action: manipulation;
 }
 
@@ -228,22 +234,15 @@ onMounted(() => {
 
 /* 底部 */
 .ac-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   margin-top: 8px;
 }
-.ac-tag {
-  font-size: 10px;
-  color: #ff9500;
-  background: #fff5e6;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 500;
-}
 .ac-btn {
-  font-size: 11px;
-  color: #ff6b35;
+  display: inline-block;
+  font-size: 12px;
+  color: #fff;
+  background: linear-gradient(135deg, #ff9500, #ff6b35);
+  border-radius: 999px;
+  padding: 4px 12px;
   font-weight: 600;
   white-space: nowrap;
 }
