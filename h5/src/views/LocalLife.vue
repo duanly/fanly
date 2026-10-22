@@ -27,7 +27,7 @@
       @load="loadList"
       class="ll-list"
     >
-      <div class="act-list">
+      <div class="act-grid">
         <div
           v-for="item in list"
           :key="item.actId"
@@ -35,17 +35,21 @@
           @click="onActClick(item)"
         >
           <div class="ac-img">
-            <img v-if="item.icon" :src="item.icon" :alt="item.actName" />
+            <img v-if="item.icon" :src="item.icon" :alt="item.actName" loading="lazy" />
             <div v-else class="ac-img-fallback">🎁</div>
           </div>
           <div class="ac-body">
             <div class="ac-name">{{ item.actName }}</div>
+            <div class="ac-rebate">
+              <span class="ar-text">返</span>
+              <span class="ar-amt">
+                <span class="ar-symbol">¥</span>
+                <span class="ar-num">{{ formatFee(item.estCommission) }}</span>
+              </span>
+            </div>
             <div class="ac-desc">{{ item.actDesc || item.subTitle || '限时优惠' }}</div>
-            <div class="ac-bottom">
-              <div class="ac-commission">
-                <span class="ac-comm-label">预估返</span>
-                <span class="ac-comm-value">¥{{ formatFee(item.estCommission) }}</span>
-              </div>
+            <div class="ac-foot">
+              <div class="ac-brand">本地生活</div>
               <div class="ac-btn">去领券</div>
             </div>
           </div>
@@ -173,34 +177,31 @@ onMounted(() => {
   padding: 10px 12px 20px;
 }
 
-.act-list {
-  display: flex;
-  flex-direction: column;
+.act-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
+  touch-action: manipulation;
 }
 
 .act-card {
-  display: flex;
-  gap: 12px;
-  background: #fff;
+  background: #fafafa;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  padding: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 .act-card:active {
   transform: scale(0.98);
-  opacity: 0.9;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
+/* 图片区 */
 .ac-img {
   position: relative;
-  flex-shrink: 0;
-  width: 100px;
-  height: 100px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #ffecd2, #fcb69f);
+  width: 100%;
+  aspect-ratio: 1;
   overflow: hidden;
+  background: linear-gradient(135deg, #ffecd2, #fcb69f);
 }
 .ac-img img {
   width: 100%;
@@ -213,62 +214,91 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36px;
+  font-size: 40px;
 }
 
+/* 内容区 */
 .ac-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  padding: 8px 10px 10px;
+  background: #fff;
+  border-radius: 0 0 12px 12px;
 }
 .ac-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1a1a1a;
+  font-size: 12px;
   line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  height: 34px;
+  color: #333;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-.ac-desc {
+
+/* 返利区（核心卖点，放大突出） */
+.ac-rebate {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+}
+.ar-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 18px;
   font-size: 12px;
+  font-weight: 700;
+  color: #ff4b3a;
+  border: 1.5px solid #ff4b3a;
+  border-radius: 3px;
+  line-height: 1;
+}
+.ar-amt {
+  display: inline-flex;
+  align-items: baseline;
+  color: #ff4b3a;
+  font-weight: 700;
+  line-height: 1;
+}
+.ar-symbol {
+  font-size: 13px;
+  margin-right: 1px;
+}
+.ar-num {
+  font-size: 20px;
+  letter-spacing: -0.5px;
+}
+
+.ac-desc {
+  font-size: 11px;
   color: #999;
-  margin-top: 4px;
+  margin-top: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ac-bottom {
+
+/* 底部 */
+.ac-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f5f6f8;
 }
-.ac-commission {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-.ac-comm-label {
+.ac-brand {
   font-size: 11px;
-  color: #ff9500;
-}
-.ac-comm-value {
-  font-size: 17px;
-  font-weight: 700;
-  color: #ff4b3a;
+  color: #999;
 }
 .ac-btn {
-  padding: 5px 14px;
-  background: linear-gradient(135deg, #ff9500, #ff6b35);
+  font-size: 11px;
   color: #fff;
-  font-size: 12px;
-  font-weight: 600;
+  background: linear-gradient(135deg, #ff9500, #ff6b35);
   border-radius: 999px;
-  flex-shrink: 0;
+  padding: 3px 10px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 </style>
