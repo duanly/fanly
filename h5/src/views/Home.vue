@@ -41,18 +41,17 @@
         </div>
       </div>
 
-      <!-- 复制链接转链条 -->
-      <div class="paste-bar" @click="goParse">
-        <div class="pb-left">
-          <span class="pb-ico">📋</span>
-          <span>复制</span>
-          <span class="pb-plats">
-            <i v-for="p in PLATS" :key="p.key" class="pb-plat-dot" :style="{ background: p.bg }">{{ p.short }}</i>
-          </span>
-          <span>商品链接</span>
+      <!-- 签到入口条 -->
+      <div class="checkin-bar" @click="$router.push('/checkin')">
+        <div class="cb-left">
+          <span class="cb-ico">🎁</span>
+          <div class="cb-text">
+            <span class="cb-title">每日签到领金币</span>
+            <span class="cb-sub">攒够就能换钱 · 今天还没签</span>
+          </div>
         </div>
-        <div class="pb-right">
-          <span>转链返现</span>
+        <div class="cb-right">
+          <span>去签到</span>
           <van-icon name="arrow" color="#ff4b3a" size="10" />
         </div>
       </div>
@@ -785,50 +784,54 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-/* 复制链接提示 */
-.paste-bar {
+/* 签到入口条 */
+.checkin-bar {
   position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 40px;
+  height: 48px;
   padding: 0 14px;
   margin: 4px 0 12px;
-  background: #fff;
-  border-radius: 20px;
+  background: linear-gradient(135deg, #fff5e6, #fff0ed);
+  border-radius: 24px;
   font-size: 12px;
   color: #333;
-  box-shadow: 0 2px 10px rgba(255, 75, 58, 0.08);
+  box-shadow: 0 2px 10px rgba(255, 150, 50, 0.15);
+  border: 1px solid #ffe0cc;
 }
-.pb-left {
+.cb-left {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
 }
-.pb-ico { font-size: 14px; }
-.pb-plats {
-  display: inline-flex;
-  gap: 3px;
-  margin: 0 2px;
+.cb-ico { font-size: 20px; }
+.cb-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
-.pb-plat-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 9px;
-  font-weight: 600;
+.cb-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ff6b35;
 }
-.pb-right {
+.cb-sub {
+  font-size: 11px;
+  color: #999;
+}
+.cb-right {
   display: flex;
   align-items: center;
   gap: 4px;
   color: #ff4b3a;
   font-weight: 600;
+  font-size: 13px;
+  padding: 4px 12px;
+  background: #fff;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(255,75,58,0.15);
 }
 
 /* Banner */
