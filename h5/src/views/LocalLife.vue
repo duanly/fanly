@@ -27,7 +27,7 @@
       @load="loadList"
       class="ll-list"
     >
-      <div class="act-grid">
+      <div class="act-list">
         <div
           v-for="item in list"
           :key="item.actId"
@@ -37,9 +37,6 @@
           <div class="ac-img">
             <img v-if="item.icon" :src="item.icon" :alt="item.actName" />
             <div v-else class="ac-img-fallback">🎁</div>
-            <div v-if="item.topPrice" class="ac-price-tag">
-              ¥{{ item.topPrice }}起
-            </div>
           </div>
           <div class="ac-body">
             <div class="ac-name">{{ item.actName }}</div>
@@ -100,7 +97,7 @@ function onCateChange() {
 
 async function loadList() {
   try {
-    const cateName = activeCate.value === 'all' ? undefined : currentCate.value?.name;
+    const cateName = activeCate.value === 'all' ? undefined : currentCate.value?.key;
     const r = await api.jtkActivities({
       cateName,
       page: page.value,
@@ -176,17 +173,20 @@ onMounted(() => {
   padding: 10px 12px 20px;
 }
 
-.act-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.act-list {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
 .act-card {
+  display: flex;
+  gap: 12px;
   background: #fff;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  padding: 10px;
 }
 .act-card:active {
   transform: scale(0.98);
@@ -195,20 +195,19 @@ onMounted(() => {
 
 .ac-img {
   position: relative;
-  width: 100%;
-  padding-top: 60%;
+  flex-shrink: 0;
+  width: 100px;
+  height: 100px;
+  border-radius: 10px;
   background: linear-gradient(135deg, #ffecd2, #fcb69f);
+  overflow: hidden;
 }
 .ac-img img {
-  position: absolute;
-  top: 0; left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 .ac-img-fallback {
-  position: absolute;
-  top: 0; left: 0;
   width: 100%;
   height: 100%;
   display: flex;
@@ -216,36 +215,27 @@ onMounted(() => {
   justify-content: center;
   font-size: 36px;
 }
-.ac-price-tag {
-  position: absolute;
-  left: 8px;
-  bottom: 6px;
-  padding: 2px 8px;
-  background: rgba(0,0,0,0.6);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 999px;
-  backdrop-filter: blur(4px);
-}
 
 .ac-body {
-  padding: 8px 10px 10px;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 .ac-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #1a1a1a;
-  line-height: 1.3;
+  line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  min-height: 34px;
 }
 .ac-desc {
-  font-size: 11px;
+  font-size: 12px;
   color: #999;
   margin-top: 4px;
   overflow: hidden;
@@ -261,23 +251,24 @@ onMounted(() => {
 .ac-commission {
   display: flex;
   align-items: baseline;
-  gap: 2px;
+  gap: 4px;
 }
 .ac-comm-label {
-  font-size: 10px;
+  font-size: 11px;
   color: #ff9500;
 }
 .ac-comm-value {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: #ff4b3a;
 }
 .ac-btn {
-  padding: 3px 10px;
+  padding: 5px 14px;
   background: linear-gradient(135deg, #ff9500, #ff6b35);
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   border-radius: 999px;
+  flex-shrink: 0;
 }
 </style>
