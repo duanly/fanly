@@ -25,7 +25,7 @@
         </div>
         <div class="ac-list">
           <div
-            v-for="p in PLATS"
+            v-for="p in authPlats"
             :key="p.key"
             class="ac-item"
             :class="{ done: auth[p.key] === true }"
@@ -67,6 +67,19 @@
           </div>
         </van-swipe-item>
       </van-swipe>
+    </div>
+
+    <!-- 本地生活入口 -->
+    <div class="local-life-entry" @click="$router.push('/local-life')">
+      <div class="lle-left">
+        <div class="lle-tag">🍔 本地生活</div>
+        <div class="lle-title">外卖 / 打车 / 酒店，都能返</div>
+        <div class="lle-sub">美团 · 饿了么 · 滴滴 · 酒店 · 电影票</div>
+      </div>
+      <div class="lle-right">
+        <span>去看看</span>
+        <van-icon name="arrow" color="#fff" />
+      </div>
     </div>
 
     <!-- 全网比价入口 -->
@@ -329,7 +342,9 @@ function continueRankLoad() {
 }
 
 const catsRef = ref(null);
-const allAuth = computed(() => PLATS.every((p) => auth[p.key] === true));
+// 开启返利卡片只显示电商平台（JTK 本地生活不需要授权，也不走分类页）
+const authPlats = computed(() => PLATS.filter((p) => p.key !== 'JTK'));
+const allAuth = computed(() => authPlats.value.every((p) => auth[p.key] === true));
 const rankTip = computed(() => RANKS[rankIdx.value]?.tip || '');
 const emptyText = computed(() =>
   RANKS[rankIdx.value].type === 'hot' ? '还没有真实订单数据，榜单在积累中' : '货架还在备货，先看看别的分区',
@@ -606,7 +621,7 @@ function onRecommended(g) {
 async function loadSide() {
   // 先加载授权状态
   if (localStorage.getItem('token')) {
-    Promise.all(PLATS.map(async (p) => {
+    Promise.all(authPlats.value.map(async (p) => {
       try {
         const s = await api.authzStatus(p.key);
         auth[p.key] = !s.needAuth;
@@ -986,6 +1001,44 @@ onUnmounted(() => {
 }
 .ac-item:not(.done) .ac-st {
   color: #ff4b3a;
+}
+
+/* ========== 本地生活入口 ========== */
+.local-life-entry {
+  margin: 12px 12px 0;
+  padding: 14px;
+  background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);
+  border-radius: 14px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
+}
+.lle-tag {
+  font-size: 11px;
+  opacity: 0.9;
+  margin-bottom: 4px;
+}
+.lle-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+.lle-sub {
+  font-size: 11px;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+.lle-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
 }
 
 /* ========== 比价卡片 ========== */

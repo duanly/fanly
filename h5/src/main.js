@@ -13,6 +13,7 @@ const routes = [
   // 通用专题页：后台每建一个专题就多一个 /topic/xxx，不用改代码也不用发版
   { path: '/topic/:slug', component: () => import('./views/Topic.vue') },
   { path: '/compare', component: () => import('./views/Compare.vue') },
+  { path: '/local-life', component: () => import('./views/LocalLife.vue') },
   { path: '/cart', component: () => import('./views/Cart.vue') },
   { path: '/compare/:id', component: () => import('./views/CompareDetail.vue') },
   { path: '/parse', component: () => import('./views/Parse.vue'), meta: { auth: true } },

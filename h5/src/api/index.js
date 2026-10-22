@@ -134,6 +134,10 @@ export const api = {
   agentTeam: (params) => http.get('/api/agent/team', { params }),
   agentStats: () => http.get('/api/agent/stats'),
   agentInfo: (code) => http.get('/api/agent/info', { params: { code } }),
+
+  // 聚推客 - 本地生活（美团/饿了么/滴滴/酒店/电影票等）
+  jtkActivities: (params) => http.get('/api/jtk/activities', { params }),
+  jtkConvert: (actId) => http.post('/api/jtk/convert', { actId }),
 };
 
 // ───────── 管理后台（手机端） ─────────

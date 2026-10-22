@@ -16,6 +16,7 @@ export const PLATFORMS = [
   { key: 'JD', name: '京东', short: '京', bg: '#c81623' },
   { key: 'VIP', name: '唯品会', short: '唯', bg: '#ff2d52' },
   { key: 'PDD', name: '拼多多', short: '多', bg: '#e02e24' },
+  { key: 'JTK', name: '本地生活', short: '生', bg: '#ff9500' },
 ];
 
 /** 按 key 取，方便模板里 PLAT[g.platform]?.short 这种写法 */

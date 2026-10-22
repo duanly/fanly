@@ -6,6 +6,7 @@ import { FundService } from '../fund/fund.service';
 import { CurationService } from '../curation/curation.service';
 import { CompareService } from '../cps/compare.service';
 import { OrderClaimService } from '../order/order-claim.service';
+import { JutuikeService } from '../jutuike/jutuike.service';
 
 @Injectable()
 export class JobService {
@@ -18,12 +19,21 @@ export class JobService {
     private readonly curation: CurationService,
     private readonly compare: CompareService,
     private readonly claim: OrderClaimService,
+    private readonly jtk: JutuikeService,
   ) {}
 
   /** 增量拉单，每 10 分钟 */
   @Cron('0 */10 * * * *')
   async syncOrders() {
     const r = await this.order.syncAll(2);
+    // 聚推客订单同步
+    try {
+      const jtkR = await this.jtk.syncOrders(2);
+      r.push({ platform: 'JTK', count: jtkR.fetched });
+    } catch (e: any) {
+      this.logger.error(`聚推客拉单失败: ${e.message}`);
+      r.push({ platform: 'JTK', count: -1 });
+    }
     this.logger.log(`增量拉单: ${JSON.stringify(r)}`);
   }
 
@@ -75,6 +85,12 @@ export class JobService {
   @Cron('0 0 3 * * *')
   async dailyReconcile() {
     await this.order.syncAll(24 * 30);
+    // 聚推客全量对账
+    try {
+      await this.jtk.syncOrdersFull(30);
+    } catch (e: any) {
+      this.logger.error(`聚推客全量对账失败: ${e.message}`);
+    }
     const diff = await this.fund.reconcile();
     if (diff.length) this.logger.error(`对账不一致账号: ${JSON.stringify(diff)}`);
     else this.logger.log('对账通过');

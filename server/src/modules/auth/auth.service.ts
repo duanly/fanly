@@ -62,7 +62,8 @@ export class AuthService {
 
   /** 为新用户建各平台推广位，转链时带上，订单归属靠它 */
   private async ensurePositions(userId: number) {
-    for (const platform of PLATFORMS) {
+    const allPlatforms = [...PLATFORMS, 'JTK'];
+    for (const platform of allPlatforms) {
       const exist = await this.posRepo.findOneBy({ userId, platform });
       if (!exist) {
         await this.posRepo.save(this.posRepo.create({
