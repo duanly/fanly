@@ -93,6 +93,9 @@ services:
       VIP_PID: ${VIP_PID:-}
       DY_APP_KEY: ${DY_APP_KEY:-}
       DY_APP_SECRET: ${DY_APP_SECRET:-}
+      # 聚推客（本地生活 CPS：美团/饿了么/滴滴/酒店/电影票等）
+      JTK_API_KEY: ${JTK_API_KEY:-}
+      JTK_BASE_URL: ${JTK_BASE_URL:-}
       # 上传文件存储目录（容器内路径），挂载到 host 的 uploads-data volume
       UPLOAD_DIR: /app/uploads
     expose:
