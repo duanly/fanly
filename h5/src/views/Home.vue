@@ -10,6 +10,10 @@
           <span class="ph">搜隐藏优惠券 · 搜什么都返</span>
         </div>
         <div class="top-actions">
+          <div class="ta-item" @click="onRefresh">
+            <div class="ta-ico">🔄</div>
+            <span>刷新</span>
+          </div>
           <div class="ta-item" @click="$router.push('/checkin')">
             <div class="ta-ico">🎁</div>
             <span>签到</span>
@@ -559,6 +563,11 @@ function openCat(e) {
 
 function scrollToCats() {
   catsRef.value?.scrollIntoView({ behavior: 'smooth' });
+}
+
+function onRefresh() {
+  // 强制刷新页面，跳过 PWA 缓存
+  location.reload();
 }
 
 async function resetRank() {

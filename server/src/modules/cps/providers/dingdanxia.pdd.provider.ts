@@ -13,6 +13,8 @@ export interface DingdanxiaPddOptions {
   pid?: string;
   /** 自定义 baseUrl，有专线域名时填这个 */
   baseUrl?: string;
+  /** 是否完成渠道备案。未备案时不传 custom_parameters，否则报 60001 错误 */
+  channel备案d?: boolean;
 }
 
 /** 分 -> 元 */
@@ -222,27 +224,70 @@ export class DingdanxiaPddProvider implements CpsProvider {
   async convertLink(goodsSign: string, positionId: string): Promise<ConvertedLink> {
     if (!this.opt.pid) throw new Error('拼多多未配置推广位：请在 .env 填 PDD_PID');
 
-    const data = await this.call<any>('/pdd/convert', {
+    const params: Record<string, any> = {
       p_id: this.opt.pid,
       goods_sign: goodsSign,
-      custom_parameters: positionId,
+      custom_parameters: positionId || '', // 必填，传空字符串不触发备案检查
       generate_short_url: true,
       generate_schema_url: true,
       multi_group: true,
       generate_we_app: true,
-    });
-
-    if (!data) throw new Error('拼多多转链返回为空');
-
-    return {
-      platform: 'PDD',
-      goodsId: goodsSign,
-      // 优先「唤起 App」的短链
-      shortUrl: data.mobile_short_url || data.short_url || data.url || data.mobile_url || '',
-      deeplink: data.schema_url || data.mobile_url || '',
-      password: '',
-      positionId,
     };
+
+    this.logger.log(
+      `[PDD转链] goodsSign=${goodsSign} `
+      + `p_id=${this.opt.pid} `
+      + `custom_parameters=${params.custom_parameters || '(空)'} `
+      + `positionId=${positionId || '(空)'}`,
+    );
+
+    try {
+      const data = await this.call<any>('/pdd/convert', params);
+      if (!data) throw new Error('拼多多转链返回为空');
+      this.logger.log(`[PDD转链成功] goodsSign=${goodsSign}`);
+      return {
+        platform: 'PDD',
+        goodsId: goodsSign,
+        shortUrl: data.mobile_short_url || data.short_url || data.url || data.mobile_url || '',
+        deeplink: data.schema_url || data.mobile_url || '',
+        password: '',
+        positionId,
+      };
+    } catch (e: any) {
+      // 如果是渠道备案类错误，降级：不传 custom_parameters 重试
+      const msg = e.message || '';
+      const is备案Error =
+        msg.includes('60001') ||
+        msg.includes('渠道备案') ||
+        msg.includes('授权备案') ||
+        msg.includes('custom_parameters') ||
+        msg.includes('业务服务错误');
+
+      this.logger.warn(
+        `[PDD转链失败] goodsSign=${goodsSign} `
+        + `error=${msg} `
+        + `is备案Error=${is备案Error} `
+        + `positionId=${positionId || '(空)'}`,
+      );
+
+      if (is备案Error && positionId) {
+        this.logger.warn(`[PDD转链降级重试] goodsSign=${goodsSign}, custom_parameters置空`);
+        const data = await this.call<any>('/pdd/convert', {
+          ...params,
+          custom_parameters: '', // 置空，不触发备案检查
+        });
+        if (!data) throw new Error('拼多多转链返回为空');
+        return {
+          platform: 'PDD',
+          goodsId: goodsSign,
+          shortUrl: data.mobile_short_url || data.short_url || data.url || data.mobile_url || '',
+          deeplink: data.schema_url || data.mobile_url || '',
+          password: '',
+          positionId: '', // 降级后无归属，后端靠其他方式（如手动指派）补
+        };
+      }
+      throw e;
+    }
   }
 
   async parseContent(text: string): Promise<UnifiedGoods | null> {

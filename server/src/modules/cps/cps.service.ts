@@ -95,18 +95,9 @@ export class CpsService implements OnModuleInit {
           continue;
         }
       }
-    // 拼多多：优先走订单侠（同一个 apikey），没有的话再试官方直连
+    // 拼多多：优先走官方直连（渠道备案问题少，订单归属稳定），
+    // 没有官方凭据才回退到订单侠聚合
     if (p === 'PDD') {
-      if (this.config.get('DDX_API_KEY')) {
-        this.providers.set(p, new DingdanxiaPddProvider({
-          apiKey: this.config.get<string>('DDX_API_KEY', ''),
-          pid: this.config.get<string>('PDD_PID', ''),
-          baseUrl: this.config.get<string>('DDX_BASE_URL', ''),
-        }));
-        used.push('PDD=dingdanxia');
-        if (!this.config.get('PDD_PID')) this.logger.warn('PDD_PID 为空，拼多多转链会失败——去多多进宝后台拿推广位 ID');
-        continue;
-      }
       if (pddId && pddSecret) {
         this.providers.set(p, new PddProvider({
           clientId: pddId,
@@ -116,6 +107,16 @@ export class CpsService implements OnModuleInit {
         }));
         used.push('PDD=direct');
         if (!pddPid) this.logger.warn('PDD_PID 为空，转链会失败——去多多进宝后台拿推广位 ID');
+        continue;
+      }
+      if (this.config.get('DDX_API_KEY')) {
+        this.providers.set(p, new DingdanxiaPddProvider({
+          apiKey: this.config.get<string>('DDX_API_KEY', ''),
+          pid: this.config.get<string>('PDD_PID', ''),
+          baseUrl: this.config.get<string>('DDX_BASE_URL', ''),
+        }));
+        used.push('PDD=dingdanxia');
+        if (!this.config.get('PDD_PID')) this.logger.warn('PDD_PID 为空，拼多多转链会失败——去多多进宝后台拿推广位 ID');
         continue;
       }
     }
