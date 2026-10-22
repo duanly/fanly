@@ -163,6 +163,12 @@ onMounted(() => {
 
 .ll-list {
   padding: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.ll-list :deep(.van-list__finished-text),
+.ll-list :deep(.van-list__loading) {
+  width: 100%;
 }
 
 .ll-section {
@@ -173,12 +179,15 @@ onMounted(() => {
   border: 2px solid #fff;
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
   overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .act-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+  width: 100%;
   touch-action: manipulation;
 }
 
@@ -193,11 +202,11 @@ onMounted(() => {
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
-/* 图片区（1:1 方形，跟商品卡一致） */
+/* 图片区（活动横幅图，横版 4:3） */
 .ac-img {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   background: #f7f8fa;
 }
