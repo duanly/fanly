@@ -14,7 +14,8 @@ import { CpsModule } from './modules/cps/cps.module';
 import { CpsService } from './modules/cps/cps.service';
 import { GoodsController } from './modules/cps/goods.controller';
 import { OauthController } from './modules/cps/oauth.controller';
-import { JutuikeModule } from './modules/jutuike/jutuike.module';
+import { JutuikeService } from './modules/jutuike/jutuike.service';
+import { JutuikeController } from './modules/jutuike/jutuike.controller';
 import { AuthService } from './modules/auth/auth.service';
 import { AuthController } from './modules/auth/auth.controller';
 import { OrderService } from './modules/order/order.service';
@@ -91,7 +92,6 @@ const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'functi
       }),
     }),
     CpsModule,
-    JutuikeModule,
   ],
   controllers: [
     AuthController, GoodsController, OauthController, OrderController,
@@ -101,12 +101,13 @@ const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'functi
     ComparePublicController, CompareAdminController,
     HomeController, HomeAdminController, RecommendController, CartController,
     OrderClaimController, OrderClaimAdminController, CoinController,
+    JutuikeController,
   ],
   providers: [
     SysConfigService, AuthService, OrderService, CommissionService,
     FundService, AgentService, CurationService, AuthzService, CompareService,
     HomeLinkService, RankingService, RecommendService, TopicService, AutoTagService,
-    CartService, OrderClaimService, CoinService, JobService,
+    CartService, OrderClaimService, CoinService, JobService, JutuikeService,
     { provide: APP_GUARD, useClass: JwtGuard },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
     { provide: APP_FILTER, useClass: AllExceptionFilter },
