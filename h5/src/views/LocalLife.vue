@@ -28,22 +28,22 @@
         @load="loadList"
         class="ll-list"
       >
-        <div class="act-grid">
+        <div class="ll-grid">
           <div
             v-for="item in list"
             :key="item.actId"
-            class="act-card"
+            class="ll-card"
             @click="onActClick(item)"
           >
-            <div class="ac-img">
+            <div class="llc-img">
               <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
-              <div v-else class="ac-img-fallback">🎁</div>
+              <div v-else class="llc-img-fallback">🎁</div>
             </div>
-            <div class="ac-body">
-              <div class="ac-name">{{ item.actName }}</div>
-              <div class="ac-desc">{{ item.actDesc || '限时优惠' }}</div>
-              <div class="ac-foot">
-                <div class="ac-btn">立即领券 ›</div>
+            <div class="llc-body">
+              <div class="llc-name">{{ item.actName }}</div>
+              <div class="llc-desc">{{ item.actDesc || '限时优惠' }}</div>
+              <div class="llc-foot">
+                <div class="llc-btn">立即领券 ›</div>
               </div>
             </div>
           </div>
@@ -163,12 +163,15 @@ onMounted(() => {
 
 .ll-list {
   padding: 0;
-  width: 100%;
+  width: 100% !important;
   box-sizing: border-box;
 }
 .ll-list :deep(.van-list__finished-text),
 .ll-list :deep(.van-list__loading) {
   width: 100%;
+}
+.ll-list :deep(.van-list__placeholder) {
+  width: 100% !important;
 }
 
 .ll-section {
@@ -179,43 +182,44 @@ onMounted(() => {
   border: 2px solid #fff;
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
   overflow: hidden;
-  width: 100%;
+  width: calc(100% - 24px);
   box-sizing: border-box;
 }
 
-.act-grid {
+.ll-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   width: 100%;
   touch-action: manipulation;
+  box-sizing: border-box;
 }
 
-.act-card {
+.ll-card {
   background: #fafafa;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
-.act-card:active {
+.ll-card:active {
   transform: scale(0.98);
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
 /* 图片区（活动横幅图，横版 4:3） */
-.ac-img {
+.llc-img {
   position: relative;
   width: 100%;
   aspect-ratio: 4 / 3;
   overflow: hidden;
   background: #f7f8fa;
 }
-.ac-img img {
+.llc-img img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.ac-img-fallback {
+.llc-img-fallback {
   width: 100%;
   height: 100%;
   display: flex;
@@ -225,12 +229,12 @@ onMounted(() => {
 }
 
 /* 内容区 */
-.ac-body {
+.llc-body {
   padding: 8px 10px 10px;
   background: #fff;
   border-radius: 0 0 12px 12px;
 }
-.ac-name {
+.llc-name {
   font-size: 12px;
   line-height: 1.4;
   height: 34px;
@@ -240,7 +244,7 @@ onMounted(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.ac-desc {
+.llc-desc {
   font-size: 11px;
   color: #999;
   margin-top: 6px;
@@ -250,10 +254,10 @@ onMounted(() => {
 }
 
 /* 底部按钮 */
-.ac-foot {
+.llc-foot {
   margin-top: 8px;
 }
-.ac-btn {
+.llc-btn {
   display: inline-block;
   font-size: 11px;
   color: #fff;
