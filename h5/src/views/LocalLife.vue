@@ -52,6 +52,37 @@
 
       <van-empty v-if="!loading && !list.length" description="该分类暂无活动，看看其他分类吧～" />
     </div>
+
+    <!-- 小程序码引导弹层（非微信环境使用） -->
+    <van-popup
+      v-model:show="showQrPopup"
+      position="bottom"
+      round
+      :style="{ padding: '24px 20px 28px' }"
+    >
+      <div class="ll-qr-wrap">
+        <div class="ll-qr-title">{{ currentAct?.actName || '活动领券' }}</div>
+        <div class="ll-qr-sub">微信扫码或长按识别小程序码，立即领取优惠</div>
+        <div class="ll-qr-img-box">
+          <img v-if="qrCode" :src="qrCode" alt="小程序码" />
+          <div v-else class="ll-qr-loading">
+            <van-loading size="24px" />
+          </div>
+        </div>
+        <div class="ll-qr-tip">
+          <van-icon name="info-o" size="12" />
+          <span>本活动为微信小程序专属，扫码后在微信中打开即可使用</span>
+        </div>
+        <div class="ll-qr-actions">
+          <van-button block size="large" type="primary" :disabled="!h5Url" @click="openInBrowser">
+            浏览器直接打开
+          </van-button>
+          <van-button block size="large" plain @click="copyLink">
+            复制链接去微信打开
+          </van-button>
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -62,12 +93,12 @@ import { showToast } from 'vant';
 
 const CATEGORIES = [
   { key: 'all', name: '全部' },
-  { key: '美团', name: '外卖美食' },
+  { key: '外卖美食', name: '外卖美食' },
   { key: '饿了么', name: '饿了么' },
-  { key: '滴滴', name: '打车出行' },
-  { key: '酒店', name: '酒店住宿' },
+  { key: '打车出行', name: '打车出行' },
+  { key: '特惠酒店', name: '酒店住宿' },
   { key: '电影票', name: '电影演出' },
-  { key: '话费', name: '话费充值' },
+  { key: '话费充值', name: '话费充值' },
 ];
 
 const activeCate = ref('all');
@@ -76,6 +107,14 @@ const page = ref(1);
 const pageSize = 20;
 const loading = ref(false);
 const finished = ref(false);
+
+// 小程序码弹层
+const showQrPopup = ref(false);
+const currentAct = ref(null);
+const qrCode = ref('');
+const h5Url = ref('');
+
+const isWechat = /MicroMessenger/i.test(navigator.userAgent);
 
 const currentCate = computed(() => CATEGORIES.find((c) => c.key === activeCate.value));
 
@@ -114,10 +153,26 @@ async function loadList() {
 }
 
 async function onActClick(item) {
+  currentAct.value = item;
+  qrCode.value = '';
+  h5Url.value = '';
   try {
     const r = await api.jtkConvert(item.actId);
-    const h5 = r.h5 || r.jump_url || r.url;
-    if (h5) {
+    const h5 = r.h5 || r.longH5 || r.jump_url || r.url;
+    h5Url.value = h5 || '';
+
+    // 微信环境：直接跳 H5，微信里会自动唤起小程序
+    if (isWechat && h5) {
+      window.location.href = h5;
+      return;
+    }
+
+    // 非微信环境：有小程序码 → 弹引导层；没有 → 直接跳 H5
+    const miniCode = r.weAppInfo?.miniCode || r.we_app_info?.mini_code;
+    if (miniCode) {
+      qrCode.value = miniCode;
+      showQrPopup.value = true;
+    } else if (h5) {
       window.location.href = h5;
     } else {
       showToast('跳转链接获取失败');
@@ -125,6 +180,29 @@ async function onActClick(item) {
   } catch (e) {
     showToast(e.message || '转链失败');
   }
+}
+
+function openInBrowser() {
+  if (h5Url.value) {
+    window.location.href = h5Url.value;
+  }
+}
+
+function copyLink() {
+  if (!h5Url.value) return;
+  const ta = document.createElement('textarea');
+  ta.value = h5Url.value;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showToast('链接已复制，去微信粘贴打开');
+  } catch {
+    showToast('复制失败，请手动复制');
+  }
+  document.body.removeChild(ta);
 }
 
 onMounted(() => {
@@ -266,5 +344,59 @@ onMounted(() => {
   padding: 3px 10px;
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* 小程序码弹层 */
+.ll-qr-wrap {
+  text-align: center;
+}
+.ll-qr-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ll-qr-sub {
+  font-size: 13px;
+  color: #666;
+  margin-top: 6px;
+}
+.ll-qr-img-box {
+  width: 200px;
+  height: 200px;
+  margin: 20px auto 14px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ll-qr-img-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.ll-qr-loading {
+  color: #999;
+}
+.ll-qr-tip {
+  font-size: 12px;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+.ll-qr-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 </style>
