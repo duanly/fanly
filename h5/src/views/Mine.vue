@@ -145,6 +145,121 @@
       <van-button block round plain @click="logout">退出登录</van-button>
     </div>
 
+    <!-- 添加到桌面引导弹窗 -->
+    <van-popup
+      v-model:show="showAddDesktopPopup"
+      position="bottom"
+      round
+      :style="{ padding: '0' }"
+    >
+      <div class="add-desktop-popup">
+        <div class="adp-head">
+          <div class="adp-title">添加到桌面</div>
+          <van-icon name="cross" size="20" @click="showAddDesktopPopup = false" />
+        </div>
+
+        <!-- 能弹原生安装框 -->
+        <template v-if="canInstall">
+          <div class="adp-body">
+            <div class="adp-icon">📱</div>
+            <div class="adp-big">一键添加到桌面</div>
+            <div class="adp-sub">添加后访问更方便，就像 App 一样</div>
+          </div>
+          <div class="adp-foot">
+            <van-button block round type="primary" color="#ff4b3a" @click="doInstall">
+              立即添加
+            </van-button>
+          </div>
+        </template>
+
+        <!-- Android Chrome 图文引导 -->
+        <template v-else-if="isAndroidChrome">
+          <div class="adp-body">
+            <div class="adp-steps">
+              <div class="adp-step">
+                <div class="adp-step-ico">⋮</div>
+                <div class="adp-step-text">
+                  <div class="adp-step-title">第 1 步</div>
+                  <div class="adp-step-desc">点击右上角的菜单按钮（三个点）</div>
+                </div>
+              </div>
+              <div class="adp-arrow">↓</div>
+              <div class="adp-step">
+                <div class="adp-step-ico">⬇️</div>
+                <div class="adp-step-text">
+                  <div class="adp-step-title">第 2 步</div>
+                  <div class="adp-step-desc">选择「安装应用」或「添加到主屏幕」</div>
+                </div>
+              </div>
+              <div class="adp-arrow">↓</div>
+              <div class="adp-step">
+                <div class="adp-step-ico">✅</div>
+                <div class="adp-step-text">
+                  <div class="adp-step-title">第 3 步</div>
+                  <div class="adp-step-desc">确认安装，就能在桌面找到啦</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="adp-foot">
+            <van-button block round plain color="#ff4b3a" @click="showAddDesktopPopup = false">
+              我知道了
+            </van-button>
+          </div>
+        </template>
+
+        <!-- iOS Safari 图文引导 -->
+        <template v-else-if="isIOS">
+          <div class="adp-body">
+            <div class="adp-steps">
+              <div class="adp-step">
+                <div class="adp-step-ico">⬆</div>
+                <div class="adp-step-text">
+                  <div class="adp-step-title">第 1 步</div>
+                  <div class="adp-step-desc">点击浏览器底部的分享按钮</div>
+                </div>
+              </div>
+              <div class="adp-arrow">↓</div>
+              <div class="adp-step">
+                <div class="adp-step-ico">📱</div>
+                <div class="adp-step-text">
+                  <div class="adp-step-title">第 2 步</div>
+                  <div class="adp-step-desc">往下滑，找到「添加到主屏幕」</div>
+                </div>
+              </div>
+              <div class="adp-arrow">↓</div>
+              <div class="adp-step">
+                <div class="adp-step-ico">✅</div>
+                <div class="adp-step-text">
+                  <div class="adp-step-title">第 3 步</div>
+                  <div class="adp-step-desc">点击「添加」，桌面就有啦</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="adp-foot">
+            <van-button block round plain color="#ff4b3a" @click="showAddDesktopPopup = false">
+              我知道了
+            </van-button>
+          </div>
+        </template>
+
+        <!-- 其他浏览器兜底 -->
+        <template v-else>
+          <div class="adp-body">
+            <div class="adp-icon">📋</div>
+            <div class="adp-big">添加到桌面</div>
+            <div class="adp-sub">请在浏览器菜单中找到「添加到桌面」选项</div>
+          </div>
+          <div class="adp-foot">
+            <van-button block round plain color="#ff4b3a" @click="showAddDesktopPopup = false">
+              我知道了
+            </van-button>
+          </div>
+        </template>
+      </div>
+    </van-popup>
+
     <!-- 编辑资料弹层 -->
     <van-popup v-model:show="showEditProfile" position="bottom" round :style="{ padding: '20px 20px 30px' }">
       <div style="font-size:17px;font-weight:700;margin-bottom:16px">编辑资料</div>
@@ -244,6 +359,9 @@ let deferredPrompt = window.__pwaInstallPrompt || null;
 // iOS 判断：Safari 浏览器且未安装 PWA
 const isIOS = ref(false);
 
+// 是否 Android Chrome
+const isAndroidChrome = ref(false);
+
 // 是否显示「添加到桌面」按钮：
 // - iOS Safari 始终显示（引导手动添加）
 // - Android：只要不是已安装为 PWA 模式就显示（即使 beforeinstallprompt 还没触发，也显示引导）
@@ -257,6 +375,9 @@ const canShowAddDesktop = computed(() => {
   return /android/.test(ua) || canInstall.value;
 });
 
+// 引导弹窗
+const showAddDesktopPopup = ref(false);
+
 function onPwaReady() {
   deferredPrompt = window.__pwaInstallPrompt;
   canInstall.value = true;
@@ -267,41 +388,28 @@ function onPwaChanged() {
   canInstall.value = window.__pwaCanInstall || false;
 }
 
-async function onAddToDesktop() {
-  // Android / Chrome 等支持 PWA 安装提示的浏览器
+function onAddToDesktop() {
+  // 能弹原生安装框的，直接打开弹窗让用户点按钮触发
+  // 不能弹的，显示图文引导
+  showAddDesktopPopup.value = true;
+}
+
+async function doInstall() {
   const prompt = window.__pwaInstallPrompt || deferredPrompt;
-  if (prompt) {
-    prompt.prompt();
-    const { outcome } = await prompt.userChoice;
-    if (outcome === 'accepted') {
-      showToast('已添加到桌面');
-    }
-    window.__pwaInstallPrompt = null;
-    window.__pwaCanInstall = false;
-    deferredPrompt = null;
-    canInstall.value = false;
+  if (!prompt) {
+    showAddDesktopPopup.value = false;
     return;
   }
-
-  // iOS Safari：显示引导提示
-  if (isIOS.value) {
-    showToast('点击底部分享按钮 → 添加到主屏幕');
-    return;
+  prompt.prompt();
+  const { outcome } = await prompt.userChoice;
+  if (outcome === 'accepted') {
+    showToast('已添加到桌面');
   }
-
-  // Android 但还没触发安装事件（可能是刚卸载、SW 还没注册好等）
-  const ua = navigator.userAgent.toLowerCase();
-  if (/android/.test(ua)) {
-    if (/chrome/.test(ua)) {
-      showToast('请点击右上角 ⋮ → 安装应用');
-    } else {
-      showToast('请在浏览器菜单中选择「添加到桌面」');
-    }
-    return;
-  }
-
-  // 兜底：直接提示
-  showToast('请在浏览器菜单中选择「添加到桌面」');
+  window.__pwaInstallPrompt = null;
+  window.__pwaCanInstall = false;
+  deferredPrompt = null;
+  canInstall.value = false;
+  showAddDesktopPopup.value = false;
 }
 
 // 编辑资料
@@ -457,6 +565,8 @@ if (typeof window !== 'undefined') {
   const isIphone = /iphone|ipad|ipod/.test(ua);
   const isSafari = /safari/.test(ua) && !/chrome|crios|fxios|opios|edgios/.test(ua);
   isIOS.value = isIphone && isSafari && !window.matchMedia('(display-mode: standalone)').matches;
+  // Android Chrome 检测
+  isAndroidChrome.value = /android/.test(ua) && /chrome/.test(ua) && !window.matchMedia('(display-mode: standalone)').matches;
   // 已安装在独立模式运行时不显示
   if (window.matchMedia('(display-mode: standalone)').matches) {
     canInstall.value = false;
@@ -594,5 +704,92 @@ onUnmounted(() => {
   width: 1px;
   height: 32px;
   background: #eee;
+}
+
+/* 添加到桌面引导弹窗 */
+.add-desktop-popup {
+  padding: 20px 20px 24px;
+}
+.adp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.adp-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.adp-body {
+  padding: 10px 0 20px;
+}
+.adp-icon {
+  font-size: 48px;
+  text-align: center;
+  margin-bottom: 12px;
+}
+.adp-big {
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  color: #1a1a1a;
+}
+.adp-sub {
+  font-size: 13px;
+  color: #999;
+  text-align: center;
+  margin-top: 6px;
+}
+.adp-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.adp-step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: #f7f8fa;
+  border-radius: 12px;
+}
+.adp-step-ico {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #ff4b3a;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+.adp-step-text {
+  flex: 1;
+  min-width: 0;
+}
+.adp-step-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.adp-step-desc {
+  font-size: 12px;
+  color: #999;
+  margin-top: 3px;
+  line-height: 1.4;
+}
+.adp-arrow {
+  text-align: center;
+  color: #ccc;
+  font-size: 14px;
+  line-height: 1.2;
+}
+.adp-foot {
+  margin-top: 8px;
 }
 </style>

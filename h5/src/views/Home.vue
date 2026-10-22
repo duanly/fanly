@@ -14,10 +14,6 @@
             <div class="ta-ico">🔄</div>
             <span>刷新</span>
           </div>
-          <div class="ta-item" @click="$router.push('/checkin')">
-            <div class="ta-ico">🎁</div>
-            <span>签到</span>
-          </div>
         </div>
       </div>
 
