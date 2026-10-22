@@ -1,9 +1,8 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { JutuikeService } from './jutuike.service';
-import { CurrentUser, JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '@/common/decorators';
 
 @Controller('api/jtk')
-@UseGuards(JwtAuthGuard)
 export class JutuikeController {
   constructor(private readonly jtk: JutuikeService) {}
 
