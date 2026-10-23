@@ -322,14 +322,14 @@ const auth = reactive({});
 
 const RANKS = [
   { type: 'hot', name: '🔥 热销榜', tip: '按近 7 天实付订单数排序，真金白银选出来的' },
-  { type: 'rebate', name: '💰 返利榜', tip: '佣金绝对金额排序，不是比例——比例高的往往是便宜货' },
-  { type: 'pick', name: '⭐️ 推荐榜', tip: '用户一人一票投出来的，再加运营手动权重' },
+  { type: 'rebate', name: '💰 返利榜', tip: '佣金绝对金额排序' },
+  { type: 'pick', name: '⭐️ 推荐榜', tip: '用户一人一票投出来的' },
 ];
 
 /** 后台没配 banner 时的兜底，不让首页开天窗 */
 const FALLBACK_BANNERS = [
   { id: 'fb-1', title: '天天签到领金币', subtitle: '攒够就能换钱', image: 'linear-gradient(135deg,#ff8a3d,#ff3b30)', url: '/checkin', internal: true, btnText: '立即签到' },
-  { id: 'fb-2', title: '全网比价', subtitle: '同款哪家最便宜，一眼看清', image: 'linear-gradient(135deg,#4a3aff,#7b3ad5)', url: '/compare', internal: true, btnText: '立即抢购' },
+  { id: 'fb-2', title: '本地生活圈', subtitle: '外卖、打车、旅游门票一应俱全', image: 'linear-gradient(135deg,#4a3aff,#7b3ad5)', url: '/local-life', internal: true, btnText: '立即抢购' },
   { id: 'fb-3', title: '邀请好友赚钱', subtitle: '他买东西，你拿分成', image: 'linear-gradient(135deg,#ff6a9a,#ff3b6b)', url: '/agent', internal: true, btnText: '立即邀请' },
 ];
 
