@@ -3,37 +3,37 @@
     <!-- 顶部导航 -->
     <div class="ll-header">
       <div class="ll-title">本地生活</div>
-      <div class="ll-sub">点外卖 / 打车 / 住酒店，都能返</div>
+      <div class="ll-sub">点外卖 · 喝咖啡 · 每单都返</div>
     </div>
 
-    <!-- 品类 tabs -->
-    <van-tabs
-      v-model:active="activeCate"
-      color="#ff9500"
-      line-width="16"
-      :sticky="true"
-      :offset-top="0"
-      class="ll-tabs"
-      @change="onCateChange"
-    >
-      <van-tab v-for="c in CATEGORIES" :key="c.key" :title="c.name" />
-    </van-tabs>
+    <!-- 饿了么 banner + 活动列表 -->
+    <div class="ll-banner ele" @click="scrollTo('ele')">
+      <div class="ll-banner-left">
+        <div class="ll-banner-title">饿了么外卖</div>
+        <div class="ll-banner-desc">红包天天领 · 单单都返利</div>
+      </div>
+      <div class="ll-banner-ico">🍜</div>
+    </div>
 
-    <!-- 活动列表 -->
-    <div class="ll-section">
+    <div class="ll-section" id="ele">
+      <div class="ll-sec-title">
+        <span class="ll-sec-dot ele-dot"></span>
+        <span>饿了么精选活动</span>
+        <span class="ll-sec-more" @click="scrollTo('ele')">更多 ›</span>
+      </div>
       <van-list
-        v-model:loading="loading"
-        :finished="finished"
-        finished-text="— 没有更多活动了 —"
-        @load="loadList"
+        v-model:loading="ele.loading"
+        :finished="ele.finished"
+        finished-text="— 没有更多了 —"
+        @load="loadEle"
         class="ll-list"
       >
         <div class="ll-grid">
           <div
-            v-for="item in list"
-            :key="item.actId"
+            v-for="item in ele.list"
+            :key="'e-' + item.actId"
             class="ll-card"
-            @click="onActClick(item)"
+            @click="onEleClick(item)"
           >
             <div class="llc-img">
               <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
@@ -41,7 +41,10 @@
             </div>
             <div class="llc-body">
               <div class="llc-name">{{ item.actName }}</div>
-              <div class="llc-desc">{{ item.actDesc || '限时优惠' }}</div>
+              <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
+              <div v-if="item.commissionRate" class="llc-comm">
+                预估 {{ item.commissionRate }}
+              </div>
               <div class="llc-foot">
                 <div class="llc-btn">立即领券 ›</div>
               </div>
@@ -49,11 +52,57 @@
           </div>
         </div>
       </van-list>
-
-      <van-empty v-if="!loading && !list.length" description="该分类暂无活动，看看其他分类吧～" />
     </div>
 
-    <!-- 小程序码引导弹层（非微信环境使用） -->
+    <!-- 美团券包 banner + 活动列表 -->
+    <div class="ll-banner mt" @click="scrollTo('mt')">
+      <div class="ll-banner-left">
+        <div class="ll-banner-title">美团券包</div>
+        <div class="ll-banner-desc">咖啡奶茶 · 到店核销有返利</div>
+      </div>
+      <div class="ll-banner-ico">☕</div>
+    </div>
+
+    <div class="ll-section" id="mt">
+      <div class="ll-sec-title">
+        <span class="ll-sec-dot mt-dot"></span>
+        <span>美团超值券包</span>
+        <span class="ll-sec-more" @click="scrollTo('mt')">更多 ›</span>
+      </div>
+      <van-list
+        v-model:loading="mt.loading"
+        :finished="mt.finished"
+        finished-text="— 没有更多了 —"
+        @load="loadMt"
+        class="ll-list"
+      >
+        <div class="ll-grid">
+          <div
+            v-for="item in mt.list"
+            :key="'m-' + item.actId"
+            class="ll-card"
+            @click="onMtClick(item)"
+          >
+            <div class="llc-img">
+              <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
+              <div v-else class="llc-img-fallback">🎁</div>
+            </div>
+            <div class="llc-body">
+              <div class="llc-name">{{ item.actName }}</div>
+              <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
+              <div v-if="item.commissionRate" class="llc-comm">
+                预估 {{ item.commissionRate }}
+              </div>
+              <div class="llc-foot">
+                <div class="llc-btn mt-btn">立即抢购 ›</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </van-list>
+    </div>
+
+    <!-- 小程序码引导弹层（兜底：没有 H5 时展示） -->
     <van-popup
       v-model:show="showQrPopup"
       position="bottom"
@@ -74,10 +123,10 @@
           <span>本活动为微信小程序专属，扫码后在微信中打开即可使用</span>
         </div>
         <div class="ll-qr-actions">
-          <van-button block size="large" type="primary" :disabled="!h5Url" @click="openInBrowser">
+          <van-button v-if="h5Url" block size="large" type="primary" @click="openInBrowser">
             浏览器直接打开
           </van-button>
-          <van-button block size="large" plain @click="copyLink">
+          <van-button v-if="h5Url" block size="large" plain @click="copyLink">
             复制链接去微信打开
           </van-button>
         </div>
@@ -87,26 +136,25 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { reactive, onMounted, ref } from 'vue';
 import { api } from '../api';
 import { showToast } from 'vant';
 
-const CATEGORIES = [
-  { key: 'all', name: '全部' },
-  { key: '外卖美食', name: '外卖美食' },
-  { key: '饿了么', name: '饿了么' },
-  { key: '打车出行', name: '打车出行' },
-  { key: '特惠酒店', name: '酒店住宿' },
-  { key: '电影票', name: '电影演出' },
-  { key: '话费充值', name: '话费充值' },
-];
+const pageSize = 10;
 
-const activeCate = ref('all');
-const list = ref([]);
-const page = ref(1);
-const pageSize = 20;
-const loading = ref(false);
-const finished = ref(false);
+const ele = reactive({
+  list: [],
+  page: 1,
+  loading: false,
+  finished: false,
+});
+
+const mt = reactive({
+  list: [],
+  page: 1,
+  loading: false,
+  finished: false,
+});
 
 // 小程序码弹层
 const showQrPopup = ref(false);
@@ -114,69 +162,94 @@ const currentAct = ref(null);
 const qrCode = ref('');
 const h5Url = ref('');
 
-const isWechat = /MicroMessenger/i.test(navigator.userAgent);
-
-const currentCate = computed(() => CATEGORIES.find((c) => c.key === activeCate.value));
-
-function onCateChange() {
-  list.value = [];
-  page.value = 1;
-  finished.value = false;
-  loading.value = true;
-  loadList();
+function scrollTo(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-async function loadList() {
+// ─── 饿了么 ───
+
+async function loadEle() {
   try {
-    const cateName = activeCate.value === 'all' ? undefined : currentCate.value?.key;
-    const r = await api.jtkActivities({
-      cateName,
-      page: page.value,
+    const r = await api.jtkEleActivities({
+      page: ele.page,
       pageSize,
     });
-    const rows = (r.list || r || []).map((item) => ({
-      actId: item.actId || item.act_id || item.id,
-      actName: item.actName || item.act_name || item.title || item.name,
-      actDesc: item.desc || item.act_desc || item.subtitle,
-      img: item.img || item.image || item.pic || item.banner,
-      icon: item.icon || item.logo,
-    }));
-    list.value.push(...rows);
-    page.value += 1;
-    if (rows.length < pageSize) finished.value = true;
+    const rows = r.list || r || [];
+    ele.list.push(...rows);
+    ele.page += 1;
+    if (rows.length < pageSize) ele.finished = true;
   } catch (e) {
     showToast(e.message || '加载失败');
-    finished.value = true;
+    ele.finished = true;
   } finally {
-    loading.value = false;
+    ele.loading = false;
   }
 }
 
-async function onActClick(item) {
+async function onEleClick(item) {
   currentAct.value = item;
   qrCode.value = '';
   h5Url.value = '';
   try {
-    const r = await api.jtkConvert(item.actId);
-    const h5 = r.h5 || r.longH5 || r.jump_url || r.url;
-    h5Url.value = h5 || '';
-
-    // 有 H5 链接 → 直接打开
-    if (h5) {
-      window.location.href = h5;
-      return;
-    }
-
-    // 没有 H5 但有小程序码 → 弹引导层
-    const miniCode = r.weAppInfo?.miniCode || r.we_app_info?.mini_code;
-    if (miniCode) {
-      qrCode.value = miniCode;
-      showQrPopup.value = true;
-    } else {
-      showToast('跳转链接获取失败');
-    }
+    const r = await api.jtkEleConvert(item.actId);
+    handleConvertResult(r);
   } catch (e) {
     showToast(e.message || '转链失败');
+  }
+}
+
+// ─── 美团券包 ───
+
+async function loadMt() {
+  try {
+    const r = await api.jtkMtCoupons({
+      page: mt.page,
+      pageSize,
+    });
+    const rows = r.list || r || [];
+    mt.list.push(...rows);
+    mt.page += 1;
+    if (rows.length < pageSize) mt.finished = true;
+  } catch (e) {
+    showToast(e.message || '加载失败');
+    mt.finished = true;
+  } finally {
+    mt.loading = false;
+  }
+}
+
+async function onMtClick(item) {
+  currentAct.value = item;
+  qrCode.value = '';
+  h5Url.value = '';
+  try {
+    const r = await api.jtkMtCouponConvert(item.actId);
+    handleConvertResult(r);
+  } catch (e) {
+    showToast(e.message || '转链失败');
+  }
+}
+
+// ─── 通用跳转逻辑 ───
+
+function handleConvertResult(r) {
+  const h5 = r.h5 || r.shortH5 || r.longH5 || r.jump_url || r.url;
+  h5Url.value = h5 || '';
+
+  // 有 H5 → 直接打开
+  if (h5) {
+    window.location.href = h5;
+    return;
+  }
+
+  // 没有 H5 但有小程序码 → 弹引导层
+  const miniCode = r.weAppInfo?.miniCode || r.we_app_info?.mini_code;
+  if (miniCode) {
+    qrCode.value = miniCode;
+    showQrPopup.value = true;
+  } else {
+    showToast('跳转链接获取失败');
   }
 }
 
@@ -204,8 +277,10 @@ function copyLink() {
 }
 
 onMounted(() => {
-  loading.value = true;
-  loadList();
+  ele.loading = true;
+  mt.loading = true;
+  loadEle();
+  loadMt();
 });
 </script>
 
@@ -215,6 +290,7 @@ onMounted(() => {
   background: #f7f8fa;
   width: 100%;
   box-sizing: border-box;
+  padding-bottom: 20px;
 }
 
 .ll-header {
@@ -232,9 +308,70 @@ onMounted(() => {
   margin-top: 2px;
 }
 
-.ll-tabs {
+/* banner 通用 */
+.ll-banner {
+  margin: 10px 12px 0;
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.ll-banner.ele {
+  background: linear-gradient(135deg, #00b43c 0%, #00963a 100%);
+  box-shadow: 0 4px 12px rgba(0,180,60,0.2);
+}
+.ll-banner.mt {
+  background: linear-gradient(135deg, #ffd100 0%, #ff9500 100%);
+  box-shadow: 0 4px 12px rgba(255,149,0,0.25);
+  color: #3a2600;
+}
+.ll-banner-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+.ll-banner-desc {
+  font-size: 12px;
+  margin-top: 4px;
+  opacity: 0.9;
+}
+.ll-banner-ico {
+  font-size: 36px;
+}
+
+/* 通用 section */
+.ll-section {
+  margin: 10px 12px 0;
   background: #fff;
+  border-radius: 14px;
+  padding: 12px 14px 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  width: calc(100% - 24px);
+  box-sizing: border-box;
+}
+.ll-sec-title {
+  font-size: 15px;
   font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ll-sec-dot {
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+}
+.ele-dot { background: #00b43c; }
+.mt-dot { background: #ff9500; }
+.ll-sec-more {
+  margin-left: auto;
+  font-size: 12px;
+  color: #999;
+  font-weight: normal;
 }
 
 .ll-list {
@@ -248,18 +385,6 @@ onMounted(() => {
 }
 .ll-list :deep(.van-list__placeholder) {
   width: 100% !important;
-}
-
-.ll-section {
-  margin: 10px 12px 0;
-  background: #fff;
-  border-radius: 14px;
-  padding: 12px 14px 14px;
-  border: 2px solid #fff;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-  overflow: hidden;
-  width: calc(100% - 24px);
-  box-sizing: border-box;
 }
 
 .ll-grid {
@@ -282,7 +407,7 @@ onMounted(() => {
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
-/* 图片区（活动横幅图，横版 4:3） */
+/* 图片区 */
 .llc-img {
   position: relative;
   width: 100%;
@@ -319,14 +444,21 @@ onMounted(() => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  font-weight: 500;
 }
 .llc-desc {
   font-size: 11px;
   color: #999;
-  margin-top: 6px;
+  margin-top: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.llc-comm {
+  font-size: 11px;
+  color: #ff6b35;
+  margin-top: 4px;
+  font-weight: 500;
 }
 
 /* 底部按钮 */
@@ -342,6 +474,10 @@ onMounted(() => {
   padding: 3px 10px;
   font-weight: 600;
   white-space: nowrap;
+}
+.mt-btn {
+  background: linear-gradient(135deg, #ffd100, #ff9500);
+  color: #3a2600;
 }
 
 /* 小程序码弹层 */

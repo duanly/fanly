@@ -138,6 +138,12 @@ export const api = {
   // 聚推客 - 本地生活（美团/饿了么/滴滴/酒店/电影票等）
   jtkActivities: (params) => http.get('/api/jtk/activities', { params }),
   jtkConvert: (actId) => http.post('/api/jtk/convert', { actId }),
+  // 饿了么
+  jtkEleActivities: (params) => http.get('/api/jtk/ele/activities', { params }),
+  jtkEleConvert: (activityId) => http.post('/api/jtk/ele/convert', { activityId }),
+  // 美团券包
+  jtkMtCoupons: (params) => http.get('/api/jtk/mt/coupons', { params }),
+  jtkMtCouponConvert: (actId) => http.post('/api/jtk/mt/coupon/convert', { actId }),
 };
 
 // ───────── 管理后台（手机端） ─────────

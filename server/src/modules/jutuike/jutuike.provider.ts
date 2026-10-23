@@ -78,31 +78,44 @@ export class JutuikeProvider {
 
   // ─── 基础 HTTP 封装 ───
 
-  private async call<T>(path: string, params: Record<string, any>): Promise<T> {
-    const json = await this.callRaw(path, params);
+  private async call<T>(path: string, params: Record<string, any>, method: 'GET' | 'POST' = 'GET'): Promise<T> {
+    const json = await this.callRaw(path, params, method);
     if (json.code !== 1 && json.code !== 200) {
       throw new Error(`聚推客接口错误: ${json.msg || json.message || JSON.stringify(json)}`);
     }
     return json.data as T;
   }
 
-  private async callRaw(path: string, params: Record<string, any>): Promise<any> {
+  private async callRaw(path: string, params: Record<string, any>, method: 'GET' | 'POST' = 'GET'): Promise<any> {
     if (!this.opt.apiKey) {
       throw new Error('聚推客未配置：请在 .env 填 JTK_API_KEY');
     }
-    const url = `${this.baseUrl}${path}?apikey=${encodeURIComponent(this.opt.apiKey)}`
-      + '&' + Object.entries(params)
-        .filter(([, v]) => v !== undefined && v !== null && v !== '')
-        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-        .join('&');
-
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
     try {
+      let url: string;
+      let body: string | undefined;
+      const allParams = { apikey: this.opt.apiKey, ...params };
+      const filtered = Object.fromEntries(
+        Object.entries(allParams).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+      );
+
+      if (method === 'GET') {
+        url = `${this.baseUrl}${path}?` + Object.entries(filtered)
+          .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+          .join('&');
+      } else {
+        url = `${this.baseUrl}${path}`;
+        body = new URLSearchParams(filtered as any).toString();
+      }
+
       const res = await fetch(url, {
-        method: 'GET',
+        method,
         signal: ctrl.signal,
-        headers: { 'Content-Type': 'application/json' },
+        headers: method === 'POST'
+          ? { 'Content-Type': 'application/x-www-form-urlencoded' }
+          : { 'Content-Type': 'application/json' },
+        body,
       });
       const text = await res.text();
       return JSON.parse(text);
@@ -275,6 +288,216 @@ export class JutuikeProvider {
         invalid_reason: r.invalid_reason,
         extension: r.extension,
       },
+    };
+  }
+
+  // ─── 饿了么 ───
+
+  /**
+   * 饿了么活动列表
+   */
+  async eleList(params: { page?: number; pageSize?: number }): Promise<{
+    list: any[]; total: number; page: number; pageSize: number; lastPage: number;
+  }> {
+    const data: any = await this.call('/ele/getEleCouponList', {
+      page: params.page || 1,
+      pageSize: params.pageSize || 20,
+    }, 'POST');
+    return {
+      list: (data.data || []).map((r: any) => ({
+        actId: String(r.coupon_id || ''),
+        actName: r.xcx_short_title || r.short_title || r.title || '',
+        desc: r.title || '',
+        img: r.bg_images || '',
+        icon: r.icon || '',
+        commissionRate: r.commission_rate_des || '',
+        startTime: r.start_time || '',
+        endTime: r.end_time || '',
+      })),
+      total: Number(data.total || 0),
+      page: Number(data.current_page || 1),
+      pageSize: Number(data.per_page || 20),
+      lastPage: Number(data.last_page || 1),
+    };
+  }
+
+  /**
+   * 饿了么活动转链
+   */
+  async eleConvert(activityId: string, sid: string): Promise<{
+    h5: string;
+    actName: string;
+    weAppInfo: { appId: string; pagePath: string; miniCode: string } | null;
+  }> {
+    const data: any = await this.call('/ele/kbact', {
+      activity_id: activityId,
+      sid,
+    }, 'POST');
+
+    const link = data.link || {};
+    const h5 = link.h5_promotion?.tj_h5_url || '';
+    const wx = link.wx_promotion || {};
+
+    return {
+      h5,
+      actName: data.title || data.description || '',
+      weAppInfo: wx.wx_app_id ? {
+        appId: wx.wx_app_id || '',
+        pagePath: wx.wx_path || '',
+        miniCode: wx.wx_qr_code || '',
+      } : null,
+    };
+  }
+
+  /**
+   * 饿了么订单查询
+   *
+   * 状态：3-订单结算 12-订单付款 13-订单失效 14-订单成功
+   */
+  async fetchEleOrders(params: {
+    start?: Date;
+    end?: Date;
+    page?: number;
+    pageSize?: number;
+    queryType?: number;
+    sid?: string;
+    type?: number;
+    tkStatus?: number;
+  }): Promise<{ list: UnifiedOrder[]; total: number; page: number; pageSize: number; lastPage: number }> {
+    const fmt = (d?: Date) => {
+      if (!d) return undefined;
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    };
+
+    const query: Record<string, any> = {
+      page: params.page || 1,
+      pageSize: params.pageSize || 100,
+    };
+    if (params.start) query.start_time = fmt(params.start);
+    if (params.end) query.end_time = fmt(params.end);
+    if (params.queryType !== undefined) query.query_type = params.queryType;
+    if (params.sid) query.sid = params.sid;
+    if (params.type !== undefined) query.type = params.type;
+    if (params.tkStatus !== undefined) query.tk_status = params.tkStatus;
+
+    const data: any = await this.call('/Ele/orders', query, 'GET');
+    const list: UnifiedOrder[] = (data.data || []).map((r: any) => this.mapEleOrder(r));
+    return {
+      list,
+      total: Number(data.total || 0),
+      page: Number(data.current_page || 1),
+      pageSize: Number(data.per_page || 100),
+      lastPage: Number(data.last_page || 1),
+    };
+  }
+
+  /**
+   * 饿了么订单 → 统一订单
+   *
+   * 状态映射：
+   * - 12 订单付款 → 已付款(1)
+   * - 14 订单成功 → 已收货(2)
+   * - 3  订单结算 → 已结算(3)
+   * - 13 订单失效 → 已失效(4)
+   */
+  private mapEleOrder(r: any): UnifiedOrder {
+    const rawStatus = Number(r.tk_status);
+    let status = 1;
+    if (rawStatus === 3) status = 3;
+    else if (rawStatus === 14) status = 2;
+    else if (rawStatus === 12) status = 1;
+    else if (rawStatus === 13) status = 4;
+
+    const est = Number(r.jtk_share_fee || 0);
+    const settle = status === 3 ? est : 0;
+
+    return {
+      platform: 'JTK',
+      platformOrderNo: String(r.trade_id || ''),
+      subOrderNo: String(r.trade_parent_id || ''),
+      positionId: r.sid || '',
+      goodsId: '',
+      goodsTitle: r.item_title || '',
+      goodsImg: r.item_img ? (r.item_img.startsWith('http') ? r.item_img : `https:${r.item_img}`) : '',
+      payAmount: Number(r.alipay_total_price || 0),
+      commissionRate: Number(r.jtk_share_rate || 0),
+      estCommission: est,
+      settleCommission: settle,
+      status,
+      orderTime: r.tk_create_time ? new Date(r.tk_create_time) : new Date(),
+      payTime: r.tk_paid_time ? new Date(r.tk_paid_time) : undefined,
+      settleTime: status === 3 && r.tk_earning_time ? new Date(r.tk_earning_time) : undefined,
+      raw: {
+        ...r,
+        brand_id: 2, // 饿了么
+        source: 'ele',
+        item_category_name: r.item_category_name,
+        seller_nick: r.seller_nick,
+        refund_tag: r.refund_tag,
+        type: r.type,
+        click_time: r.click_time,
+      },
+    };
+  }
+
+  // ─── 美团券包 ───
+
+  /**
+   * 美团券包活动列表
+   */
+  async mtCouponList(params: { page?: number; pageSize?: number }): Promise<{
+    list: any[]; total: number; page: number; pageSize: number; lastPage: number;
+  }> {
+    const data: any = await this.call('/Meituan/coupon_ad_list', {
+      page: params.page || 1,
+      pageSize: params.pageSize || 20,
+    }, 'POST');
+    return {
+      list: (data.data || []).map((r: any) => ({
+        actId: String(r.coupon_id || ''),
+        actName: r.xcx_short_title || r.title || '',
+        desc: r.title || '',
+        img: r.bg_images || '',
+        icon: r.icon || '',
+        poster: r.poster || '',
+        commissionRate: r.commission_rate_des || '',
+        activityDate: r.activity_date || '',
+      })),
+      total: Number(data.total || 0),
+      page: Number(data.current_page || 1),
+      pageSize: Number(data.per_page || 20),
+      lastPage: Number(data.last_page || 1),
+    };
+  }
+
+  /**
+   * 美团券包转链（type=15 美团券包）
+   */
+  async mtCouponConvert(actId: string, sid: string): Promise<{
+    h5: string;
+    shortH5: string;
+    deeplink: string;
+    actName: string;
+    weAppInfo: { appId: string; pagePath: string; miniCode: string } | null;
+  }> {
+    const data: any = await this.call('/Meituan/act', {
+      type: 15,
+      actId,
+      sid,
+    }, 'GET');
+
+    const weApp = data.we_app_info;
+    return {
+      h5: data.h5 || data.short_h5 || '',
+      shortH5: data.short_h5 || '',
+      deeplink: data.deeplink || '',
+      actName: '',
+      weAppInfo: weApp ? {
+        appId: weApp.app_id || '',
+        pagePath: weApp.page_path || '',
+        miniCode: weApp.miniCode || '',
+      } : null,
     };
   }
 }
