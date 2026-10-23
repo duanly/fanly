@@ -69,16 +69,35 @@
       </van-swipe>
     </div>
 
-    <!-- 本地生活入口 -->
-    <div class="local-life-entry" @click="$router.push('/local-life')">
-      <div class="lle-left">
-        <div class="lle-tag">🍔 本地生活</div>
-        <div class="lle-title">外卖 / 打车 / 酒店，都能返</div>
-        <div class="lle-sub">美团 · 饿了么 · 滴滴 · 酒店 · 电影票</div>
-      </div>
-      <div class="lle-right">
-        <span>去看看</span>
-        <van-icon name="arrow" color="#fff" />
+    <!-- 本地生活入口（宫格轮播） -->
+    <div class="sec-head-wrap ll-head">
+      <span class="sec-title">本地生活 🍔</span>
+      <span class="sec-more" @click="$router.push('/local-life')">全部 ›</span>
+    </div>
+    <div class="section ll-section">
+      <div class="grid-card">
+        <van-swipe
+          :autoplay="llPages.length > 1 ? 5000 : 0"
+          indicator-color="rgba(255,149,0,0.3)"
+          class="ll-swipe"
+        >
+          <van-swipe-item v-for="(pageItems, pi) in llPages" :key="pi">
+            <div class="ll-page">
+              <div
+                v-for="e in pageItems"
+                :key="e.key"
+                class="ll-item"
+                @click="openLocalLife(e.tab)"
+              >
+                <div class="ll-ico" :style="{ background: e.bg }">
+                  {{ e.icon }}
+                </div>
+                <div class="ll-name">{{ e.name }}</div>
+                <div class="ll-tag">{{ e.tag }}</div>
+              </div>
+            </div>
+          </van-swipe-item>
+        </van-swipe>
       </div>
     </div>
 
@@ -479,6 +498,33 @@ function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 let scrollHandler = null;
+
+// 本地生活入口列表（后台可配置哪些 tab 显示，这里先写死常用的）
+const llItems = [
+  { key: 'ele', name: '饿了么', icon: '🍜', tag: '领红包', bg: 'linear-gradient(135deg,#00b43c,#00963a)', tab: 'ele' },
+  { key: 'mt', name: '美团外卖', icon: '🛵', tag: '天天神券', bg: 'linear-gradient(135deg,#ffd100,#ff9500)', tab: 'mt' },
+  { key: 'ticket', name: '景点门票', icon: '🏞️', tag: '低价游', bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', tab: 'ticket' },
+  { key: 'movie', name: '电影票', icon: '🎬', tag: '特惠看', bg: 'linear-gradient(135deg,#ff6b9d,#c44569)', tab: 'movie' },
+  { key: 'hotel', name: '酒店民宿', icon: '🏨', tag: '超值住', bg: 'linear-gradient(135deg,#a8edea,#fed6e3)', tab: 'hotel' },
+  { key: 'taxi', name: '打车出行', icon: '🚕', tag: '立减券', bg: 'linear-gradient(135deg,#f7931e,#ff6b35)', tab: 'taxi' },
+  { key: 'coffee', name: '咖啡奶茶', icon: '☕', tag: '买一送一', bg: 'linear-gradient(135deg,#c44569,#f8b500)', tab: 'coffee' },
+  { key: 'phone', name: '话费充值', icon: '📱', tag: '95折起', bg: 'linear-gradient(135deg,#667eea,#764ba2)', tab: 'phone' },
+  { key: 'more', name: '更多', icon: '🎁', tag: '全部分类', bg: 'linear-gradient(135deg,#f093fb,#f5576c)', tab: 'more' },
+];
+const llPages = computed(() => {
+  const all = llItems;
+  const pages = [];
+  // 每页 5 个
+  for (let i = 0; i < all.length; i += 5) pages.push(all.slice(i, i + 5));
+  return pages.length ? pages : [[]];
+});
+function openLocalLife(tab) {
+  if (tab === 'more') {
+    location.hash = '#/local-life';
+  } else {
+    location.hash = `#/local-life?tab=${tab}`;
+  }
+}
 
 // 品类宫格
 const catGroups = computed(() => {
@@ -1003,42 +1049,54 @@ onUnmounted(() => {
   color: #ff4b3a;
 }
 
-/* ========== 本地生活入口 ========== */
-.local-life-entry {
-  margin: 12px 12px 0;
-  padding: 14px;
-  background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);
-  border-radius: 14px;
-  color: #fff;
+/* ========== 本地生活（宫格轮播） ========== */
+.ll-head {
+  margin-top: 14px;
+}
+.ll-section {
+  margin: 8px 12px 0;
+}
+.ll-swipe {
+  min-height: 110px;
+}
+.ll-page {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px 0;
+  padding: 6px 4px 4px;
+}
+.ll-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
-}
-.lle-tag {
-  font-size: 11px;
-  opacity: 0.9;
-  margin-bottom: 4px;
-}
-.lle-title {
-  font-size: 16px;
-  font-weight: 700;
-}
-.lle-sub {
-  font-size: 11px;
-  opacity: 0.85;
-  margin-top: 4px;
-}
-.lle-right {
-  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 4px;
+}
+.ll-item:active {
+  transform: scale(0.95);
+}
+.ll-ico {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  font-size: 22px;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+.ll-name {
   font-size: 12px;
-  font-weight: 600;
-  padding: 4px 12px;
-  background: rgba(255,255,255,0.2);
+  color: #333;
+  font-weight: 500;
+}
+.ll-tag {
+  font-size: 10px;
+  color: #ff6b35;
+  background: #fff5f0;
+  padding: 1px 6px;
   border-radius: 999px;
-  backdrop-filter: blur(4px);
+  line-height: 1.4;
 }
 
 /* ========== 比价卡片 ========== */

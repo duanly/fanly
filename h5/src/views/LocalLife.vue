@@ -185,6 +185,20 @@ const TABS = [
 const activeTab = ref('ele');
 const pageSize = 20;
 
+// 从 URL 参数读取初始 tab（支持 #/local-life?tab=mt 这样的跳转）
+function initTabFromUrl() {
+  const hash = location.hash || '';
+  const qIdx = hash.indexOf('?');
+  if (qIdx < 0) return;
+  const search = hash.slice(qIdx + 1);
+  const params = new URLSearchParams(search);
+  const tab = params.get('tab');
+  if (tab && TABS.some((t) => t.key === tab)) {
+    activeTab.value = tab;
+  }
+}
+initTabFromUrl();
+
 const ele = reactive({
   list: [],
   page: 1,
@@ -241,9 +255,10 @@ function onScroll() {
 }
 
 onMounted(() => {
-  // 初始加载第一个 tab
-  ele.loading = true;
-  loadEle();
+  // 初始加载当前 tab
+  const s = getState(activeTab.value);
+  s.loading = true;
+  getLoader(activeTab.value)();
   window.addEventListener('scroll', onScroll, { passive: true });
 });
 
