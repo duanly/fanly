@@ -14,17 +14,17 @@
       :sticky="true"
       :offset-top="0"
       class="ll-tabs"
-      @change="onTabChange"
     >
       <van-tab v-for="t in TABS" :key="t.key" :title="t.name" />
     </van-tabs>
 
     <!-- 饿了么 -->
-    <div v-show="activeTab === 'ele'" class="ll-section">
+    <div v-if="activeTab === 'ele'" class="ll-section">
       <van-list
         v-model:loading="ele.loading"
         :finished="ele.finished"
         finished-text="— 没有更多活动了 —"
+        immediate-check
         @load="loadEle"
         class="ll-list"
       >
@@ -53,15 +53,16 @@
         </div>
       </van-list>
 
-      <van-empty v-if="!ele.loading && !ele.list.length" description="暂无活动，稍后再来看看～" />
+      <van-empty v-if="!ele.loading && ele.finished && !ele.list.length" description="暂无活动，稍后再来看看～" />
     </div>
 
     <!-- 美团券包 -->
-    <div v-show="activeTab === 'mt'" class="ll-section">
+    <div v-if="activeTab === 'mt'" class="ll-section">
       <van-list
         v-model:loading="mt.loading"
         :finished="mt.finished"
         finished-text="— 没有更多活动了 —"
+        immediate-check
         @load="loadMt"
         class="ll-list"
       >
@@ -90,15 +91,16 @@
         </div>
       </van-list>
 
-      <van-empty v-if="!mt.loading && !mt.list.length" description="暂无活动，稍后再来看看～" />
+      <van-empty v-if="!mt.loading && mt.finished && !mt.list.length" description="暂无活动，稍后再来看看～" />
     </div>
 
     <!-- 景点门票（联盟活动分类） -->
-    <div v-show="activeTab === 'ticket'" class="ll-section">
+    <div v-if="activeTab === 'ticket'" class="ll-section">
       <van-list
         v-model:loading="ticket.loading"
         :finished="ticket.finished"
         finished-text="— 没有更多活动了 —"
+        immediate-check
         @load="loadTicket"
         class="ll-list"
       >
@@ -124,7 +126,7 @@
         </div>
       </van-list>
 
-      <van-empty v-if="!ticket.loading && !ticket.list.length" description="暂无活动，稍后再来看看～" />
+      <van-empty v-if="!ticket.loading && ticket.finished && !ticket.list.length" description="暂无活动，稍后再来看看～" />
     </div>
 
     <!-- 小程序码引导弹层（兜底：没有 H5 时展示） -->
@@ -161,7 +163,7 @@
 </template>
 
 <script setup>
-import { reactive, onMounted, ref } from 'vue';
+import { onMounted, reactive, ref, watch } from 'vue';
 import { api } from '../api';
 import { showToast } from 'vant';
 
@@ -172,8 +174,15 @@ const TABS = [
 ];
 
 const activeTab = ref('ele');
-const pageSize = 10;
+const pageSize = 20;
 
+/**
+ * 加载策略：
+ * - 每个 tab 有独立的 inited 标记
+ * - 首次进入该 tab 时手动触发一次加载（不依赖 van-list 的自动检测，
+ *   因为在 sticky tabs + v-if 场景下 van-list 经常检测不到视口）
+ * - 之后的翻页仍然走 van-list 的 @load 滚动触发
+ */
 const ele = reactive({
   list: [],
   page: 1,
@@ -190,7 +199,6 @@ const mt = reactive({
   inited: false,
 });
 
-// 联盟活动类（按 cateName 筛选）可以复用同一套加载逻辑
 const ticket = reactive({
   list: [],
   page: 1,
@@ -199,29 +207,38 @@ const ticket = reactive({
   inited: false,
 });
 
-// 小程序码弹层
-const showQrPopup = ref(false);
-const currentAct = ref(null);
-const qrCode = ref('');
-const h5Url = ref('');
-
-function onTabChange() {
-  if (activeTab.value === 'ele' && !ele.inited) {
+// 手动触发当前 tab 的首次加载
+function ensureLoaded(tabKey) {
+  if (tabKey === 'ele' && !ele.inited && !ele.loading && !ele.finished) {
     ele.inited = true;
     ele.loading = true;
     loadEle();
-  }
-  if (activeTab.value === 'mt' && !mt.inited) {
+  } else if (tabKey === 'mt' && !mt.inited && !mt.loading && !mt.finished) {
     mt.inited = true;
     mt.loading = true;
     loadMt();
-  }
-  if (activeTab.value === 'ticket' && !ticket.inited) {
+  } else if (tabKey === 'ticket' && !ticket.inited && !ticket.loading && !ticket.finished) {
     ticket.inited = true;
     ticket.loading = true;
     loadTicket();
   }
 }
+
+// 监听 tab 切换
+watch(activeTab, (val) => {
+  // 等下一帧 DOM 渲染完再触发，确保 van-list 已挂载
+  requestAnimationFrame(() => ensureLoaded(val));
+});
+
+onMounted(() => {
+  ensureLoaded(activeTab.value);
+});
+
+// 小程序码弹层
+const showQrPopup = ref(false);
+const currentAct = ref(null);
+const qrCode = ref('');
+const h5Url = ref('');
 
 // ─── 饿了么 ───
 
@@ -362,12 +379,6 @@ function copyLink() {
   }
   document.body.removeChild(ta);
 }
-
-onMounted(() => {
-  ele.inited = true;
-  ele.loading = true;
-  loadEle();
-});
 </script>
 
 <style scoped>
