@@ -81,7 +81,12 @@ export class JutuikeProvider {
   private async call<T>(path: string, params: Record<string, any>, method: 'GET' | 'POST' = 'GET'): Promise<T> {
     const json = await this.callRaw(path, params, method);
     if (json.code !== 1 && json.code !== 200) {
-      throw new Error(`聚推客接口错误: ${json.msg || json.message || JSON.stringify(json)}`);
+      const msg = json.msg || json.message || '';
+      // 无数据属于业务正常情况，返回空数据结构而不是抛错
+      if (msg.includes('无数据') || msg.includes('没有数据')) {
+        return { data: [], total: 0, current_page: 1, last_page: 1, per_page: 20 } as any;
+      }
+      throw new Error(`聚推客接口错误: ${msg || JSON.stringify(json)}`);
     }
     return json.data as T;
   }

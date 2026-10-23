@@ -1,12 +1,23 @@
 <template>
   <div class="local-life">
-    <!-- 顶部导航 -->
-    <div class="ll-header">
-      <div class="ll-title">本地生活</div>
-      <div class="ll-sub">点外卖 · 喝咖啡 · 吃喝玩乐都能返</div>
+    <!-- 顶部头图 banner（随 tab 切换） -->
+    <div class="ll-banner" :class="'ll-banner-' + activeTab">
+      <div class="ll-banner-inner">
+        <div class="ll-banner-title">
+          <template v-if="activeTab === 'ele'">🍜 饿了么外卖</template>
+          <template v-else-if="activeTab === 'mt'">🎫 美团券包</template>
+          <template v-else-if="activeTab === 'ticket'">🏞️ 景点门票</template>
+        </div>
+        <div class="ll-banner-sub">
+          <template v-if="activeTab === 'ele'">天天领红包 · 每餐都能省</template>
+          <template v-else-if="activeTab === 'mt'">到店美食 · 吃喝玩乐超值券</template>
+          <template v-else-if="activeTab === 'ticket'">热门景点 · 低价门票随心游</template>
+        </div>
+      </div>
+      <div class="ll-banner-deco"></div>
     </div>
 
-    <!-- 品类 tabs -->
+    <!-- 品类 tabs（sticky 吸顶） -->
     <van-tabs
       v-model:active="activeTab"
       color="#ff9500"
@@ -35,9 +46,6 @@
           <div class="llc-body">
             <div class="llc-name">{{ item.actName }}</div>
             <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
-            <div v-if="item.commissionRate" class="llc-comm">
-              预估 {{ item.commissionRate }}
-            </div>
             <div class="llc-foot">
               <div class="llc-btn ele-btn">立即领券 ›</div>
             </div>
@@ -48,17 +56,10 @@
       <div v-if="ele.loading" class="ll-loadmore">
         <van-loading size="18px" /> <span>加载中...</span>
       </div>
-      <div
-        v-else-if="ele.finished && ele.list.length"
-        class="ll-loadmore ll-finished"
-      >
+      <div v-else-if="ele.finished && ele.list.length" class="ll-loadmore ll-finished">
         — 没有更多了 —
       </div>
-      <div
-        v-else-if="ele.list.length"
-        class="ll-loadmore ll-clickmore"
-        @click="loadEle"
-      >
+      <div v-else-if="ele.list.length" class="ll-loadmore ll-clickmore" @click="loadEle">
         点击加载更多 ↓
       </div>
 
@@ -81,9 +82,6 @@
           <div class="llc-body">
             <div class="llc-name">{{ item.actName }}</div>
             <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
-            <div v-if="item.commissionRate" class="llc-comm">
-              预估 {{ item.commissionRate }}
-            </div>
             <div class="llc-foot">
               <div class="llc-btn mt-btn">立即抢购 ›</div>
             </div>
@@ -94,17 +92,10 @@
       <div v-if="mt.loading" class="ll-loadmore">
         <van-loading size="18px" /> <span>加载中...</span>
       </div>
-      <div
-        v-else-if="mt.finished && mt.list.length"
-        class="ll-loadmore ll-finished"
-      >
+      <div v-else-if="mt.finished && mt.list.length" class="ll-loadmore ll-finished">
         — 没有更多了 —
       </div>
-      <div
-        v-else-if="mt.list.length"
-        class="ll-loadmore ll-clickmore"
-        @click="loadMt"
-      >
+      <div v-else-if="mt.list.length" class="ll-loadmore ll-clickmore" @click="loadMt">
         点击加载更多 ↓
       </div>
 
@@ -137,17 +128,10 @@
       <div v-if="ticket.loading" class="ll-loadmore">
         <van-loading size="18px" /> <span>加载中...</span>
       </div>
-      <div
-        v-else-if="ticket.finished && ticket.list.length"
-        class="ll-loadmore ll-finished"
-      >
+      <div v-else-if="ticket.finished && ticket.list.length" class="ll-loadmore ll-finished">
         — 没有更多了 —
       </div>
-      <div
-        v-else-if="ticket.list.length"
-        class="ll-loadmore ll-clickmore"
-        @click="loadTicket"
-      >
+      <div v-else-if="ticket.list.length" class="ll-loadmore ll-clickmore" @click="loadTicket">
         点击加载更多 ↓
       </div>
 
@@ -423,27 +407,68 @@ function copyLink() {
   padding-bottom: 20px;
 }
 
-.ll-header {
-  padding: calc(12px + env(safe-area-inset-top)) 16px 10px;
-  background: linear-gradient(135deg, #fff5e6 0%, #fff0ed 100%);
+/* ─── 顶部头图 banner ─── */
+.ll-banner {
+  position: relative;
+  padding: calc(16px + env(safe-area-inset-top)) 20px 22px;
+  overflow: hidden;
+  color: #fff;
 }
-.ll-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: #1a1a1a;
+.ll-banner-inner {
+  position: relative;
+  z-index: 2;
 }
-.ll-sub {
-  font-size: 12px;
-  color: #999;
-  margin-top: 2px;
+.ll-banner-title {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.ll-banner-sub {
+  font-size: 13px;
+  margin-top: 6px;
+  opacity: 0.95;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+.ll-banner-deco {
+  position: absolute;
+  right: -30px;
+  top: -20px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  z-index: 1;
+}
+.ll-banner-deco::after {
+  content: '';
+  position: absolute;
+  right: 20px;
+  bottom: -40px;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
 }
 
+/* 各 tab 主题色 */
+.ll-banner-ele {
+  background: linear-gradient(135deg, #00b43c 0%, #00963a 50%, #007a2f 100%);
+}
+.ll-banner-mt {
+  background: linear-gradient(135deg, #ffd100 0%, #ff9500 50%, #ff6b35 100%);
+}
+.ll-banner-ticket {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 50%, #00c6fb 100%);
+}
+
+/* ─── Tabs ─── */
 .ll-tabs {
   background: #fff;
   font-weight: 600;
 }
 
-/* 通用 section */
+/* ─── 通用 section ─── */
 .ll-section {
   margin: 10px 12px 0;
   background: #fff;
@@ -462,28 +487,6 @@ function copyLink() {
   width: 100%;
   touch-action: manipulation;
   box-sizing: border-box;
-}
-
-/* 加载更多 */
-.ll-loadmore {
-  text-align: center;
-  padding: 16px 0 8px;
-  font-size: 13px;
-  color: #999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-.ll-finished {
-  color: #ccc;
-}
-.ll-clickmore {
-  color: #ff9500;
-  font-weight: 500;
-}
-.ll-clickmore:active {
-  opacity: 0.7;
 }
 
 .ll-card {
@@ -544,12 +547,6 @@ function copyLink() {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.llc-comm {
-  font-size: 11px;
-  color: #ff6b35;
-  margin-top: 4px;
-  font-weight: 500;
-}
 
 /* 底部按钮 */
 .llc-foot {
@@ -574,6 +571,28 @@ function copyLink() {
 }
 .ticket-btn {
   background: linear-gradient(135deg, #4facfe, #00f2fe);
+}
+
+/* 加载更多 */
+.ll-loadmore {
+  text-align: center;
+  padding: 16px 0 8px;
+  font-size: 13px;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.ll-finished {
+  color: #ccc;
+}
+.ll-clickmore {
+  color: #ff9500;
+  font-weight: 500;
+}
+.ll-clickmore:active {
+  opacity: 0.7;
 }
 
 /* 小程序码弹层 */
