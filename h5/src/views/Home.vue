@@ -119,7 +119,7 @@
 
     <!-- 品类宫格 -->
     <div class="sec-head-wrap cats-head">
-      <span class="sec-title">全部分类 📒</span>
+      <span class="sec-title">商品分类 🍡</span>
       <span class="sec-more">共 {{ catGroups.length }} 个</span>
     </div>
     <div class="section cats-section" ref="catsRef">
@@ -151,7 +151,7 @@
 
     <!-- 品牌专区 -->
     <div v-if="brandTopics.length" class="sec-head-wrap brand-head">
-      <span class="sec-title">品牌专区 🏷️</span>
+      <span class="sec-title">品牌专区 ™️</span>
       <span class="sec-more" @click="showAllBrands = true">全部品牌 ›</span>
     </div>
     <div v-if="brandTopics.length" class="section brand-section">
@@ -181,7 +181,7 @@
 
     <!-- 活动标签位（自动滚动） -->
     <div v-if="acts.length" class="sec-head-wrap act-head">
-      <span class="sec-title">限时活动 🕙</span>
+      <span class="sec-title">限时活动 ⏰</span>
       <span class="sec-more" @click="showAllActs = true">全部活动 ›</span>
     </div>
     <div v-if="acts.length" class="section act-section">
