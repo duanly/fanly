@@ -14,117 +14,142 @@
       :sticky="true"
       :offset-top="0"
       class="ll-tabs"
+      @change="onTabChange"
     >
-      <van-tab v-for="t in TABS" :key="t.key" :title="t.name" />
+      <van-tab v-for="t in TABS" :key="t.key" :title="t.name" :name="t.key" />
     </van-tabs>
 
     <!-- 饿了么 -->
-    <div v-if="activeTab === 'ele'" class="ll-section">
-      <van-list
-        v-model:loading="ele.loading"
-        :finished="ele.finished"
-        finished-text="— 没有更多活动了 —"
-        immediate-check
-        @load="loadEle"
-        class="ll-list"
-      >
-        <div class="ll-grid">
-          <div
-            v-for="item in ele.list"
-            :key="'e-' + item.actId"
-            class="ll-card"
-            @click="onEleClick(item)"
-          >
-            <div class="llc-img">
-              <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
-              <div v-else class="llc-img-fallback">🎁</div>
+    <div v-show="activeTab === 'ele'" class="ll-section">
+      <div v-if="ele.list.length" class="ll-grid">
+        <div
+          v-for="item in ele.list"
+          :key="'e-' + item.actId"
+          class="ll-card"
+          @click="onEleClick(item)"
+        >
+          <div class="llc-img">
+            <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
+            <div v-else class="llc-img-fallback">🎁</div>
+          </div>
+          <div class="llc-body">
+            <div class="llc-name">{{ item.actName }}</div>
+            <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
+            <div v-if="item.commissionRate" class="llc-comm">
+              预估 {{ item.commissionRate }}
             </div>
-            <div class="llc-body">
-              <div class="llc-name">{{ item.actName }}</div>
-              <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
-              <div v-if="item.commissionRate" class="llc-comm">
-                预估 {{ item.commissionRate }}
-              </div>
-              <div class="llc-foot">
-                <div class="llc-btn ele-btn">立即领券 ›</div>
-              </div>
+            <div class="llc-foot">
+              <div class="llc-btn ele-btn">立即领券 ›</div>
             </div>
           </div>
         </div>
-      </van-list>
+      </div>
+
+      <div v-if="ele.loading" class="ll-loadmore">
+        <van-loading size="18px" /> <span>加载中...</span>
+      </div>
+      <div
+        v-else-if="ele.finished && ele.list.length"
+        class="ll-loadmore ll-finished"
+      >
+        — 没有更多了 —
+      </div>
+      <div
+        v-else-if="ele.list.length"
+        class="ll-loadmore ll-clickmore"
+        @click="loadEle"
+      >
+        点击加载更多 ↓
+      </div>
 
       <van-empty v-if="!ele.loading && ele.finished && !ele.list.length" description="暂无活动，稍后再来看看～" />
     </div>
 
     <!-- 美团券包 -->
-    <div v-if="activeTab === 'mt'" class="ll-section">
-      <van-list
-        v-model:loading="mt.loading"
-        :finished="mt.finished"
-        finished-text="— 没有更多活动了 —"
-        immediate-check
-        @load="loadMt"
-        class="ll-list"
-      >
-        <div class="ll-grid">
-          <div
-            v-for="item in mt.list"
-            :key="'m-' + item.actId"
-            class="ll-card"
-            @click="onMtClick(item)"
-          >
-            <div class="llc-img">
-              <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
-              <div v-else class="llc-img-fallback">🎁</div>
+    <div v-show="activeTab === 'mt'" class="ll-section">
+      <div v-if="mt.list.length" class="ll-grid">
+        <div
+          v-for="item in mt.list"
+          :key="'m-' + item.actId"
+          class="ll-card"
+          @click="onMtClick(item)"
+        >
+          <div class="llc-img">
+            <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
+            <div v-else class="llc-img-fallback">🎁</div>
+          </div>
+          <div class="llc-body">
+            <div class="llc-name">{{ item.actName }}</div>
+            <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
+            <div v-if="item.commissionRate" class="llc-comm">
+              预估 {{ item.commissionRate }}
             </div>
-            <div class="llc-body">
-              <div class="llc-name">{{ item.actName }}</div>
-              <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
-              <div v-if="item.commissionRate" class="llc-comm">
-                预估 {{ item.commissionRate }}
-              </div>
-              <div class="llc-foot">
-                <div class="llc-btn mt-btn">立即抢购 ›</div>
-              </div>
+            <div class="llc-foot">
+              <div class="llc-btn mt-btn">立即抢购 ›</div>
             </div>
           </div>
         </div>
-      </van-list>
+      </div>
+
+      <div v-if="mt.loading" class="ll-loadmore">
+        <van-loading size="18px" /> <span>加载中...</span>
+      </div>
+      <div
+        v-else-if="mt.finished && mt.list.length"
+        class="ll-loadmore ll-finished"
+      >
+        — 没有更多了 —
+      </div>
+      <div
+        v-else-if="mt.list.length"
+        class="ll-loadmore ll-clickmore"
+        @click="loadMt"
+      >
+        点击加载更多 ↓
+      </div>
 
       <van-empty v-if="!mt.loading && mt.finished && !mt.list.length" description="暂无活动，稍后再来看看～" />
     </div>
 
     <!-- 景点门票（联盟活动分类） -->
-    <div v-if="activeTab === 'ticket'" class="ll-section">
-      <van-list
-        v-model:loading="ticket.loading"
-        :finished="ticket.finished"
-        finished-text="— 没有更多活动了 —"
-        immediate-check
-        @load="loadTicket"
-        class="ll-list"
-      >
-        <div class="ll-grid">
-          <div
-            v-for="item in ticket.list"
-            :key="'t-' + item.actId"
-            class="ll-card"
-            @click="onUnionClick(item)"
-          >
-            <div class="llc-img">
-              <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
-              <div v-else class="llc-img-fallback">🎫</div>
-            </div>
-            <div class="llc-body">
-              <div class="llc-name">{{ item.actName }}</div>
-              <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
-              <div class="llc-foot">
-                <div class="llc-btn ticket-btn">立即领券 ›</div>
-              </div>
+    <div v-show="activeTab === 'ticket'" class="ll-section">
+      <div v-if="ticket.list.length" class="ll-grid">
+        <div
+          v-for="item in ticket.list"
+          :key="'t-' + item.actId"
+          class="ll-card"
+          @click="onUnionClick(item)"
+        >
+          <div class="llc-img">
+            <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
+            <div v-else class="llc-img-fallback">🎫</div>
+          </div>
+          <div class="llc-body">
+            <div class="llc-name">{{ item.actName }}</div>
+            <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
+            <div class="llc-foot">
+              <div class="llc-btn ticket-btn">立即领券 ›</div>
             </div>
           </div>
         </div>
-      </van-list>
+      </div>
+
+      <div v-if="ticket.loading" class="ll-loadmore">
+        <van-loading size="18px" /> <span>加载中...</span>
+      </div>
+      <div
+        v-else-if="ticket.finished && ticket.list.length"
+        class="ll-loadmore ll-finished"
+      >
+        — 没有更多了 —
+      </div>
+      <div
+        v-else-if="ticket.list.length"
+        class="ll-loadmore ll-clickmore"
+        @click="loadTicket"
+      >
+        点击加载更多 ↓
+      </div>
 
       <van-empty v-if="!ticket.loading && ticket.finished && !ticket.list.length" description="暂无活动，稍后再来看看～" />
     </div>
@@ -163,7 +188,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { api } from '../api';
 import { showToast } from 'vant';
 
@@ -176,19 +201,11 @@ const TABS = [
 const activeTab = ref('ele');
 const pageSize = 20;
 
-/**
- * 加载策略：
- * - 每个 tab 有独立的 inited 标记
- * - 首次进入该 tab 时手动触发一次加载（不依赖 van-list 的自动检测，
- *   因为在 sticky tabs + v-if 场景下 van-list 经常检测不到视口）
- * - 之后的翻页仍然走 van-list 的 @load 滚动触发
- */
 const ele = reactive({
   list: [],
   page: 1,
   loading: false,
   finished: false,
-  inited: false,
 });
 
 const mt = reactive({
@@ -196,7 +213,6 @@ const mt = reactive({
   page: 1,
   loading: false,
   finished: false,
-  inited: false,
 });
 
 const ticket = reactive({
@@ -204,34 +220,51 @@ const ticket = reactive({
   page: 1,
   loading: false,
   finished: false,
-  inited: false,
 });
 
-// 手动触发当前 tab 的首次加载
-function ensureLoaded(tabKey) {
-  if (tabKey === 'ele' && !ele.inited && !ele.loading && !ele.finished) {
-    ele.inited = true;
-    ele.loading = true;
-    loadEle();
-  } else if (tabKey === 'mt' && !mt.inited && !mt.loading && !mt.finished) {
-    mt.inited = true;
-    mt.loading = true;
-    loadMt();
-  } else if (tabKey === 'ticket' && !ticket.inited && !ticket.loading && !ticket.finished) {
-    ticket.inited = true;
-    ticket.loading = true;
-    loadTicket();
+function getState(key) {
+  if (key === 'ele') return ele;
+  if (key === 'mt') return mt;
+  return ticket;
+}
+
+function getLoader(key) {
+  if (key === 'ele') return loadEle;
+  if (key === 'mt') return loadMt;
+  return loadTicket;
+}
+
+function onTabChange(key) {
+  activeTab.value = key;
+  const s = getState(key);
+  if (!s.loading && !s.finished && s.list.length === 0) {
+    s.loading = true;
+    getLoader(key)();
   }
 }
 
-// 监听 tab 切换
-watch(activeTab, (val) => {
-  // 等下一帧 DOM 渲染完再触发，确保 van-list 已挂载
-  requestAnimationFrame(() => ensureLoaded(val));
-});
+// 滚动到底部自动加载更多
+function onScroll() {
+  const s = getState(activeTab.value);
+  if (s.loading || s.finished) return;
+  const scrollTop = window.scrollY || document.documentElement.scrollTop;
+  const viewH = window.innerHeight;
+  const fullH = document.documentElement.scrollHeight;
+  if (fullH - scrollTop - viewH < 200) {
+    s.loading = true;
+    getLoader(activeTab.value)();
+  }
+}
 
 onMounted(() => {
-  ensureLoaded(activeTab.value);
+  // 初始加载第一个 tab
+  ele.loading = true;
+  loadEle();
+  window.addEventListener('scroll', onScroll, { passive: true });
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', onScroll);
 });
 
 // 小程序码弹层
@@ -419,19 +452,7 @@ function copyLink() {
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
   width: calc(100% - 24px);
   box-sizing: border-box;
-}
-
-.ll-list {
-  padding: 0;
-  width: 100% !important;
-  box-sizing: border-box;
-}
-.ll-list :deep(.van-list__finished-text),
-.ll-list :deep(.van-list__loading) {
-  width: 100%;
-}
-.ll-list :deep(.van-list__placeholder) {
-  width: 100% !important;
+  min-height: 300px;
 }
 
 .ll-grid {
@@ -441,6 +462,28 @@ function copyLink() {
   width: 100%;
   touch-action: manipulation;
   box-sizing: border-box;
+}
+
+/* 加载更多 */
+.ll-loadmore {
+  text-align: center;
+  padding: 16px 0 8px;
+  font-size: 13px;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.ll-finished {
+  color: #ccc;
+}
+.ll-clickmore {
+  color: #ff9500;
+  font-weight: 500;
+}
+.ll-clickmore:active {
+  opacity: 0.7;
 }
 
 .ll-card {
