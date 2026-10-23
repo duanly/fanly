@@ -3,28 +3,28 @@
     <!-- 顶部导航 -->
     <div class="ll-header">
       <div class="ll-title">本地生活</div>
-      <div class="ll-sub">点外卖 · 喝咖啡 · 每单都返</div>
+      <div class="ll-sub">点外卖 · 喝咖啡 · 吃喝玩乐都能返</div>
     </div>
 
-    <!-- 饿了么 banner + 活动列表 -->
-    <div class="ll-banner ele" @click="scrollTo('ele')">
-      <div class="ll-banner-left">
-        <div class="ll-banner-title">饿了么外卖</div>
-        <div class="ll-banner-desc">红包天天领 · 单单都返利</div>
-      </div>
-      <div class="ll-banner-ico">🍜</div>
-    </div>
+    <!-- 品类 tabs -->
+    <van-tabs
+      v-model:active="activeTab"
+      color="#ff9500"
+      line-width="16"
+      :sticky="true"
+      :offset-top="0"
+      class="ll-tabs"
+      @change="onTabChange"
+    >
+      <van-tab v-for="t in TABS" :key="t.key" :title="t.name" />
+    </van-tabs>
 
-    <div class="ll-section" id="ele">
-      <div class="ll-sec-title">
-        <span class="ll-sec-dot ele-dot"></span>
-        <span>饿了么精选活动</span>
-        <span class="ll-sec-more" @click="scrollTo('ele')">更多 ›</span>
-      </div>
+    <!-- 饿了么 -->
+    <div v-show="activeTab === 'ele'" class="ll-section">
       <van-list
         v-model:loading="ele.loading"
         :finished="ele.finished"
-        finished-text="— 没有更多了 —"
+        finished-text="— 没有更多活动了 —"
         @load="loadEle"
         class="ll-list"
       >
@@ -46,33 +46,22 @@
                 预估 {{ item.commissionRate }}
               </div>
               <div class="llc-foot">
-                <div class="llc-btn">立即领券 ›</div>
+                <div class="llc-btn ele-btn">立即领券 ›</div>
               </div>
             </div>
           </div>
         </div>
       </van-list>
+
+      <van-empty v-if="!ele.loading && !ele.list.length" description="暂无活动，稍后再来看看～" />
     </div>
 
-    <!-- 美团券包 banner + 活动列表 -->
-    <div class="ll-banner mt" @click="scrollTo('mt')">
-      <div class="ll-banner-left">
-        <div class="ll-banner-title">美团券包</div>
-        <div class="ll-banner-desc">咖啡奶茶 · 到店核销有返利</div>
-      </div>
-      <div class="ll-banner-ico">☕</div>
-    </div>
-
-    <div class="ll-section" id="mt">
-      <div class="ll-sec-title">
-        <span class="ll-sec-dot mt-dot"></span>
-        <span>美团超值券包</span>
-        <span class="ll-sec-more" @click="scrollTo('mt')">更多 ›</span>
-      </div>
+    <!-- 美团券包 -->
+    <div v-show="activeTab === 'mt'" class="ll-section">
       <van-list
         v-model:loading="mt.loading"
         :finished="mt.finished"
-        finished-text="— 没有更多了 —"
+        finished-text="— 没有更多活动了 —"
         @load="loadMt"
         class="ll-list"
       >
@@ -100,6 +89,42 @@
           </div>
         </div>
       </van-list>
+
+      <van-empty v-if="!mt.loading && !mt.list.length" description="暂无活动，稍后再来看看～" />
+    </div>
+
+    <!-- 景点门票（联盟活动分类） -->
+    <div v-show="activeTab === 'ticket'" class="ll-section">
+      <van-list
+        v-model:loading="ticket.loading"
+        :finished="ticket.finished"
+        finished-text="— 没有更多活动了 —"
+        @load="loadTicket"
+        class="ll-list"
+      >
+        <div class="ll-grid">
+          <div
+            v-for="item in ticket.list"
+            :key="'t-' + item.actId"
+            class="ll-card"
+            @click="onUnionClick(item)"
+          >
+            <div class="llc-img">
+              <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
+              <div v-else class="llc-img-fallback">🎫</div>
+            </div>
+            <div class="llc-body">
+              <div class="llc-name">{{ item.actName }}</div>
+              <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
+              <div class="llc-foot">
+                <div class="llc-btn ticket-btn">立即领券 ›</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </van-list>
+
+      <van-empty v-if="!ticket.loading && !ticket.list.length" description="暂无活动，稍后再来看看～" />
     </div>
 
     <!-- 小程序码引导弹层（兜底：没有 H5 时展示） -->
@@ -140,6 +165,13 @@ import { reactive, onMounted, ref } from 'vue';
 import { api } from '../api';
 import { showToast } from 'vant';
 
+const TABS = [
+  { key: 'ele', name: '饿了么' },
+  { key: 'mt', name: '美团券包' },
+  { key: 'ticket', name: '景点门票' },
+];
+
+const activeTab = ref('ele');
 const pageSize = 10;
 
 const ele = reactive({
@@ -147,6 +179,7 @@ const ele = reactive({
   page: 1,
   loading: false,
   finished: false,
+  inited: false,
 });
 
 const mt = reactive({
@@ -154,6 +187,16 @@ const mt = reactive({
   page: 1,
   loading: false,
   finished: false,
+  inited: false,
+});
+
+// 联盟活动类（按 cateName 筛选）可以复用同一套加载逻辑
+const ticket = reactive({
+  list: [],
+  page: 1,
+  loading: false,
+  finished: false,
+  inited: false,
 });
 
 // 小程序码弹层
@@ -162,19 +205,29 @@ const currentAct = ref(null);
 const qrCode = ref('');
 const h5Url = ref('');
 
-function scrollTo(id) {
-  const el = document.getElementById(id);
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+function onTabChange() {
+  if (activeTab.value === 'ele' && !ele.inited) {
+    ele.inited = true;
+    ele.loading = true;
+    loadEle();
+  }
+  if (activeTab.value === 'mt' && !mt.inited) {
+    mt.inited = true;
+    mt.loading = true;
+    loadMt();
+  }
+  if (activeTab.value === 'ticket' && !ticket.inited) {
+    ticket.inited = true;
+    ticket.loading = true;
+    loadTicket();
+  }
 }
 
 // ─── 饿了么 ───
 
 async function loadEle() {
   try {
-    const r = await api.jtkEleActivities({
-      page: ele.page,
-      pageSize,
-    });
+    const r = await api.jtkEleActivities({ page: ele.page, pageSize });
     const rows = r.list || r || [];
     ele.list.push(...rows);
     ele.page += 1;
@@ -203,10 +256,7 @@ async function onEleClick(item) {
 
 async function loadMt() {
   try {
-    const r = await api.jtkMtCoupons({
-      page: mt.page,
-      pageSize,
-    });
+    const r = await api.jtkMtCoupons({ page: mt.page, pageSize });
     const rows = r.list || r || [];
     mt.list.push(...rows);
     mt.page += 1;
@@ -231,19 +281,56 @@ async function onMtClick(item) {
   }
 }
 
+// ─── 景点门票（联盟活动，按 cateName 筛选）───
+
+async function loadTicket() {
+  try {
+    const r = await api.jtkActivities({
+      cateName: '景点门票',
+      page: ticket.page,
+      pageSize,
+    });
+    const rows = (r.list || r || []).map((item) => ({
+      actId: item.actId || item.act_id || item.id,
+      actName: item.actName || item.act_name || item.title || item.name,
+      desc: item.desc || item.act_desc || item.subtitle || '',
+      img: item.img || item.image || item.pic || item.banner || '',
+    }));
+    ticket.list.push(...rows);
+    ticket.page += 1;
+    if (rows.length < pageSize) ticket.finished = true;
+  } catch (e) {
+    showToast(e.message || '加载失败');
+    ticket.finished = true;
+  } finally {
+    ticket.loading = false;
+  }
+}
+
+// 通用联盟活动转链（走 /union/act）
+async function onUnionClick(item) {
+  currentAct.value = item;
+  qrCode.value = '';
+  h5Url.value = '';
+  try {
+    const r = await api.jtkConvert(item.actId);
+    handleConvertResult(r);
+  } catch (e) {
+    showToast(e.message || '转链失败');
+  }
+}
+
 // ─── 通用跳转逻辑 ───
 
 function handleConvertResult(r) {
   const h5 = r.h5 || r.shortH5 || r.longH5 || r.jump_url || r.url;
   h5Url.value = h5 || '';
 
-  // 有 H5 → 直接打开
   if (h5) {
     window.location.href = h5;
     return;
   }
 
-  // 没有 H5 但有小程序码 → 弹引导层
   const miniCode = r.weAppInfo?.miniCode || r.we_app_info?.mini_code;
   if (miniCode) {
     qrCode.value = miniCode;
@@ -277,10 +364,9 @@ function copyLink() {
 }
 
 onMounted(() => {
+  ele.inited = true;
   ele.loading = true;
-  mt.loading = true;
   loadEle();
-  loadMt();
 });
 </script>
 
@@ -308,37 +394,9 @@ onMounted(() => {
   margin-top: 2px;
 }
 
-/* banner 通用 */
-.ll-banner {
-  margin: 10px 12px 0;
-  border-radius: 14px;
-  padding: 16px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-.ll-banner.ele {
-  background: linear-gradient(135deg, #00b43c 0%, #00963a 100%);
-  box-shadow: 0 4px 12px rgba(0,180,60,0.2);
-}
-.ll-banner.mt {
-  background: linear-gradient(135deg, #ffd100 0%, #ff9500 100%);
-  box-shadow: 0 4px 12px rgba(255,149,0,0.25);
-  color: #3a2600;
-}
-.ll-banner-title {
-  font-size: 18px;
-  font-weight: 700;
-}
-.ll-banner-desc {
-  font-size: 12px;
-  margin-top: 4px;
-  opacity: 0.9;
-}
-.ll-banner-ico {
-  font-size: 36px;
+.ll-tabs {
+  background: #fff;
+  font-weight: 600;
 }
 
 /* 通用 section */
@@ -350,28 +408,6 @@ onMounted(() => {
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
   width: calc(100% - 24px);
   box-sizing: border-box;
-}
-.ll-sec-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.ll-sec-dot {
-  width: 3px;
-  height: 14px;
-  border-radius: 2px;
-}
-.ele-dot { background: #00b43c; }
-.mt-dot { background: #ff9500; }
-.ll-sec-more {
-  margin-left: auto;
-  font-size: 12px;
-  color: #999;
-  font-weight: normal;
 }
 
 .ll-list {
@@ -475,9 +511,15 @@ onMounted(() => {
   font-weight: 600;
   white-space: nowrap;
 }
+.ele-btn {
+  background: linear-gradient(135deg, #00b43c, #00963a);
+}
 .mt-btn {
   background: linear-gradient(135deg, #ffd100, #ff9500);
   color: #3a2600;
+}
+.ticket-btn {
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
 }
 
 /* 小程序码弹层 */
