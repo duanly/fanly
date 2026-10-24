@@ -289,19 +289,22 @@ async function onResetPassword(u) {
   try {
     const result = await showDialog({
       title: '重置密码',
-      message: '确定要重置该用户的密码吗？新密码将随机生成。',
+      message: '请输入新密码，留空则随机生成',
+      showInput: true,
+      inputValue: '000000',
+      inputPlaceholder: '请输入新密码（6-20位）',
       confirmButtonText: '确定重置',
       cancelButtonText: '取消',
       showCancelButton: true,
     });
-    if (!result) return;
-    const r = await adminApi.resetUserPassword(u.id);
+    const newPwd = (result?.value || result?.inputValue || '').trim();
+    // 这里的确认是 Vant showDialog 的返回，cancel 时抛 'cancel'
+    const r = await adminApi.resetUserPassword(u.id, newPwd || undefined);
     showDialog({
       title: '重置成功',
       message: `新密码：${r.newPassword}\n请告知用户及时修改。`,
       confirmButtonText: '复制并关闭',
     }).then(() => {
-      // 复制到剪贴板
       if (navigator.clipboard && r.newPassword) {
         navigator.clipboard.writeText(r.newPassword).catch(() => {});
       }

@@ -17,6 +17,7 @@
         <el-menu-item index="/compare">比价组</el-menu-item>
         <el-menu-item index="/home-ops">首页运营</el-menu-item>
         <el-menu-item index="/agents">代理管理</el-menu-item>
+        <el-menu-item index="/users">用户管理</el-menu-item>
         <el-menu-item index="/orders">订单管理</el-menu-item>
         <el-menu-item index="/jutuike">聚推客订单</el-menu-item>
         <el-menu-item index="/claims">订单找回</el-menu-item>
@@ -51,6 +52,7 @@ const TITLES = {
   '/compare': '比价组',
   '/home-ops': '首页运营',
   '/agents': '代理管理',
+  '/users': '用户管理',
   '/orders': '订单管理',
   '/jutuike': '聚推客订单',
   '/claims': '订单找回',

@@ -44,6 +44,7 @@ export const api = {
 
   // 用户
   users: (params) => http.get('/api/admin/users', { params }),
+  resetUserPassword: (userId, newPassword) => http.post('/api/admin/user/reset-password', { userId, newPassword }),
 
   withdraws: (params) => http.get('/api/admin/withdraws', { params }),
   auditWithdraw: (id, pass, reason) => http.post(`/api/admin/withdraws/${id}/audit`, { pass, reason }),

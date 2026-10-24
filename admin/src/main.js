@@ -14,6 +14,7 @@ const routes = [
   { path: '/compare', component: () => import('./views/Compare.vue') },
   { path: '/home-ops', component: () => import('./views/HomeOps.vue') },
   { path: '/agents', component: () => import('./views/Agents.vue') },
+  { path: '/users', component: () => import('./views/Users.vue') },
   { path: '/orders', component: () => import('./views/Orders.vue') },
   { path: '/jutuike', component: () => import('./views/JtkOrders.vue') },
   { path: '/claims', component: () => import('./views/Claims.vue') },
