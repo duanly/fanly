@@ -1,17 +1,17 @@
 <template>
   <div class="local-life">
     <!-- 顶部头图 banner（随 tab 切换） -->
-    <div class="ll-banner" :class="'ll-banner-' + activeTab">
+    <div class="ll-banner" :class="bannerClass">
       <div class="ll-banner-inner">
         <div class="ll-banner-title">
           <template v-if="activeTab === 'ele'">🍜 饿了么外卖</template>
           <template v-else-if="activeTab === 'mt'">🎫 美团券包</template>
-          <template v-else-if="activeTab === 'all'">🎉 全部活动</template>
+          <template v-else-if="activeTab === 'all'">{{ currentAllCat.icon }} {{ currentAllCat.name }}</template>
         </div>
         <div class="ll-banner-sub">
           <template v-if="activeTab === 'ele'">天天领红包 · 每餐都能省</template>
           <template v-else-if="activeTab === 'mt'">到店美食 · 吃喝玩乐超值券</template>
-          <template v-else-if="activeTab === 'all'">本地生活全覆盖 · 领券下单享优惠</template>
+          <template v-else-if="activeTab === 'all'">{{ currentAllCat.slogan }}</template>
         </div>
       </div>
       <div class="ll-banner-deco"></div>
@@ -103,39 +103,55 @@
     </div>
 
     <!-- 全部活动（聚推客通用联盟活动） -->
-    <div v-show="activeTab === 'all'" class="ll-section">
-      <div v-if="all.list.length" class="ll-grid">
+    <div v-show="activeTab === 'all'" class="ll-all-wrap">
+      <!-- 子分类栏（横向滚动） -->
+      <div class="all-cats">
         <div
-          v-for="item in all.list"
-          :key="'a-' + item.actId"
-          class="ll-card"
-          @click="onUnionClick(item)"
+          v-for="c in ALL_CATS"
+          :key="c.key"
+          class="all-cat"
+          :class="{ active: allCat === c.key }"
+          @click="onAllCatChange(c.key)"
         >
-          <div class="llc-img">
-            <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
-            <div v-else class="llc-img-fallback">🎁</div>
-          </div>
-          <div class="llc-body">
-            <div class="llc-name">{{ item.actName }}</div>
-            <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
-            <div class="llc-foot">
-              <div class="llc-btn all-btn">立即领券 ›</div>
-            </div>
-          </div>
+          <span class="ac-ico">{{ c.icon }}</span>
+          <span class="ac-name">{{ c.name }}</span>
         </div>
       </div>
 
-      <div v-if="all.loading" class="ll-loadmore">
-        <van-loading size="18px" /> <span>加载中...</span>
-      </div>
-      <div v-else-if="all.finished && all.list.length" class="ll-loadmore ll-finished">
-        — 没有更多了 —
-      </div>
-      <div v-else-if="all.list.length" class="ll-loadmore ll-clickmore" @click="loadAll">
-        点击加载更多 ↓
-      </div>
+      <div class="ll-section">
+        <div v-if="filteredAllList.length" class="ll-grid">
+          <div
+            v-for="item in filteredAllList"
+            :key="'a-' + item.actId"
+            class="ll-card"
+            @click="onUnionClick(item)"
+          >
+            <div class="llc-img">
+              <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
+              <div v-else class="llc-img-fallback">🎁</div>
+            </div>
+            <div class="llc-body">
+              <div class="llc-name">{{ item.actName }}</div>
+              <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
+              <div class="llc-foot">
+                <div class="llc-btn all-btn">立即领券 ›</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      <van-empty v-if="!all.loading && all.finished && !all.list.length" description="暂无活动，稍后再来看看～" />
+        <div v-if="all.loading" class="ll-loadmore">
+          <van-loading size="18px" /> <span>加载中...</span>
+        </div>
+        <div v-else-if="all.finished && filteredAllList.length" class="ll-loadmore ll-finished">
+          — 没有更多了 —
+        </div>
+        <div v-else-if="filteredAllList.length" class="ll-loadmore ll-clickmore" @click="loadAll">
+          点击加载更多 ↓
+        </div>
+
+        <van-empty v-if="!all.loading && all.finished && !filteredAllList.length" description="该分类暂无活动，换个分类看看～" />
+      </div>
     </div>
 
     <!-- 小程序码引导弹层（兜底：没有 H5 时展示） -->
@@ -172,7 +188,7 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { api } from '../api';
 import { showToast } from 'vant';
 
@@ -184,6 +200,104 @@ const TABS = [
 
 const activeTab = ref('ele');
 const pageSize = 20;
+
+// ─── 全部活动的子分类 ───
+
+const ALL_CATS = [
+  {
+    key: 'all',
+    name: '全部',
+    icon: '🎉',
+    slogan: '本地生活全覆盖 · 领券下单享优惠',
+    bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
+    keywords: [],
+  },
+  {
+    key: 'food',
+    name: '美食餐饮',
+    icon: '🍔',
+    slogan: '外卖到店都能省 · 顿顿有优惠',
+    bg: 'linear-gradient(135deg, #ff6b35 0%, #ff4b3a 50%, #ff006e 100%)',
+    keywords: ['外卖', '美食', '餐饮', '到店', '正餐', '快餐', '火锅', '烧烤', '烤肉', '小吃', '汉堡', '披萨'],
+  },
+  {
+    key: 'coffee',
+    name: '奶茶咖啡',
+    icon: '☕',
+    slogan: '瑞幸星巴克喜茶 · 买一送一随便薅',
+    bg: 'linear-gradient(135deg, #c44569 0%, #f8b500 60%, #ffcc70 100%)',
+    keywords: ['奶茶', '咖啡', '瑞幸', '星巴克', '喜茶', '奈雪', '蜜雪', '冰饮', '饮料', '茶百道', '古茗', '沪上阿姨', '大牌冰饮', '冰城蜜', 'CoCo', 'coco', '书亦'],
+  },
+  {
+    key: 'taxi',
+    name: '打车出行',
+    icon: '🚕',
+    slogan: '滴滴高德T3 · 出行立减',
+    bg: 'linear-gradient(135deg, #f7931e 0%, #ff6b35 50%, #ff4b3a 100%)',
+    keywords: ['滴滴', '网约车', '打车', '出行', 'T3', '曹操', '高德打车', '首汽', '花小猪', '万顺'],
+  },
+  {
+    key: 'hotel',
+    name: '酒店民宿',
+    icon: '🏨',
+    slogan: '同城酒店飞猪民宿 · 超值住',
+    bg: 'linear-gradient(135deg, #4ecdc4 0%, #44a08d 60%, #007991 100%)',
+    keywords: ['酒店', '民宿', '飞猪', '同城酒店', '美团酒店', '住宿', '客栈', '宾馆', '汉庭', '如家', '全季', '亚朵', '维也纳'],
+  },
+  {
+    key: 'movie',
+    name: '电影演出',
+    icon: '🎬',
+    slogan: '猫眼淘票票 · 特惠观影',
+    bg: 'linear-gradient(135deg, #ff6b9d 0%, #c44569 60%, #562b5c 100%)',
+    keywords: ['电影票', '影城', '猫眼', '淘票票', '观影', '演出', '话剧', '演唱会', '万达', '大地', '横店', '金逸', 'CGV'],
+  },
+  {
+    key: 'ticket',
+    name: '景点门票',
+    icon: '🏞️',
+    slogan: '热门景点乐园 · 低价门票随心游',
+    bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 50%, #00c6fb 100%)',
+    keywords: ['景点', '门票', '景区', '乐园', '欢乐谷', '迪士尼', '方特', '长隆', '世界之窗', '海洋', '动物园', '博物'],
+  },
+  {
+    key: 'phone',
+    name: '话费充值',
+    icon: '📱',
+    slogan: '话费流量充值 · 95折起',
+    bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 60%, #4a569d 100%)',
+    keywords: ['话费', '充值', '话费券', '流量', '充话费', '三网'],
+  },
+];
+
+const allCat = ref('all');
+
+const currentAllCat = computed(() => {
+  return ALL_CATS.find((c) => c.key === allCat.value) || ALL_CATS[0];
+});
+
+// banner 样式 class
+const bannerClass = computed(() => {
+  if (activeTab.value === 'all') {
+    return `ll-banner-all ll-banner-all-${allCat.value}`;
+  }
+  return `ll-banner-${activeTab.value}`;
+});
+
+// 分类筛选后的活动列表
+const filteredAllList = computed(() => {
+  if (allCat.value === 'all') return all.list;
+  const cat = ALL_CATS.find((c) => c.key === allCat.value);
+  if (!cat || !cat.keywords.length) return all.list;
+  return all.list.filter((item) => {
+    const text = `${item.actName || ''} ${item.desc || ''} ${item.introduce || ''} ${item.act_desc || ''}`.toLowerCase();
+    return cat.keywords.some((kw) => text.includes(kw.toLowerCase()));
+  });
+});
+
+function onAllCatChange(key) {
+  allCat.value = key;
+}
 
 // 从 URL 参数读取初始 tab（支持 #/local-life?tab=mt 这样的跳转）
 function initTabFromUrl() {
@@ -497,7 +611,74 @@ function copyLink() {
   background: linear-gradient(135deg, #ffd100 0%, #ff9500 50%, #ff6b35 100%);
 }
 .ll-banner-all {
+  /* 默认全部分类紫色 */
   background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+}
+.ll-banner-all-food {
+  background: linear-gradient(135deg, #ff6b35 0%, #ff4b3a 50%, #ff006e 100%);
+}
+.ll-banner-all-coffee {
+  background: linear-gradient(135deg, #c44569 0%, #f8b500 60%, #ffcc70 100%);
+}
+.ll-banner-all-taxi {
+  background: linear-gradient(135deg, #f7931e 0%, #ff6b35 50%, #ff4b3a 100%);
+}
+.ll-banner-all-hotel {
+  background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 60%, #007991 100%);
+}
+.ll-banner-all-movie {
+  background: linear-gradient(135deg, #ff6b9d 0%, #c44569 60%, #562b5c 100%);
+}
+.ll-banner-all-ticket {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 50%, #00c6fb 100%);
+}
+.ll-banner-all-phone {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 60%, #4a569d 100%);
+}
+
+/* ─── 全部活动子分类栏 ─── */
+.ll-all-wrap {
+  width: 100%;
+}
+.all-cats {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #f7f8fa;
+  position: sticky;
+  top: 44px; /* 顶在 van-tabs 下面 */
+  z-index: 5;
+}
+.all-cats::-webkit-scrollbar {
+  display: none;
+}
+.all-cat {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #fff;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #666;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.all-cat:active {
+  transform: scale(0.95);
+}
+.all-cat.active {
+  background: linear-gradient(135deg, #ff9500, #ff6b35);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
+}
+.all-cat .ac-ico {
+  font-size: 14px;
 }
 
 /* ─── Tabs ─── */
