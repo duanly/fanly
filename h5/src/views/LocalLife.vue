@@ -371,21 +371,45 @@ async function onUnionClick(item) {
 // ─── 通用跳转逻辑 ───
 
 function handleConvertResult(r) {
-  const h5 = r.h5 || r.shortH5 || r.longH5 || r.jump_url || r.url;
-  h5Url.value = h5 || '';
+  // 收集所有可用的跳转方式
+  const options = {
+    h5: r.h5 || r.shortH5 || r.longH5 || r.jump_url || r.url || '',
+    taobaoH5: r.taobaoH5 || r.taobaoInfo?.h5Url || '',
+    alipayH5: r.alipayH5 || r.alipayInfo?.h5Url || '',
+    wechatQr: r.weAppInfo?.miniCode || r.we_app_info?.mini_code || '',
+    taobaoQr: r.taobaoInfo?.qrCode || '',
+    alipayQr: r.alipayInfo?.qrCode || '',
+    taobaoWord: r.taobaoInfo?.tbWord || r.taobaoInfo?.tbToken || '',
+  };
 
-  if (h5) {
-    window.location.href = h5;
+  h5Url.value = options.h5 || options.taobaoH5 || options.alipayH5 || '';
+
+  // 优先级 1：有 H5 直接跳
+  if (options.h5) {
+    window.location.href = options.h5;
     return;
   }
 
-  const miniCode = r.weAppInfo?.miniCode || r.we_app_info?.mini_code;
-  if (miniCode) {
-    qrCode.value = miniCode;
-    showQrPopup.value = true;
-  } else {
-    showToast('跳转链接获取失败');
+  // 优先级 2：有淘宝/支付宝 H5 也直接跳
+  if (options.taobaoH5) {
+    window.location.href = options.taobaoH5;
+    return;
   }
+  if (options.alipayH5) {
+    window.location.href = options.alipayH5;
+    return;
+  }
+
+  // 优先级 3：展示二维码弹层（微信/淘宝/支付宝 哪个有显示哪个）
+  const qr = options.wechatQr || options.taobaoQr || options.alipayQr;
+  if (qr) {
+    qrCode.value = qr;
+    showQrPopup.value = true;
+    return;
+  }
+
+  // 都没有：报错
+  showToast('跳转链接获取失败');
 }
 
 function openInBrowser() {

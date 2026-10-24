@@ -328,11 +328,35 @@ export class JutuikeProvider {
 
   /**
    * 饿了么活动转链
+   *
+   * 饿了么活动可能有多种跳转方式，按优先级返回：
+   * 1. h5_promotion.tj_h5_url — 饿了么 H5
+   * 2. taobao_promotion.h5_url — 淘宝 H5
+   * 3. alipay_promotion.h5_url — 支付宝 H5
+   * 4. 小程序码/二维码（微信、淘宝、支付宝）
    */
   async eleConvert(activityId: string, sid: string): Promise<{
     h5: string;
     actName: string;
+    // 各端链接
+    taobaoH5?: string;
+    alipayH5?: string;
+    // 小程序/APP 跳转
     weAppInfo: { appId: string; pagePath: string; miniCode: string } | null;
+    taobaoInfo?: {
+      h5Url: string;
+      schemeUrl: string;
+      qrCode: string;
+      tbToken: string;
+      tbWord: string;
+    };
+    alipayInfo?: {
+      h5Url: string;
+      schemeUrl: string;
+      qrCode: string;
+    };
+    // 全部原始 link 数据（兜底用）
+    rawLink?: any;
   }> {
     const data: any = await this.call('/ele/kbact', {
       activity_id: activityId,
@@ -340,10 +364,18 @@ export class JutuikeProvider {
     }, 'POST');
 
     const link = data.link || {};
-    const h5 = link.h5_promotion?.tj_h5_url || '';
+    const h5Promo = link.h5_promotion || {};
     const wx = link.wx_promotion || {};
+    const tb = link.taobao_promotion || {};
+    const alipay = link.alipay_promotion || {};
 
-    return {
+    // 主 H5 优先级：饿了么 H5 > 淘宝 H5 > 支付宝 H5
+    const h5 = h5Promo.tj_h5_url
+      || tb.h5_url
+      || alipay.h5_url
+      || '';
+
+    const result: any = {
       h5,
       actName: data.title || data.description || '',
       weAppInfo: wx.wx_app_id ? {
@@ -351,7 +383,32 @@ export class JutuikeProvider {
         pagePath: wx.wx_path || '',
         miniCode: wx.wx_qr_code || '',
       } : null,
+      rawLink: link,
     };
+
+    // 淘宝相关
+    if (tb.h5_url || tb.tb_qr_code) {
+      result.taobaoH5 = tb.h5_url || '';
+      result.taobaoInfo = {
+        h5Url: tb.h5_url || '',
+        schemeUrl: tb.scheme_url || tb.tb_scheme_url || '',
+        qrCode: tb.tb_qr_code || tb.img_url || '',
+        tbToken: tb.tb_watchword || '',
+        tbWord: tb.taobao_word || tb.tb_watchword_suggest || '',
+      };
+    }
+
+    // 支付宝相关
+    if (alipay.h5_url || alipay.alipay_qr_code) {
+      result.alipayH5 = alipay.h5_url || '';
+      result.alipayInfo = {
+        h5Url: alipay.h5_url || '',
+        schemeUrl: alipay.alipay_scheme_url || alipay.scheme_url || '',
+        qrCode: alipay.alipay_qr_code || alipay.img_url || '',
+      };
+    }
+
+    return result;
   }
 
   /**
