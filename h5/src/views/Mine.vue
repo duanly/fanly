@@ -128,6 +128,7 @@
           <span v-else class="muted">去看看</span>
         </template>
       </van-cell>
+      <van-cell title="修改密码" is-link icon="edit" to="/change-password" />
       <van-cell
         v-if="canShowAddDesktop"
         title="添加到桌面"

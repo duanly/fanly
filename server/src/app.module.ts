@@ -18,6 +18,7 @@ import { JutuikeService } from './modules/jutuike/jutuike.service';
 import { JutuikeController } from './modules/jutuike/jutuike.controller';
 import { AuthService } from './modules/auth/auth.service';
 import { AuthController } from './modules/auth/auth.controller';
+import { CaptchaService } from './modules/auth/captcha.service';
 import { OrderService } from './modules/order/order.service';
 import { OrderController } from './modules/order/order.controller';
 import { CommissionService } from './modules/commission/commission.service';
@@ -104,7 +105,7 @@ const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'functi
     JutuikeController,
   ],
   providers: [
-    SysConfigService, AuthService, OrderService, CommissionService,
+    SysConfigService, AuthService, CaptchaService, OrderService, CommissionService,
     FundService, AgentService, CurationService, AuthzService, CompareService,
     HomeLinkService, RankingService, RecommendService, TopicService, AutoTagService,
     CartService, OrderClaimService, CoinService, JobService, JutuikeService,

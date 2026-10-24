@@ -4,7 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { AdminUser, Withdraw, WithdrawStatus } from '@/entities';
+import { AdminUser, User, Withdraw, WithdrawStatus } from '@/entities';
 import { Public } from '@/common/jwt.guard';
 import { CurrentUser } from '@/common/decorators';
 import { SysConfigService } from './sys-config.service';
@@ -19,6 +19,7 @@ export class AdminController {
   constructor(
     @InjectRepository(AdminUser) private readonly adminRepo: Repository<AdminUser>,
     @InjectRepository(Withdraw) private readonly wdRepo: Repository<Withdraw>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly jwt: JwtService,
     private readonly cfg: SysConfigService,
     private readonly agent: AgentService,
@@ -169,5 +170,27 @@ export class AdminController {
       page: +page,
       size: +pageSize,
     });
+  }
+
+  @Post('user/reset-password')
+  @ApiOperation({ summary: '重置用户密码' })
+  async resetUserPassword(@Body() body: { userId: number; newPassword?: string }) {
+    if (!body.userId) throw new Error('缺少 userId');
+    const user = await this.userRepo.findOneBy({ id: body.userId });
+    if (!user) throw new Error('用户不存在');
+    const newPwd = body.newPassword || this.genRandomPassword();
+    user.password = bcrypt.hashSync(newPwd, 10);
+    await this.userRepo.save(user);
+    return { ok: true, newPassword: newPwd };
+  }
+
+  private genRandomPassword(): string {
+    // 8 位随机密码：字母 + 数字
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+    let p = '';
+    for (let i = 0; i < 8; i++) {
+      p += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return p;
   }
 }

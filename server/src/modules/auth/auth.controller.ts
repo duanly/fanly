@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Logger, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Logger, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -6,6 +6,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { extname, resolve } from 'path';
 import { IsOptional, IsString, Length, Matches } from 'class-validator';
 import { AuthService } from './auth.service';
+import { CaptchaService } from './captcha.service';
 import { Public } from '@/common/jwt.guard';
 import { CurrentUser } from '@/common/decorators';
 import { UPLOAD_DIR } from '../admin/upload.controller';
@@ -22,11 +23,25 @@ logger.log(`头像上传目录: ${AVATAR_DIR} (存在=${existsSync(AVATAR_DIR)})
 class SmsDto {
   @Matches(/^1[3-9]\d{9}$/, { message: '手机号格式不正确' }) mobile: string;
 }
+
 class LoginDto {
   @Matches(/^1[3-9]\d{9}$/, { message: '手机号格式不正确' }) mobile: string;
-  @Length(4, 6) smsCode: string;
+  @IsString() @Length(6, 20, { message: '密码长度 6-20 位' }) password: string;
+  @IsOptional() @IsString() deviceId?: string;
+}
+
+class RegisterDto {
+  @Matches(/^1[3-9]\d{9}$/, { message: '手机号格式不正确' }) mobile: string;
+  @IsString() @Length(6, 20, { message: '密码长度 6-20 位' }) password: string;
+  @IsString() captchaKey: string;
+  @IsString() @Length(4, 6, { message: '图形验证码不正确' }) captchaCode: string;
   @IsOptional() @IsString() inviteCode?: string;
   @IsOptional() @IsString() deviceId?: string;
+}
+
+class ChangePasswordDto {
+  @IsString() oldPassword: string;
+  @IsString() @Length(6, 20, { message: '新密码长度 6-20 位' }) newPassword: string;
 }
 
 class BindInviterDto {
@@ -41,16 +56,39 @@ class UpdateProfileDto {
 @ApiTags('认证')
 @Controller('api/auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly captcha: CaptchaService,
+  ) {}
+
+  @Public() @Get('captcha')
+  @ApiOperation({ summary: '获取图形验证码' })
+  getCaptcha() {
+    return this.captcha.generate();
+  }
 
   @Public() @Post('sms')
   @ApiOperation({ summary: '发送验证码（开发模式直接返回 devCode）' })
   sms(@Body() dto: SmsDto) { return this.auth.sendSms(dto.mobile); }
 
+  @Public() @Post('register')
+  @ApiOperation({ summary: '手机号+密码注册，图形验证码校验' })
+  register(@Body() dto: RegisterDto) {
+    const ok = this.captcha.verify(dto.captchaKey, dto.captchaCode);
+    if (!ok) throw new BadRequestException('图形验证码错误或已过期');
+    return this.auth.register(dto.mobile, dto.password, dto.inviteCode, dto.deviceId);
+  }
+
   @Public() @Post('login')
-  @ApiOperation({ summary: '手机号验证码登录/注册，可带代理邀请码' })
+  @ApiOperation({ summary: '手机号密码登录' })
   login(@Body() dto: LoginDto) {
-    return this.auth.login(dto.mobile, dto.smsCode, dto.inviteCode, dto.deviceId);
+    return this.auth.loginWithPassword(dto.mobile, dto.password, dto.deviceId);
+  }
+
+  @Post('password')
+  @ApiOperation({ summary: '修改密码（需登录）' })
+  changePassword(@CurrentUser('sub') userId: number, @Body() dto: ChangePasswordDto) {
+    return this.auth.changePassword(userId, dto.oldPassword, dto.newPassword);
   }
 
   @Get('profile')

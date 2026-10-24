@@ -59,7 +59,10 @@ http.interceptors.response.use(
 
 export const api = {
   sendSms: (mobile) => http.post('/api/auth/sms', { mobile }),
+  getCaptcha: () => http.get('/api/auth/captcha'),
+  register: (data) => http.post('/api/auth/register', data),
   login: (data) => http.post('/api/auth/login', data),
+  changePassword: (data) => http.post('/api/auth/password', data),
   profile: () => http.get('/api/auth/profile'),
   updateProfile: (data) => http.post('/api/auth/profile', data),
   uploadAvatar: (file) => {
@@ -219,6 +222,7 @@ export const adminApi = {
 
   // 用户
   users: (params) => adminHttp.get('/api/admin/users', { params }),
+  resetUserPassword: (userId, newPassword) => adminHttp.post('/api/admin/user/reset-password', { userId, newPassword }),
 
   // 提现
   withdraws: (params) => adminHttp.get('/api/admin/withdraws', { params }),

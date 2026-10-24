@@ -23,6 +23,7 @@ const routes = [
   { path: '/claim', component: () => import('./views/Claim.vue') },
   { path: '/checkin', component: () => import('./views/Checkin.vue'), meta: { auth: true } },
   { path: '/mine', component: () => import('./views/Mine.vue') },
+  { path: '/change-password', component: () => import('./views/ChangePassword.vue'), meta: { auth: true } },
   { path: '/agent', component: () => import('./views/Agent.vue'), meta: { auth: true } },
   { path: '/withdraw', component: () => import('./views/Withdraw.vue'), meta: { auth: true } },
   { path: '/ledger', component: () => import('./views/Ledger.vue'), meta: { auth: true } },

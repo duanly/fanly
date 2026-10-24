@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
 import { Agent, AgentStatus, PromotionPosition, User } from '@/entities';
 import { genCode, genPositionId } from '@/common/code';
 import { PLATFORMS } from '../cps/cps.service';
@@ -156,6 +157,137 @@ export class AuthService {
         isAgent: !!agent, agentStatus: agent?.status,
       },
     };
+  }
+
+  /**
+   * 创建新用户的公共逻辑（生成邀请码、建 agent、推广位、绑定邀请人等）。
+   * 返回完整 user 对象。
+   */
+  private async createUser(mobile: string, inviteCode?: string, deviceId = ''): Promise<User> {
+    let agentId: number | null = null;
+    let parentAgentId: number | null = null;
+    if (inviteCode) {
+      const agent = await this.agentRepo.findOneBy({ agentCode: inviteCode.toUpperCase() });
+      if (agent && agent.status === AgentStatus.ACTIVE) {
+        agentId = agent.id;
+        parentAgentId = agent.id;
+      }
+    }
+
+    // 生成邀请码（用户和代理共用同一个码）
+    let inviteCodeStr = '';
+    for (let i = 0; i < 20; i++) {
+      const code = genCode(6);
+      const [existUser, existAgent] = await Promise.all([
+        this.userRepo.findOneBy({ inviteCode: code }),
+        this.agentRepo.findOneBy({ agentCode: code }),
+      ]);
+      if (!existUser && !existAgent) {
+        inviteCodeStr = code;
+        break;
+      }
+    }
+    if (!inviteCodeStr) throw new BadRequestException('邀请码生成失败，请重试');
+
+    const user = await this.userRepo.save(this.userRepo.create({
+      mobile,
+      nickname: `用户${mobile.slice(-4)}`,
+      inviteCode: inviteCodeStr,
+      agentId,
+      bindTime: agentId ? new Date() : null,
+      deviceId,
+    }));
+
+    // 自动建 agent 记录（level=0 预备代理，全员都有）
+    await this.agentRepo.save(this.agentRepo.create({
+      userId: user.id,
+      agentCode: inviteCodeStr,
+      parentAgentId,
+      level: 0,
+      status: AgentStatus.ACTIVE,
+    }));
+
+    await this.ensurePositions(user.id);
+
+    // 给邀请人发奖励 + 检查升级
+    if (parentAgentId) {
+      await this.agentSvc.onNewUserInvited(parentAgentId, user.id);
+    }
+
+    return user;
+  }
+
+  /** 生成登录响应（token + user 信息） */
+  private async buildLoginResult(user: User, isNew = false) {
+    if (user.status !== 1) throw new BadRequestException('账号已被冻结');
+
+    // 老用户可能缺新平台的推广位，补上
+    await this.ensurePositions(user.id);
+
+    const agent = await this.agentRepo.findOneBy({ userId: user.id });
+    const token = await this.jwt.signAsync({
+      sub: user.id, mobile: user.mobile, agentId: agent?.id,
+    });
+    return {
+      token, isNew,
+      user: {
+        id: user.id, nickname: user.nickname, avatar: user.avatar,
+        inviteCode: user.inviteCode, agentId: user.agentId,
+        isAgent: !!agent, agentStatus: agent?.status,
+      },
+    };
+  }
+
+  /**
+   * 手机号 + 密码注册。
+   */
+  async register(mobile: string, password: string, inviteCode?: string, deviceId = '') {
+    const exist = await this.userRepo.findOneBy({ mobile });
+    if (exist) throw new BadRequestException('该手机号已注册');
+
+    const hashed = bcrypt.hashSync(password, 10);
+    const user = await this.createUser(mobile, inviteCode, deviceId);
+    user.password = hashed;
+    await this.userRepo.save(user);
+
+    return this.buildLoginResult(user, true);
+  }
+
+  /**
+   * 手机号 + 密码登录。
+   */
+  async loginWithPassword(mobile: string, password: string, deviceId = '') {
+    const user = await this.userRepo.findOneBy({ mobile });
+    if (!user) throw new BadRequestException('账号或密码错误');
+    if (!user.password) throw new BadRequestException('账号尚未设置密码，请联系客服');
+
+    const ok = bcrypt.compareSync(password, user.password);
+    if (!ok) throw new BadRequestException('账号或密码错误');
+
+    if (deviceId && !user.deviceId) {
+      user.deviceId = deviceId;
+      await this.userRepo.save(user);
+    }
+
+    return this.buildLoginResult(user, false);
+  }
+
+  /** 修改密码 */
+  async changePassword(userId: number, oldPassword: string, newPassword: string) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new BadRequestException('用户不存在');
+
+    // 老用户没有密码的，不能走修改密码，得找客服重置
+    if (!user.password) {
+      throw new BadRequestException('账号尚未设置密码，请联系客服重置');
+    }
+
+    const ok = bcrypt.compareSync(oldPassword, user.password);
+    if (!ok) throw new BadRequestException('原密码错误');
+
+    user.password = bcrypt.hashSync(newPassword, 10);
+    await this.userRepo.save(user);
+    return { ok: true };
   }
 
   async profile(userId: number) {

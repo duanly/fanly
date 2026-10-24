@@ -9,6 +9,9 @@ export class User {
   @Column({ length: 20 })
   mobile: string;
 
+  /** bcrypt 哈希后的密码，空字符串表示未设置密码（老用户） */
+  @Column({ length: 255, default: '' }) password: string;
+
   @Column({ length: 64, default: '' }) nickname: string;
   @Column({ length: 255, default: '' }) avatar: string;
 
