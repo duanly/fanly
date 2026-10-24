@@ -261,12 +261,12 @@ const ALL_CATS = [
     keywords: ['景点', '门票', '景区', '乐园', '欢乐谷', '迪士尼', '方特', '长隆', '世界之窗', '海洋', '动物园', '博物'],
   },
   {
-    key: 'phone',
-    name: '话费充值',
-    icon: '📱',
-    slogan: '话费流量充值 · 95折起',
+    key: 'vip',
+    name: '会员权益',
+    icon: '✨',
+    slogan: '视频音乐会员 · 半价充值',
     bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 60%, #4a569d 100%)',
-    keywords: ['话费', '充值', '话费券', '流量', '充话费', '三网'],
+    keywords: ['会员', '视频会员', '音乐会员', 'vip', 'VIP', '爱奇艺', '腾讯视频', '优酷', '芒果TV', 'B站', 'bilibili', '网易云', 'QQ音乐', '酷狗', '酷我', '喜马拉雅', '得到', '百度网盘', '夸克', 'WPS', '美团会员', '饿了么会员'],
   },
 ];
 
@@ -632,7 +632,7 @@ function copyLink() {
 .ll-banner-all-ticket {
   background: linear-gradient(135deg, #4facfe 0%, #00f2fe 50%, #00c6fb 100%);
 }
-.ll-banner-all-phone {
+.ll-banner-all-vip {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 60%, #4a569d 100%);
 }
 
