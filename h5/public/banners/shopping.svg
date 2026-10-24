@@ -90,7 +90,7 @@
     <text x="90" y="24" text-anchor="middle" font-size="18" font-weight="600" fill="#fff">🛒 购物返利</text>
 
     <!-- 大标题 -->
-    <text x="0" y="90" font-size="56" font-weight="800" fill="#fff">网购领券+返利，省了还要赚</text>
+    <text x="0" y="90" font-size="56" font-weight="800" fill="#fff">网购领券+返利</text>
 
     <!-- 副标题 -->
     <text x="0" y="136" font-size="22" fill="rgba(255,255,255,0.9)">淘宝 · 京东 · 拼多多 · 唯品会</text>
