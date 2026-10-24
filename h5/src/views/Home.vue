@@ -39,8 +39,9 @@
       <!-- Banner 轮播 -->
       <van-swipe class="banner-swipe" :autoplay="banners.length > 1 ? 4000 : 0" indicator-color="rgba(255,255,255,0.5)">
         <van-swipe-item v-for="b in banners" :key="b.id || b.title" @click="openLink(b)">
-          <div class="banner-card" :class="{ 'banner-img': isImageBanner(b.image) }" :style="{ background: b.image || b.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' }">
-            <div v-if="!isImageBanner(b.image)" class="bn-text">
+          <div class="banner-card" :class="{ 'banner-img': isImageBanner(b.image) }" :style="bannerBgStyle(b)">
+            <img v-if="isImageBanner(b.image)" :src="getBannerImageUrl(b.image)" class="banner-image" alt="" />
+            <div v-else class="bn-text">
               <div class="bn-tag">{{ b.subtitle || '限时活动' }}</div>
               <div class="bn-title">{{ b.title }}</div>
               <div class="bn-btn">
@@ -587,6 +588,15 @@ function bannerBtnText(b) {
 function isImageBanner(img) {
   return img && typeof img === 'string' && img.trim().startsWith('url(');
 }
+function getBannerImageUrl(img) {
+  if (!img) return '';
+  const m = img.match(/url\(['"]?(.*?)['"]?\)/);
+  return m ? m[1] : img;
+}
+function bannerBgStyle(b) {
+  if (isImageBanner(b.image)) return {};
+  return { background: b.image || b.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' };
+}
 
 function goParse() {
   if (!localStorage.getItem('token')) {
@@ -939,9 +949,13 @@ onUnmounted(() => {
   display: none;
 }
 .banner-card.banner-img {
-  background-size: 100% 100%;
-  background-position: center;
-  background-repeat: no-repeat;
+  padding: 0;
+}
+.banner-image {
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  display: block;
 }
 .bn-text {
   position: relative;
@@ -1008,7 +1022,7 @@ onUnmounted(() => {
 .auth-card {
   position: relative;
   z-index: 1;
-  margin-top: 10px;
+  margin: 10px 0;
   padding: 10px 12px 9px;
   background: #fff;
   border-radius: 12px;
