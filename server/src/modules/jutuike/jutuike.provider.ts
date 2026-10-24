@@ -535,13 +535,24 @@ export class JutuikeProvider {
 
   /**
    * 美团券包转链（type=15 美团券包）
+   *
+   * 返回所有可用的跳转方式，优先级：H5 > 小程序码 > deeplink
    */
   async mtCouponConvert(actId: string, sid: string): Promise<{
     h5: string;
     shortH5: string;
+    longH5?: string;
     deeplink: string;
     actName: string;
     weAppInfo: { appId: string; pagePath: string; miniCode: string } | null;
+    // 美团小程序/APP 信息
+    mtAppInfo?: {
+      appId?: string;
+      pagePath?: string;
+      miniCode?: string;
+    };
+    // 原始数据兜底
+    raw?: any;
   }> {
     const data: any = await this.call('/Meituan/act', {
       type: 15,
@@ -550,16 +561,28 @@ export class JutuikeProvider {
     }, 'GET');
 
     const weApp = data.we_app_info;
+    const mtApp = data.mt_app_info || data.meituan_app_info || {};
+
+    // H5 优先级：短链 > 长链
+    const h5 = data.h5 || data.short_h5 || data.long_h5 || '';
+
     return {
-      h5: data.h5 || data.short_h5 || '',
+      h5,
       shortH5: data.short_h5 || '',
-      deeplink: data.deeplink || '',
-      actName: '',
+      longH5: data.long_h5 || '',
+      deeplink: data.deeplink || data.deep_link || '',
+      actName: data.act_name || data.title || '',
       weAppInfo: weApp ? {
         appId: weApp.app_id || '',
         pagePath: weApp.page_path || '',
-        miniCode: weApp.miniCode || '',
+        miniCode: weApp.miniCode || weApp.mini_code || '',
       } : null,
+      mtAppInfo: (mtApp.app_id || mtApp.miniCode || mtApp.mini_code) ? {
+        appId: mtApp.app_id || '',
+        pagePath: mtApp.page_path || mtApp.pagePath || '',
+        miniCode: mtApp.miniCode || mtApp.mini_code || mtApp.qr_code || '',
+      } : undefined,
+      raw: data,
     };
   }
 }

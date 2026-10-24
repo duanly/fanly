@@ -10,9 +10,8 @@
           <span class="ph">搜隐藏优惠券 · 搜什么都返</span>
         </div>
         <div class="top-actions">
-          <div class="ta-item" @click="onRefresh">
+          <div class="ta-item refresh-btn" @click="onRefresh" title="刷新">
             <div class="ta-ico">🔄</div>
-            <span>刷新</span>
           </div>
         </div>
       </div>
@@ -840,6 +839,27 @@ onUnmounted(() => {
 .ta-ico {
   font-size: 18px;
   line-height: 1;
+}
+
+/* 刷新按钮：绿色圆形，去掉文字，跟搜索框对齐 */
+.refresh-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00b43c, #00963a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 180, 60, 0.3);
+  flex-direction: row;
+  gap: 0;
+}
+.refresh-btn .ta-ico {
+  font-size: 16px;
+  filter: brightness(0) invert(1);
+}
+.refresh-btn:active {
+  transform: scale(0.92);
 }
 
 /* 签到入口条 */
