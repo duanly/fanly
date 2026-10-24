@@ -16,21 +16,6 @@
         </div>
       </div>
 
-      <!-- 签到入口条 -->
-      <div class="checkin-bar" @click="$router.push('/checkin')">
-        <div class="cb-left">
-          <span class="cb-ico">🎁</span>
-          <div class="cb-text">
-            <span class="cb-title">每日签到领金币</span>
-            <span class="cb-sub">攒够就能换钱 · 今天还没签</span>
-          </div>
-        </div>
-        <div class="cb-right">
-          <span>去签到</span>
-          <van-icon name="arrow" color="#ff4b3a" size="10" />
-        </div>
-      </div>
-
       <!-- Banner 轮播 -->
       <van-swipe class="banner-swipe" :autoplay="banners.length > 1 ? 4000 : 0" indicator-color="rgba(255,255,255,0.5)">
         <van-swipe-item v-for="b in banners" :key="b.id || b.title" @click="openLink(b)">
@@ -46,6 +31,21 @@
           </div>
         </van-swipe-item>
       </van-swipe>
+
+      <!-- 签到入口条 -->
+      <div class="checkin-bar" @click="$router.push('/checkin')">
+        <div class="cb-left">
+          <span class="cb-ico">🎁</span>
+          <div class="cb-text">
+            <span class="cb-title">每日签到领金币</span>
+            <span class="cb-sub">攒够就能换钱 · 今天还没签</span>
+          </div>
+        </div>
+        <div class="cb-right">
+          <span>去签到</span>
+          <van-icon name="arrow" color="#ff4b3a" size="10" />
+        </div>
+      </div>
 
       <!-- 开启返利卡片 -->
       <div class="auth-card">
@@ -796,7 +796,7 @@ onUnmounted(() => {
 .top-bg {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 420px;
+  height: 360px;
   background: linear-gradient(180deg, #fff0ed 0%, #fff7f5 55%, #f7f8fa 100%);
   z-index: 0;
 }
@@ -867,7 +867,7 @@ onUnmounted(() => {
   justify-content: space-between;
   height: 44px;
   padding: 0 14px;
-  margin: 4px 0 10px;
+  margin: 10px 0;
   background: linear-gradient(135deg, #fff5e6, #fff0ed);
   border-radius: 22px;
   font-size: 12px;
@@ -917,7 +917,7 @@ onUnmounted(() => {
   box-shadow: 0 4px 14px rgba(255, 100, 50, 0.18);
 }
 .banner-card {
-  height: 160px;
+  height: 192px;
   display: flex;
   align-items: center;
   justify-content: center;
