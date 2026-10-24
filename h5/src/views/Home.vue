@@ -11,7 +11,7 @@
         </div>
         <div class="top-actions">
           <div class="ta-item refresh-btn" @click="onRefresh" title="刷新">
-            <van-icon name="replay" color="#fff" size="16" />
+            <van-icon name="replay" color="#ff4b3a" size="14" />
           </div>
         </div>
       </div>
@@ -843,15 +843,15 @@ onUnmounted(() => {
 
 /* 刷新按钮：白色底 + 橙色图标，跟顶部橙红渐变协调 */
 .refresh-btn {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.9);
   color: #ff4b3a;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(255, 75, 58, 0.15);
+  box-shadow: 0 2px 6px rgba(255, 75, 58, 0.12);
 }
 .refresh-btn:active {
   transform: scale(0.92);
