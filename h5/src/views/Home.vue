@@ -499,17 +499,18 @@ function scrollToTop() {
 }
 let scrollHandler = null;
 
-// 本地生活入口列表（后台可配置哪些 tab 显示，这里先写死常用的）
+// 本地生活入口列表
+// 已接入的 tab: ele / mt / all
+// 未接入的品类点击后跳到全部活动页（all），等接入后再替换
 const llItems = [
   { key: 'ele', name: '饿了么', icon: '🍜', tag: '领红包', bg: 'linear-gradient(135deg,#00b43c,#00963a)', tab: 'ele' },
-  { key: 'mt', name: '美团外卖', icon: '🛵', tag: '天天神券', bg: 'linear-gradient(135deg,#ffd100,#ff9500)', tab: 'mt' },
-  { key: 'ticket', name: '景点门票', icon: '🏞️', tag: '低价游', bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', tab: 'ticket' },
-  { key: 'movie', name: '电影票', icon: '🎬', tag: '特惠看', bg: 'linear-gradient(135deg,#ff6b9d,#c44569)', tab: 'movie' },
-  { key: 'hotel', name: '酒店民宿', icon: '🏨', tag: '超值住', bg: 'linear-gradient(135deg,#a8edea,#fed6e3)', tab: 'hotel' },
-  { key: 'taxi', name: '打车出行', icon: '🚕', tag: '立减券', bg: 'linear-gradient(135deg,#f7931e,#ff6b35)', tab: 'taxi' },
-  { key: 'coffee', name: '咖啡奶茶', icon: '☕', tag: '买一送一', bg: 'linear-gradient(135deg,#c44569,#f8b500)', tab: 'coffee' },
-  { key: 'phone', name: '话费充值', icon: '📱', tag: '95折起', bg: 'linear-gradient(135deg,#667eea,#764ba2)', tab: 'phone' },
-  { key: 'more', name: '更多', icon: '🎁', tag: '全部分类', bg: 'linear-gradient(135deg,#f093fb,#f5576c)', tab: 'more' },
+  { key: 'mt', name: '美团券包', icon: '🎫', tag: '天天神券', bg: 'linear-gradient(135deg,#ffd100,#ff9500)', tab: 'mt' },
+  { key: 'all', name: '全部活动', icon: '🎉', tag: '更多优惠', bg: 'linear-gradient(135deg,#667eea,#764ba2)', tab: 'all' },
+  { key: 'movie', name: '电影票', icon: '🎬', tag: '特惠看', bg: 'linear-gradient(135deg,#ff6b9d,#c44569)', tab: 'all' },
+  { key: 'hotel', name: '酒店民宿', icon: '🏨', tag: '超值住', bg: 'linear-gradient(135deg,#a8edea,#fed6e3)', tab: 'all' },
+  { key: 'taxi', name: '打车出行', icon: '🚕', tag: '立减券', bg: 'linear-gradient(135deg,#f7931e,#ff6b35)', tab: 'all' },
+  { key: 'coffee', name: '咖啡奶茶', icon: '☕', tag: '买一送一', bg: 'linear-gradient(135deg,#c44569,#f8b500)', tab: 'all' },
+  { key: 'phone', name: '话费充值', icon: '📱', tag: '95折起', bg: 'linear-gradient(135deg,#667eea,#764ba2)', tab: 'all' },
 ];
 const llPages = computed(() => {
   const all = llItems;

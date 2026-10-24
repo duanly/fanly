@@ -6,12 +6,12 @@
         <div class="ll-banner-title">
           <template v-if="activeTab === 'ele'">🍜 饿了么外卖</template>
           <template v-else-if="activeTab === 'mt'">🎫 美团券包</template>
-          <template v-else-if="activeTab === 'ticket'">🏞️ 景点门票</template>
+          <template v-else-if="activeTab === 'all'">🎉 全部活动</template>
         </div>
         <div class="ll-banner-sub">
           <template v-if="activeTab === 'ele'">天天领红包 · 每餐都能省</template>
           <template v-else-if="activeTab === 'mt'">到店美食 · 吃喝玩乐超值券</template>
-          <template v-else-if="activeTab === 'ticket'">热门景点 · 低价门票随心游</template>
+          <template v-else-if="activeTab === 'all'">本地生活全覆盖 · 领券下单享优惠</template>
         </div>
       </div>
       <div class="ll-banner-deco"></div>
@@ -102,40 +102,40 @@
       <van-empty v-if="!mt.loading && mt.finished && !mt.list.length" description="暂无活动，稍后再来看看～" />
     </div>
 
-    <!-- 景点门票（联盟活动分类） -->
-    <div v-show="activeTab === 'ticket'" class="ll-section">
-      <div v-if="ticket.list.length" class="ll-grid">
+    <!-- 全部活动（聚推客通用联盟活动） -->
+    <div v-show="activeTab === 'all'" class="ll-section">
+      <div v-if="all.list.length" class="ll-grid">
         <div
-          v-for="item in ticket.list"
-          :key="'t-' + item.actId"
+          v-for="item in all.list"
+          :key="'a-' + item.actId"
           class="ll-card"
           @click="onUnionClick(item)"
         >
           <div class="llc-img">
             <img v-if="item.img" :src="item.img" :alt="item.actName" loading="lazy" />
-            <div v-else class="llc-img-fallback">🎫</div>
+            <div v-else class="llc-img-fallback">🎁</div>
           </div>
           <div class="llc-body">
             <div class="llc-name">{{ item.actName }}</div>
             <div class="llc-desc">{{ item.desc || '限时优惠' }}</div>
             <div class="llc-foot">
-              <div class="llc-btn ticket-btn">立即领券 ›</div>
+              <div class="llc-btn all-btn">立即领券 ›</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div v-if="ticket.loading" class="ll-loadmore">
+      <div v-if="all.loading" class="ll-loadmore">
         <van-loading size="18px" /> <span>加载中...</span>
       </div>
-      <div v-else-if="ticket.finished && ticket.list.length" class="ll-loadmore ll-finished">
+      <div v-else-if="all.finished && all.list.length" class="ll-loadmore ll-finished">
         — 没有更多了 —
       </div>
-      <div v-else-if="ticket.list.length" class="ll-loadmore ll-clickmore" @click="loadTicket">
+      <div v-else-if="all.list.length" class="ll-loadmore ll-clickmore" @click="loadAll">
         点击加载更多 ↓
       </div>
 
-      <van-empty v-if="!ticket.loading && ticket.finished && !ticket.list.length" description="暂无活动，稍后再来看看～" />
+      <van-empty v-if="!all.loading && all.finished && !all.list.length" description="暂无活动，稍后再来看看～" />
     </div>
 
     <!-- 小程序码引导弹层（兜底：没有 H5 时展示） -->
@@ -179,7 +179,7 @@ import { showToast } from 'vant';
 const TABS = [
   { key: 'ele', name: '饿了么' },
   { key: 'mt', name: '美团券包' },
-  { key: 'ticket', name: '景点门票' },
+  { key: 'all', name: '全部活动' },
 ];
 
 const activeTab = ref('ele');
@@ -213,7 +213,7 @@ const mt = reactive({
   finished: false,
 });
 
-const ticket = reactive({
+const all = reactive({
   list: [],
   page: 1,
   loading: false,
@@ -223,13 +223,13 @@ const ticket = reactive({
 function getState(key) {
   if (key === 'ele') return ele;
   if (key === 'mt') return mt;
-  return ticket;
+  return all;
 }
 
 function getLoader(key) {
   if (key === 'ele') return loadEle;
   if (key === 'mt') return loadMt;
-  return loadTicket;
+  return loadAll;
 }
 
 function onTabChange(key) {
@@ -330,13 +330,12 @@ async function onMtClick(item) {
   }
 }
 
-// ─── 景点门票（联盟活动，按 cateName 筛选）───
+// ─── 全部活动（聚推客通用联盟活动，不筛选分类）───
 
-async function loadTicket() {
+async function loadAll() {
   try {
     const r = await api.jtkActivities({
-      cateName: '景点门票',
-      page: ticket.page,
+      page: all.page,
       pageSize,
     });
     const rows = (r.list || r || []).map((item) => ({
@@ -345,14 +344,14 @@ async function loadTicket() {
       desc: item.desc || item.act_desc || item.subtitle || '',
       img: item.img || item.image || item.pic || item.banner || '',
     }));
-    ticket.list.push(...rows);
-    ticket.page += 1;
-    if (rows.length < pageSize) ticket.finished = true;
+    all.list.push(...rows);
+    all.page += 1;
+    if (rows.length < pageSize) all.finished = true;
   } catch (e) {
     showToast(e.message || '加载失败');
-    ticket.finished = true;
+    all.finished = true;
   } finally {
-    ticket.loading = false;
+    all.loading = false;
   }
 }
 
@@ -473,8 +472,8 @@ function copyLink() {
 .ll-banner-mt {
   background: linear-gradient(135deg, #ffd100 0%, #ff9500 50%, #ff6b35 100%);
 }
-.ll-banner-ticket {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 50%, #00c6fb 100%);
+.ll-banner-all {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
 }
 
 /* ─── Tabs ─── */
@@ -586,6 +585,9 @@ function copyLink() {
 }
 .ticket-btn {
   background: linear-gradient(135deg, #4facfe, #00f2fe);
+}
+.all-btn {
+  background: linear-gradient(135deg, #667eea, #764ba2);
 }
 
 /* 加载更多 */
