@@ -499,17 +499,17 @@ function scrollToTop() {
 let scrollHandler = null;
 
 // 本地生活入口列表
-// 已接入的 tab: ele / mt / all
-// 未接入的品类点击后跳到全部活动页（all），等接入后再替换
+// 已接入独立页面的: ele / mt
+// 其余品类点击后跳到全部活动页（all）+ 对应子分类
 const llItems = [
   { key: 'ele', name: '饿了么', icon: '🍜', tag: '领红包', bg: 'linear-gradient(135deg,#00b43c,#00963a)', tab: 'ele' },
   { key: 'mt', name: '美团券包', icon: '🎫', tag: '天天神券', bg: 'linear-gradient(135deg,#ffd100,#ff9500)', tab: 'mt' },
-  { key: 'all', name: '全部活动', icon: '🎉', tag: '更多优惠', bg: 'linear-gradient(135deg,#667eea,#764ba2)', tab: 'all' },
   { key: 'movie', name: '电影票', icon: '🎬', tag: '特惠看', bg: 'linear-gradient(135deg,#ff6b9d,#c44569)', tab: 'all' },
-  { key: 'hotel', name: '酒店民宿', icon: '🏨', tag: '超值住', bg: 'linear-gradient(135deg,#a8edea,#fed6e3)', tab: 'all' },
+  { key: 'hotel', name: '酒店民宿', icon: '🏨', tag: '超值住', bg: 'linear-gradient(135deg,#4ecdc4,#44a08d)', tab: 'all' },
   { key: 'taxi', name: '打车出行', icon: '🚕', tag: '立减券', bg: 'linear-gradient(135deg,#f7931e,#ff6b35)', tab: 'all' },
   { key: 'coffee', name: '咖啡奶茶', icon: '☕', tag: '买一送一', bg: 'linear-gradient(135deg,#c44569,#f8b500)', tab: 'all' },
-  { key: 'phone', name: '话费充值', icon: '📱', tag: '95折起', bg: 'linear-gradient(135deg,#667eea,#764ba2)', tab: 'all' },
+  { key: 'vip', name: '会员权益', icon: '✨', tag: '半价充', bg: 'linear-gradient(135deg,#667eea,#764ba2)', tab: 'all' },
+  { key: 'ticket', name: '景点门票', icon: '🏞️', tag: '低价游', bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', tab: 'all' },
 ];
 const llPages = computed(() => {
   const all = llItems;
@@ -841,19 +841,21 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-/* 刷新按钮：绿色圆形，跟搜索框对齐 */
+/* 刷新按钮：白色底 + 橙色图标，跟顶部橙红渐变协调 */
 .refresh-btn {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #00b43c, #00963a);
+  background: rgba(255, 255, 255, 0.9);
+  color: #ff4b3a;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 180, 60, 0.3);
+  box-shadow: 0 2px 8px rgba(255, 75, 58, 0.15);
 }
 .refresh-btn:active {
   transform: scale(0.92);
+  background: #fff;
 }
 
 /* 签到入口条 */
@@ -1296,11 +1298,19 @@ onUnmounted(() => {
 .rank-section {
   border-color: #fff;
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  padding-top: 8px;
+  padding-bottom: 10px;
+}
+
+/* 榜单标题跟上面的间距收紧一些，整体更紧凑 */
+.rank-head {
+  margin-top: 10px;
+  margin-bottom: 6px;
 }
 
 /* ========== 榜单 tabs ========== */
 .rank-tabs {
-  margin: 0 -14px 10px;
+  margin: 0 -14px 4px;
   padding: 0 14px;
   font-weight: 600;
   touch-action: manipulation;
@@ -1312,7 +1322,7 @@ onUnmounted(() => {
 .rank-tip {
   font-size: 11px;
   color: #b0b3b8;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 /* ========== 返回顶部悬浮按钮 ========== */
