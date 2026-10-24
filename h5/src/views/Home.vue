@@ -16,26 +16,6 @@
         </div>
       </div>
 
-      <!-- 开启返利卡片 -->
-      <div class="auth-card">
-        <div class="ac-head">
-          <span class="ac-title">开启返利</span>
-          <span class="ac-sub">授权后订单才认得到你</span>
-        </div>
-        <div class="ac-list">
-          <div
-            v-for="p in authPlats"
-            :key="p.key"
-            class="ac-item"
-            :class="{ done: auth[p.key] === true }"
-            @click="onPlatClick(p)"
-          >
-            <span class="ac-dot" :style="{ background: p.bg }">{{ p.short }}</span>
-            <span class="ac-st">{{ auth[p.key] === true ? '已开启' : '去开启' }}</span>
-          </div>
-        </div>
-      </div>
-
       <!-- 签到入口条 -->
       <div class="checkin-bar" @click="$router.push('/checkin')">
         <div class="cb-left">
@@ -66,6 +46,26 @@
           </div>
         </van-swipe-item>
       </van-swipe>
+
+      <!-- 开启返利卡片 -->
+      <div class="auth-card">
+        <div class="ac-head">
+          <span class="ac-title">开启返利</span>
+          <span class="ac-sub">授权后订单才认得到你</span>
+        </div>
+        <div class="ac-list">
+          <div
+            v-for="p in authPlats"
+            :key="p.key"
+            class="ac-item"
+            :class="{ done: auth[p.key] === true }"
+            @click="onPlatClick(p)"
+          >
+            <span class="ac-dot" :style="{ background: p.bg }">{{ p.short }}</span>
+            <span class="ac-st">{{ auth[p.key] === true ? '已开启' : '去开启' }}</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 本地生活入口（宫格轮播） -->
@@ -865,11 +865,11 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 48px;
+  height: 44px;
   padding: 0 14px;
-  margin: 4px 0 12px;
+  margin: 4px 0 10px;
   background: linear-gradient(135deg, #fff5e6, #fff0ed);
-  border-radius: 24px;
+  border-radius: 22px;
   font-size: 12px;
   color: #333;
   box-shadow: 0 2px 10px rgba(255, 150, 50, 0.15);
@@ -992,43 +992,43 @@ onUnmounted(() => {
   color: #969799;
 }
 
-/* 平台授权大卡片（在顶部渐变区内） */
+/* 平台授权大卡片（在顶部渐变区内） — 缩小到约 2/3 */
 .auth-card {
   position: relative;
   z-index: 1;
   margin-top: 10px;
-  padding: 14px 14px 12px;
+  padding: 10px 12px 9px;
   background: #fff;
-  border-radius: 14px;
+  border-radius: 12px;
   box-shadow: 0 4px 14px rgba(255, 75, 58, 0.1);
 }
 .ac-head {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 .ac-title {
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 700;
   color: #1a1a1a;
 }
 .ac-sub {
-  font-size: 13px;
+  font-size: 11px;
   color: #999;
 }
 .ac-list {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  gap: 6px;
 }
 .ac-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 10px 4px 8px;
-  border-radius: 12px;
+  gap: 4px;
+  padding: 7px 3px 6px;
+  border-radius: 10px;
   background: #f7f8fa;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0.05);
   transition: transform 0.1s, background 0.1s;
@@ -1045,19 +1045,19 @@ onUnmounted(() => {
   background: #e0f0e0;
 }
 .ac-dot {
-  width: 42px;
-  height: 42px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   color: #fff;
-  font-size: 17px;
+  font-size: 12px;
   font-weight: 700;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 .ac-st {
-  font-size: 11px;
+  font-size: 10px;
   color: #07c160;
   font-weight: 500;
   white-space: nowrap;

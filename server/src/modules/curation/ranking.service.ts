@@ -178,14 +178,14 @@ export class RankingService {
     const realRows = await this.hotFromOrdersAll(days);
     const realMap = new Map(realRows.map((r) => [`${r.platform}:${r.goodsId}`, r]));
 
-    // 补位按平台销量降序
+    // 补位按平台销量降序，多取一些做去重+均衡后的分页
     const pool = await this.goodsRepo
       .createQueryBuilder('g')
       .where('g.status = :status', { status: CuratedStatus.ON })
       .orderBy('g.salesVolume', 'DESC')
       .addOrderBy('g.commission', 'DESC')
       .addOrderBy('g.id', 'DESC')
-      .take(pageSize + skip + 50) // 多取一点，防止前面全是真订单导致补位不够
+      .take(Math.max(skip + pageSize + 50, 300)) // 至少取 300 条，保证翻几页还有数据
       .getMany();
 
     // 合并：真订单的在前（按订单数降序），补位在后（按销量降序）
@@ -218,7 +218,7 @@ export class RankingService {
       total,
       page,
       pageSize,
-      hasMore: skip + list.length < total,
+      hasMore: skip + list.length < balanced.length,
     };
     this.setCache(cacheKey, result);
     return result;
@@ -276,8 +276,8 @@ export class RankingService {
     if (cached) return cached;
 
     const skip = (page - 1) * pageSize;
-    // 先多取一些，去重 + 分档均衡后再按分页切
-    const fetchSize = Math.min(pageSize * 5, 300);
+    // 先多取一些，去重 + 分档均衡后再按分页切。至少 400 条，让用户能翻到足够多的内容
+    const fetchSize = Math.max(pageSize * 10, 400);
     const rows = await this.goodsRepo
       .createQueryBuilder('g')
       .where('g.status = :status', { status: CuratedStatus.ON })
@@ -320,7 +320,7 @@ export class RankingService {
     if (cached) return cached;
 
     const skip = (page - 1) * pageSize;
-    const fetchSize = Math.min(pageSize * 3, 200);
+    const fetchSize = Math.max(pageSize * 8, 300);
     const [allRows, total] = await this.goodsRepo
       .createQueryBuilder('g')
       .where('g.status = :status', { status: CuratedStatus.ON })
