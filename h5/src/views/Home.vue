@@ -36,26 +36,6 @@
         </div>
       </div>
 
-      <!-- 开启返利卡片 -->
-      <div class="auth-card">
-        <div class="ac-head">
-          <span class="ac-title">开启返利</span>
-          <span class="ac-sub">授权后订单才认得到你</span>
-        </div>
-        <div class="ac-list">
-          <div
-            v-for="p in authPlats"
-            :key="p.key"
-            class="ac-item"
-            :class="{ done: auth[p.key] === true }"
-            @click="onPlatClick(p)"
-          >
-            <span class="ac-dot" :style="{ background: p.bg }">{{ p.short }}</span>
-            <span class="ac-st">{{ auth[p.key] === true ? '已开启' : '去开启' }}</span>
-          </div>
-        </div>
-      </div>
-
       <!-- Banner 轮播 -->
       <van-swipe class="banner-swipe" :autoplay="banners.length > 1 ? 4000 : 0" indicator-color="rgba(255,255,255,0.5)">
         <van-swipe-item v-for="b in banners" :key="b.id || b.title" @click="openLink(b)">
@@ -959,7 +939,7 @@ onUnmounted(() => {
   display: none;
 }
 .banner-card.banner-img {
-  background-size: cover;
+  background-size: 100% 100%;
   background-position: center;
   background-repeat: no-repeat;
 }
