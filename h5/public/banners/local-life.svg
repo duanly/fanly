@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 750 384" width="750" height="384">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c4dff"/>
+      <stop offset="50%" stop-color="#536dfe"/>
+      <stop offset="100%" stop-color="#448aff"/>
+    </linearGradient>
+    <linearGradient id="btn" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fff"/>
+      <stop offset="100%" stop-color="#e8eaf6"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="30%" cy="20%" r="40%">
+      <stop offset="0%" stop-color="#b388ff" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#7c4dff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="75%" cy="80%" r="35%">
+      <stop offset="0%" stop-color="#82b1ff" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#448aff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="750" height="384" fill="url(#bg)" rx="24"/>
+  <rect width="750" height="384" fill="url(#glow1)" rx="24"/>
+  <rect width="750" height="384" fill="url(#glow2)" rx="24"/>
+
+  <!-- 装饰波浪 -->
+  <path d="M0,320 Q187,260 375,300 T750,280 L750,384 L0,384 Z" fill="rgba(255,255,255,0.06)"/>
+  <path d="M0,350 Q187,310 375,340 T750,320 L750,384 L0,384 Z" fill="rgba(255,255,255,0.04)"/>
+
+  <!-- 装饰图标（本地生活品类） -->
+  <g transform="translate(520, 60)" fill="rgba(255,255,255,0.15)">
+    <!-- 汉堡 -->
+    <circle cx="0" cy="0" r="32"/>
+    <text x="0" y="10" text-anchor="middle" font-size="30">🍔</text>
+  </g>
+  <g transform="translate(650, 120)" fill="rgba(255,255,255,0.12)">
+    <!-- 咖啡 -->
+    <circle cx="0" cy="0" r="28"/>
+    <text x="0" y="9" text-anchor="middle" font-size="26">☕</text>
+  </g>
+  <g transform="translate(600, 240)" fill="rgba(255,255,255,0.1)">
+    <!-- 电影 -->
+    <circle cx="0" cy="0" r="36"/>
+    <text x="0" y="12" text-anchor="middle" font-size="34">🎬</text>
+  </g>
+  <g transform="translate(480, 290)" fill="rgba(255,255,255,0.12)">
+    <!-- 酒店 -->
+    <circle cx="0" cy="0" r="24"/>
+    <text x="0" y="7" text-anchor="middle" font-size="22">🏨</text>
+  </g>
+
+  <!-- 装饰点 -->
+  <g fill="rgba(255,255,255,0.25)">
+    <circle cx="80" cy="60" r="3"/>
+    <circle cx="180" cy="40" r="2"/>
+    <circle cx="280" cy="90" r="2.5"/>
+    <circle cx="400" cy="50" r="2"/>
+    <circle cx="120" cy="320" r="2.5"/>
+    <circle cx="350" cy="340" r="2"/>
+  </g>
+
+  <!-- 主文字区 -->
+  <g transform="translate(50, 100)">
+    <!-- 标签 -->
+    <rect x="0" y="0" width="160" height="36" rx="18" fill="rgba(255,255,255,0.25)"/>
+    <text x="80" y="24" text-anchor="middle" font-size="18" font-weight="600" fill="#fff">本地生活</text>
+
+    <!-- 大标题 -->
+    <text x="0" y="90" font-size="56" font-weight="800" fill="#fff">吃喝玩乐都省钱</text>
+
+    <!-- 副标题 -->
+    <text x="0" y="136" font-size="22" fill="rgba(255,255,255,0.85)">外卖 · 奶茶 · 电影 · 酒店 最高返 30%</text>
+
+    <!-- 按钮 -->
+    <rect x="0" y="170" width="180" height="56" rx="28" fill="url(#btn)" filter="drop-shadow(0 4px 12px rgba(0,0,0,0.15))"/>
+    <text x="90" y="206" text-anchor="middle" font-size="22" font-weight="700" fill="#536dfe">立即抢购 →</text>
+  </g>
+</svg>

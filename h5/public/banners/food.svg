@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 750 384" width="750" height="384">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff5252"/>
+      <stop offset="50%" stop-color="#ff1744"/>
+      <stop offset="100%" stop-color="#d50000"/>
+    </linearGradient>
+    <linearGradient id="btn" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fff"/>
+      <stop offset="100%" stop-color="#ffebee"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="25%" cy="30%" r="40%">
+      <stop offset="0%" stop-color="#ff8a80" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#ff5252" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="75%" cy="70%" r="35%">
+      <stop offset="0%" stop-color="#ff5252" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#d50000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="750" height="384" fill="url(#bg)" rx="24"/>
+  <rect width="750" height="384" fill="url(#glow1)" rx="24"/>
+  <rect width="750" height="384" fill="url(#glow2)" rx="24"/>
+
+  <!-- 装饰波浪 -->
+  <path d="M0,300 Q150,250 300,290 T600,270 T750,300 L750,384 L0,384 Z" fill="rgba(255,255,255,0.05)"/>
+
+  <!-- 美食图标组 -->
+  <g transform="translate(520, 50)">
+    <!-- 大圆盘背景 -->
+    <circle cx="80" cy="100" r="110" fill="rgba(255,255,255,0.08)"/>
+    <circle cx="80" cy="100" r="85" fill="rgba(255,255,255,0.06)"/>
+
+    <!-- 汉堡 -->
+    <circle cx="30" cy="60" r="38" fill="#fff"/>
+    <text x="30" y="72" text-anchor="middle" font-size="38">🍔</text>
+
+    <!-- 披萨 -->
+    <circle cx="130" cy="40" r="32" fill="#fff"/>
+    <text x="130" y="50" text-anchor="middle" font-size="32">🍕</text>
+
+    <!-- 奶茶 -->
+    <circle cx="150" cy="130" r="36" fill="#fff"/>
+    <text x="150" y="142" text-anchor="middle" font-size="36">🧋</text>
+
+    <!-- 咖啡 -->
+    <circle cx="20" cy="150" r="28" fill="#fff"/>
+    <text x="20" y="160" text-anchor="middle" font-size="28">☕</text>
+
+    <!-- 蛋糕 -->
+    <circle cx="80" cy="180" r="30" fill="#fff"/>
+    <text x="80" y="190" text-anchor="middle" font-size="30">🍰</text>
+  </g>
+
+  <!-- 满减标签 -->
+  <g transform="translate(470, 250)">
+    <rect x="0" y="0" width="90" height="36" rx="6" fill="#ffd54f"/>
+    <polygon points="90,0 108,18 90,36" fill="#ffb300"/>
+    <text x="45" y="24" text-anchor="middle" font-size="16" font-weight="700" fill="#c62828">满30减10</text>
+  </g>
+
+  <!-- 装饰点 -->
+  <g fill="rgba(255,255,255,0.3)">
+    <circle cx="60" cy="40" r="3"/>
+    <circle cx="160" cy="60" r="2"/>
+    <circle cx="260" cy="30" r="2.5"/>
+    <circle cx="360" cy="50" r="2"/>
+    <circle cx="80" cy="320" r="2.5"/>
+    <circle cx="180" cy="340" r="2"/>
+    <circle cx="300" cy="330" r="3"/>
+  </g>
+
+  <!-- 主文字区 -->
+  <g transform="translate(50, 100)">
+    <!-- 标签 -->
+    <rect x="0" y="0" width="180" height="36" rx="18" fill="rgba(255,255,255,0.25)"/>
+    <text x="90" y="24" text-anchor="middle" font-size="18" font-weight="600" fill="#fff">🍜 外卖美食</text>
+
+    <!-- 大标题 -->
+    <text x="0" y="90" font-size="56" font-weight="800" fill="#fff">点外卖也能返利</text>
+
+    <!-- 副标题 -->
+    <text x="0" y="136" font-size="22" fill="rgba(255,255,255,0.9)">美团 / 饿了么 下单都能返</text>
+
+    <!-- 最高返 -->
+    <text x="0" y="172" font-size="18" fill="rgba(255,255,255,0.85)">
+      最高返 <tspan fill="#ffd54f" font-weight="700" font-size="24">6%</tspan>  ·  每单都省
+    </text>
+
+    <!-- 按钮 -->
+    <rect x="0" y="196" width="170" height="52" rx="26" fill="url(#btn)" filter="drop-shadow(0 4px 12px rgba(0,0,0,0.15))"/>
+    <text x="85" y="229" text-anchor="middle" font-size="20" font-weight="700" fill="#d50000">立即下单 →</text>
+  </g>
+</svg>

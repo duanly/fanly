@@ -16,11 +16,51 @@
         </div>
       </div>
 
+      <!-- 开启返利卡片 -->
+      <div class="auth-card">
+        <div class="ac-head">
+          <span class="ac-title">开启返利</span>
+          <span class="ac-sub">授权后订单才认得到你</span>
+        </div>
+        <div class="ac-list">
+          <div
+            v-for="p in authPlats"
+            :key="p.key"
+            class="ac-item"
+            :class="{ done: auth[p.key] === true }"
+            @click="onPlatClick(p)"
+          >
+            <span class="ac-dot" :style="{ background: p.bg }">{{ p.short }}</span>
+            <span class="ac-st">{{ auth[p.key] === true ? '已开启' : '去开启' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 开启返利卡片 -->
+      <div class="auth-card">
+        <div class="ac-head">
+          <span class="ac-title">开启返利</span>
+          <span class="ac-sub">授权后订单才认得到你</span>
+        </div>
+        <div class="ac-list">
+          <div
+            v-for="p in authPlats"
+            :key="p.key"
+            class="ac-item"
+            :class="{ done: auth[p.key] === true }"
+            @click="onPlatClick(p)"
+          >
+            <span class="ac-dot" :style="{ background: p.bg }">{{ p.short }}</span>
+            <span class="ac-st">{{ auth[p.key] === true ? '已开启' : '去开启' }}</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Banner 轮播 -->
       <van-swipe class="banner-swipe" :autoplay="banners.length > 1 ? 4000 : 0" indicator-color="rgba(255,255,255,0.5)">
         <van-swipe-item v-for="b in banners" :key="b.id || b.title" @click="openLink(b)">
-          <div class="banner-card" :style="{ background: b.image || b.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' }">
-            <div class="bn-text">
+          <div class="banner-card" :class="{ 'banner-img': isImageBanner(b.image) }" :style="{ background: b.image || b.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' }">
+            <div v-if="!isImageBanner(b.image)" class="bn-text">
               <div class="bn-tag">{{ b.subtitle || '限时活动' }}</div>
               <div class="bn-title">{{ b.title }}</div>
               <div class="bn-btn">
@@ -44,26 +84,6 @@
         <div class="cb-right">
           <span>去签到</span>
           <van-icon name="arrow" color="#ff4b3a" size="10" />
-        </div>
-      </div>
-
-      <!-- 开启返利卡片 -->
-      <div class="auth-card">
-        <div class="ac-head">
-          <span class="ac-title">开启返利</span>
-          <span class="ac-sub">授权后订单才认得到你</span>
-        </div>
-        <div class="ac-list">
-          <div
-            v-for="p in authPlats"
-            :key="p.key"
-            class="ac-item"
-            :class="{ done: auth[p.key] === true }"
-            @click="onPlatClick(p)"
-          >
-            <span class="ac-dot" :style="{ background: p.bg }">{{ p.short }}</span>
-            <span class="ac-st">{{ auth[p.key] === true ? '已开启' : '去开启' }}</span>
-          </div>
         </div>
       </div>
     </div>
@@ -327,9 +347,10 @@ const RANKS = [
 
 /** 后台没配 banner 时的兜底，不让首页开天窗 */
 const FALLBACK_BANNERS = [
-  { id: 'fb-1', title: '天天签到领金币', subtitle: '攒够就能换钱', image: 'linear-gradient(135deg,#ff8a3d,#ff3b30)', url: '/checkin', internal: true, btnText: '立即签到' },
-  { id: 'fb-2', title: '本地生活圈', subtitle: '外卖、打车、旅游门票一应俱全', image: 'linear-gradient(135deg,#4a3aff,#7b3ad5)', url: '/local-life', internal: true, btnText: '立即抢购' },
-  { id: 'fb-3', title: '邀请好友赚钱', subtitle: '他买东西，你拿分成', image: 'linear-gradient(135deg,#ff6a9a,#ff3b6b)', url: '/agent', internal: true, btnText: '立即邀请' },
+  { id: 'fb-1', title: '天天签到领金币', subtitle: '每日签到', image: 'url(/banners/checkin.svg)', url: '/checkin', internal: true, btnText: '立即签到' },
+  { id: 'fb-2', title: '吃喝玩乐都省钱', subtitle: '本地生活', image: 'url(/banners/local-life.svg)', url: '/local-life', internal: true, btnText: '立即抢购' },
+  { id: 'fb-3', title: '网购先查返利', subtitle: '购物返利', image: 'url(/banners/shopping.svg)', url: '/category/all', internal: true, btnText: '去逛逛' },
+  { id: 'fb-4', title: '躺赚佣金', subtitle: '邀请好友', image: 'url(/banners/invite.svg)', url: '/agent', internal: true, btnText: '立即邀请' },
 ];
 
 const banners = ref(FALLBACK_BANNERS);
@@ -583,6 +604,9 @@ function bannerBtnText(b) {
   if (b.btnText) return b.btnText;
   return '立即抢购';
 }
+function isImageBanner(img) {
+  return img && typeof img === 'string' && img.trim().startsWith('url(');
+}
 
 function goParse() {
   if (!localStorage.getItem('token')) {
@@ -796,7 +820,7 @@ onUnmounted(() => {
 .top-bg {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 360px;
+  height: 400px;
   background: linear-gradient(180deg, #fff0ed 0%, #fff7f5 55%, #f7f8fa 100%);
   z-index: 0;
 }
@@ -930,6 +954,14 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   background: linear-gradient(90deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.08) 55%, transparent 100%);
+}
+.banner-card.banner-img::after {
+  display: none;
+}
+.banner-card.banner-img {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 .bn-text {
   position: relative;
