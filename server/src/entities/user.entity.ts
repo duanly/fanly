@@ -49,5 +49,27 @@ export class User {
   /** 1 正常 2 冻结 */
   @Column({ type: 'tinyint', default: 1 }) status: number;
 
+  // ========== 实名认证 ==========
+  /** 真实姓名（实名审核通过后为权威值） */
+  @Column({ length: 32, default: '' }) realName: string;
+  /** 身份证号 */
+  @Column({ length: 64, default: '' }) idCardNo: string;
+  /** 实名状态：0 未提交 1 审核中 2 已通过 3 已驳回 */
+  @Column({ type: 'tinyint', default: 0 }) realNameStatus: number;
+  /** 审核备注/驳回原因 */
+  @Column({ length: 255, default: '' }) realNameRemark: string;
+
+  // ========== 收款信息 ==========
+  /** 微信收款真实姓名 */
+  @Column({ length: 32, default: '' }) wechatPayName: string;
+  /** 微信收款码图片 URL */
+  @Column({ length: 255, default: '' }) wechatQrCode: string;
+  /** 支付宝收款真实姓名 */
+  @Column({ length: 32, default: '' }) alipayPayName: string;
+  /** 支付宝收款码图片 URL */
+  @Column({ length: 255, default: '' }) alipayQrCode: string;
+  /** 支付宝账号（选填，辅助打款） */
+  @Column({ length: 64, default: '' }) alipayAccount: string;
+
   @CreateDateColumn() createdAt: Date;
 }

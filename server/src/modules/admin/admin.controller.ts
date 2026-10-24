@@ -184,6 +184,53 @@ export class AdminController {
     return { ok: true, newPassword: newPwd };
   }
 
+  @Get('realnames')
+  @ApiOperation({ summary: '实名认证列表' })
+  realnames(
+    @Query('status') status?: string,
+    @Query('keyword') keyword?: string,
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '20',
+  ) {
+    const qb = this.userRepo.createQueryBuilder('u')
+      .select(['u.id', 'u.mobile', 'u.nickname', 'u.realName', 'u.idCardNo', 'u.realNameStatus', 'u.realNameRemark', 'u.createdAt'])
+      .orderBy('u.id', 'DESC');
+    if (status && status !== '') {
+      qb.andWhere('u.realNameStatus = :status', { status: +status });
+    } else {
+      // 没提交过的不显示
+      qb.andWhere('u.realNameStatus > 0');
+    }
+    if (keyword) {
+      qb.andWhere('(u.mobile LIKE :kw OR u.nickname LIKE :kw OR u.realName LIKE :kw)', { kw: `%${keyword}%` });
+    }
+    const p = +page, s = +pageSize;
+    return qb
+      .skip((p - 1) * s)
+      .take(s)
+      .getManyAndCount()
+      .then(([list, total]) => ({ list, total }));
+  }
+
+  @Post('realname/:id/audit')
+  @ApiOperation({ summary: '审核实名认证' })
+  async auditRealname(
+    @Param('id') id: string,
+    @Body() body: { pass: boolean; remark?: string },
+  ) {
+    const user = await this.userRepo.findOneBy({ id: +id });
+    if (!user) throw new Error('用户不存在');
+    if (body.pass) {
+      user.realNameStatus = 2;
+      user.realNameRemark = body.remark || '';
+    } else {
+      user.realNameStatus = 3;
+      user.realNameRemark = body.remark || '审核未通过';
+    }
+    await this.userRepo.save(user);
+    return { ok: true };
+  }
+
   private genRandomPassword(): string {
     // 8 位随机密码：字母 + 数字
     const chars = 'abcdefghjkmnpqrstuvwxyz23456789';

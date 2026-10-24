@@ -290,6 +290,37 @@ export class AuthService {
     return { ok: true };
   }
 
+  /** 获取实名信息（身份证号脱敏） */
+  async getRealName(userId: number) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new BadRequestException('用户不存在');
+    const maskedId = user.idCardNo
+      ? user.idCardNo.slice(0, 3) + '***********' + user.idCardNo.slice(-4)
+      : '';
+    return {
+      status: user.realNameStatus,
+      realName: user.realName,
+      idCardNo: maskedId,
+      remark: user.realNameRemark,
+    };
+  }
+
+  /** 提交实名认证 */
+  async submitRealName(userId: number, realName: string, idCardNo: string) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new BadRequestException('用户不存在');
+    if (user.realNameStatus === 2) {
+      throw new BadRequestException('已通过实名认证，不可重复提交');
+    }
+    // 审核中或已驳回都可以重新提交
+    user.realName = realName.trim();
+    user.idCardNo = idCardNo.trim().toUpperCase();
+    user.realNameStatus = 1; // 审核中
+    user.realNameRemark = '';
+    await this.userRepo.save(user);
+    return { ok: true, status: 1 };
+  }
+
   async profile(userId: number) {
     const user = await this.userRepo.findOneBy({ id: userId });
     if (!user) throw new BadRequestException('用户不存在');

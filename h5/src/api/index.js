@@ -71,6 +71,8 @@ export const api = {
     return http.post('/api/auth/avatar', form);
   },
   bindInviter: (inviteCode) => http.post('/api/auth/bind-inviter', { inviteCode }),
+  getRealName: () => http.get('/api/auth/realname'),
+  submitRealName: (data) => http.post('/api/auth/realname', data),
 
   recommend: (platform) => http.get('/api/goods/recommend', { params: { platform } }),
   // 首页流：后台选品池优先，池空时后端自动回落到平台榜单
@@ -130,6 +132,8 @@ export const api = {
   withdraws: (params) => http.get('/api/fund/withdraws', { params }),
   ledger: (params) => http.get('/api/fund/ledger', { params }),
   withdraw: (data) => http.post('/api/fund/withdraw', data),
+  getPaymentMethod: () => http.get('/api/fund/payment-method'),
+  savePaymentMethod: (data) => http.post('/api/fund/payment-method', data),
 
   agentApply: (realName) => http.post('/api/agent/apply', { realName }),
   agentQrcode: () => http.get('/api/agent/qrcode'),

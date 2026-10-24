@@ -29,7 +29,21 @@
       <el-table-column label="通道" width="90">
         <template #default="{ row }">{{ row.channel === 'WECHAT' ? '微信' : '支付宝' }}</template>
       </el-table-column>
-      <el-table-column prop="accountInfo" label="收款账号" min-width="140" />
+      <el-table-column prop="payeeName" label="收款人" width="100" />
+      <el-table-column label="收款码" width="100">
+        <template #default="{ row }">
+          <el-image
+            v-if="row.qrCodeUrl"
+            :src="row.qrCodeUrl"
+            :preview-src-list="[row.qrCodeUrl]"
+            fit="cover"
+            style="width:56px;height:56px;border-radius:4px;cursor:pointer;border:1px solid #eee"
+            preview-teleported
+          />
+          <span v-else style="color:#999;font-size:12px">—</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="accountInfo" label="收款账号" min-width="140" show-overflow-tooltip />
       <el-table-column prop="outTradeNo" label="打款幂等号" width="180" />
       <el-table-column label="状态" width="100">
         <template #default="{ row }">

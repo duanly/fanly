@@ -122,6 +122,19 @@
     </van-cell-group>
 
     <van-cell-group inset>
+      <van-cell title="实名认证" is-link icon="contact-o" to="/realname">
+        <template #value>
+          <van-tag v-if="realNameStatus === 2" type="success" plain size="small">已认证</van-tag>
+          <van-tag v-else-if="realNameStatus === 1" type="warning" plain size="small">审核中</van-tag>
+          <van-tag v-else-if="realNameStatus === 3" type="danger" plain size="small">已驳回</van-tag>
+          <span v-else style="color:#969799">去认证</span>
+        </template>
+      </van-cell>
+      <van-cell title="收款设置" is-link icon="account" to="/payment-method">
+        <template #value>
+          <span style="color:#969799">{{ payMethodSet ? '已设置' : '去设置' }}</span>
+        </template>
+      </van-cell>
       <van-cell title="推广中心" is-link icon="gold-coin-o" to="/agent">
         <template #value>
           <AgentBadge v-if="p?.agentLevel != null" :level="p.agentLevel" mini />
@@ -347,6 +360,8 @@ const p = ref(null);
 const s = ref(null);
 const coinInfo = ref(null);
 const agentStats = ref(null);
+const realNameStatus = ref(0);
+const payMethodSet = ref(false);
 const showBindInviter = ref(false);
 const inviteCodeInput = ref('');
 const bindingInviter = ref(false);
@@ -500,6 +515,18 @@ async function load() {
     try { agentStats.value = await api.agentStats(); } catch { agentStats.value = null; }
   } else {
     agentStats.value = null;
+  }
+  // 实名 + 收款方式
+  try {
+    const pm = await api.getPaymentMethod();
+    realNameStatus.value = pm.realNameStatus || 0;
+    payMethodSet.value = !!(
+      (pm.wechat?.realName && pm.wechat?.qrCode) ||
+      (pm.alipay?.realName && pm.alipay?.qrCode)
+    );
+  } catch {
+    realNameStatus.value = 0;
+    payMethodSet.value = false;
   }
 }
 

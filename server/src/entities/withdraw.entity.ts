@@ -17,6 +17,11 @@ export class Withdraw {
   @Column({ length: 16 }) channel: string;          // WECHAT / ALIPAY
   @Column({ length: 255, default: '' }) accountInfo: string;
 
+  /** 收款人姓名（申请时快照，审核打款用） */
+  @Column({ length: 32, default: '' }) payeeName: string;
+  /** 收款码图片 URL（申请时快照） */
+  @Column({ length: 255, default: '' }) qrCodeUrl: string;
+
   /** 打款幂等号 */
   @Index({ unique: true })
   @Column({ length: 64 })

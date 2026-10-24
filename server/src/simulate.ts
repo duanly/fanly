@@ -81,7 +81,13 @@ async function main() {
 
   line('\n[5] 用户提现 10 元');
   try {
-    const wd = await fund.applyWithdraw(user.id, 10, 'WECHAT', 'demo-openid');
+    // 模拟脚本里先确保有收款信息
+    if (!user.wechatPayName || !user.wechatQrCode) {
+      user.wechatPayName = '测试用户';
+      user.wechatQrCode = '/uploads/simulate-qr.png';
+      await userRepo.save(user);
+    }
+    const wd = await fund.applyWithdraw(user.id, 10, 'WECHAT');
     await show(`    提现单 #${wd.id} 已提交，金额进冻结`);
     await fund.auditWithdraw(wd.id, true, 1);
     line('    后台审核通过 → 进入打款队列');

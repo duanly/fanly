@@ -44,6 +44,11 @@ class ChangePasswordDto {
   @IsString() @Length(6, 20, { message: '新密码长度 6-20 位' }) newPassword: string;
 }
 
+class RealNameDto {
+  @IsString() @Length(2, 20, { message: '真实姓名长度 2-20 位' }) realName: string;
+  @IsString() @Matches(/^[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]$/, { message: '身份证号格式不正确' }) idCardNo: string;
+}
+
 class BindInviterDto {
   @IsString() @Length(4, 8) inviteCode: string;
 }
@@ -89,6 +94,18 @@ export class AuthController {
   @ApiOperation({ summary: '修改密码（需登录）' })
   changePassword(@CurrentUser('sub') userId: number, @Body() dto: ChangePasswordDto) {
     return this.auth.changePassword(userId, dto.oldPassword, dto.newPassword);
+  }
+
+  @Get('realname')
+  @ApiOperation({ summary: '获取实名信息' })
+  getRealName(@CurrentUser('sub') userId: number) {
+    return this.auth.getRealName(userId);
+  }
+
+  @Post('realname')
+  @ApiOperation({ summary: '提交实名认证' })
+  submitRealName(@CurrentUser('sub') userId: number, @Body() dto: RealNameDto) {
+    return this.auth.submitRealName(userId, dto.realName, dto.idCardNo);
   }
 
   @Get('profile')

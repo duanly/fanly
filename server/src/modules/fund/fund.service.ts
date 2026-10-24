@@ -58,6 +58,63 @@ export class FundService {
     };
   }
 
+  /** 获取收款方式设置 */
+  async getPaymentMethod(userId: number) {
+    const u = await this.userRepo.findOneBy({ id: userId });
+    if (!u) throw new BadRequestException('用户不存在');
+    return {
+      realNameStatus: u.realNameStatus,
+      realName: u.realName,
+      wechat: {
+        realName: u.wechatPayName,
+        qrCode: u.wechatQrCode,
+      },
+      alipay: {
+        realName: u.alipayPayName,
+        qrCode: u.alipayQrCode,
+        alipayAccount: u.alipayAccount,
+      },
+    };
+  }
+
+  /** 保存收款方式 */
+  async savePaymentMethod(
+    userId: number,
+    channel: string,
+    realName: string,
+    qrCode: string,
+    alipayAccount?: string,
+  ) {
+    const u = await this.userRepo.findOneBy({ id: userId });
+    if (!u) throw new BadRequestException('用户不存在');
+
+    const name = realName.trim();
+    if (!name) throw new BadRequestException('请填写真实姓名');
+    if (name.length < 2 || name.length > 20) throw new BadRequestException('姓名长度 2-20 位');
+    if (!qrCode) throw new BadRequestException('请上传收款码');
+
+    // 已实名用户：收款姓名必须跟实名一致
+    if (u.realNameStatus === 2 && u.realName) {
+      if (name !== u.realName) {
+        throw new BadRequestException('收款姓名需与实名认证姓名一致');
+      }
+    }
+
+    if (channel === 'WECHAT') {
+      u.wechatPayName = name;
+      u.wechatQrCode = qrCode;
+    } else if (channel === 'ALIPAY') {
+      u.alipayPayName = name;
+      u.alipayQrCode = qrCode;
+      u.alipayAccount = alipayAccount?.trim() || '';
+    } else {
+      throw new BadRequestException('不支持的收款方式');
+    }
+
+    await this.userRepo.save(u);
+    return { ok: true };
+  }
+
   async ledger(userId: number, page = 1, size = 20, bizType?: string) {
     // 筛选必须在数据库做：前端过滤会让分页的 total 对不上，
     // van-list 判断不出「到底了」，一直往下翻空页
@@ -142,7 +199,7 @@ export class FundService {
   }
 
   /** 提现申请：手续费按通道实收透传，不加价 */
-  async applyWithdraw(userId: number, amount: number, channel: string, accountInfo: string) {
+  async applyWithdraw(userId: number, amount: number, channel: string) {
     const min = this.cfg.num('withdraw.min', 10);
     const max = this.cfg.num('withdraw.max', 800);
     if (amount < min) throw new BadRequestException(`最低提现 ${min} 元`);
@@ -167,6 +224,26 @@ export class FundService {
       const user = await m.findOneBy(User, { id: userId });
       if (!gte(user.balance, amount)) throw new BadRequestException('余额不足');
 
+      // 取出对应收款方式的信息，校验
+      let payeeName = '';
+      let qrCodeUrl = '';
+      if (channel === 'WECHAT') {
+        payeeName = user.wechatPayName;
+        qrCodeUrl = user.wechatQrCode;
+      } else {
+        payeeName = user.alipayPayName;
+        qrCodeUrl = user.alipayQrCode;
+      }
+      if (!payeeName || !qrCodeUrl) {
+        throw new BadRequestException('请先设置收款信息');
+      }
+      // 已实名的校验一致性
+      if (user.realNameStatus === 2 && user.realName && payeeName !== user.realName) {
+        throw new BadRequestException('收款姓名需与实名认证姓名一致');
+      }
+      const channelName = channel === 'WECHAT' ? '微信' : '支付宝';
+      const accountInfo = `${payeeName} · ${channelName}`;
+
       // 余额扣到冻结，走流水
       user.balance = sub(user.balance, amount);
       user.frozen = add(user.frozen, amount);
@@ -174,6 +251,7 @@ export class FundService {
 
       const wd = await m.save(Withdraw, m.create(Withdraw, {
         userId, amount: String(amount), fee: String(fee), channel, accountInfo,
+        payeeName, qrCodeUrl,
         outTradeNo: genOutTradeNo(), status: WithdrawStatus.AUDITING,
       }));
 
