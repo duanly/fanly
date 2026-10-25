@@ -36,14 +36,8 @@
         </div>
       </div>
 
-      <!-- Banner 轮播。宽度由 ResizeObserver 显式传入，避免 Vant 挂载时测量到错误宽度导致切换露缝隙 -->
-      <van-swipe
-        ref="bannerSwipeRef"
-        class="banner-swipe"
-        :width="bannerWidth || undefined"
-        :autoplay="banners.length > 1 ? 4000 : 0"
-        indicator-color="rgba(255,255,255,0.5)"
-      >
+      <!-- Banner 轮播：Vant 原生测量，海报图作为 img 放在 banner-card 里 -->
+      <van-swipe class="banner-swipe" :autoplay="banners.length > 1 ? 4000 : 0" indicator-color="rgba(255,255,255,0.5)">
         <van-swipe-item v-for="b in banners" :key="b.id || b.title" @click="openLink(b)">
           <div class="banner-card" :class="{ 'banner-img': isImageBanner(b.image) }" :style="bannerBgStyle(b)">
             <img v-if="isImageBanner(b.image)" :src="getBannerImageUrl(b.image)" class="banner-image" alt="" />
@@ -355,10 +349,6 @@ const FALLBACK_BANNERS = [
 ];
 
 const banners = ref(FALLBACK_BANNERS);
-// banner 宽度：用 ResizeObserver 自己量，显式传给 van-swipe（它只在挂载/resize 时量一次，HMR、异步替换 banner 时会量错）
-const bannerSwipeRef = ref(null);
-const bannerWidth = ref(0);
-let bannerResizeObserver = null;
 const topics = ref([]);
 const links = ref([]);
 const cats = ref([]);
@@ -825,17 +815,6 @@ onMounted(() => {
   } else {
     loadRank();
   }
-  // banner 宽度：onMounted 时 ref 已绑定，先同步量一次（不等下一帧，避免首屏位移用错宽度），
-  // 再用 ResizeObserver 兜住异步替换 banner、横竖屏切换等布局变化
-  const el = bannerSwipeRef.value?.$el;
-  if (el) {
-    bannerWidth.value = el.offsetWidth;
-    bannerResizeObserver = new ResizeObserver(() => {
-      const w = el.offsetWidth;
-      if (w && w !== bannerWidth.value) bannerWidth.value = w;
-    });
-    bannerResizeObserver.observe(el);
-  }
 
   // 返回顶部按钮
   scrollHandler = onScroll;
@@ -845,7 +824,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (scrollHandler) window.removeEventListener('scroll', scrollHandler);
-  bannerResizeObserver?.disconnect();
 });
 </script>
 
@@ -983,6 +961,7 @@ onUnmounted(() => {
 .banner-swipe {
   position: relative;
   z-index: 1;
+  width: 100%;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 14px rgba(255, 100, 50, 0.18);
