@@ -233,6 +233,18 @@ export class AgentService implements OnModuleInit {
       start ? new Date(start) : undefined,
       end ? new Date(end) : undefined,
     );
+    // 下一档进度：手动配置的不给升级提示，已到最高档的为 null
+    let l2Next = null;
+    if (agent.agentRateL2 == null) {
+      const l2Tiers = [
+        { count: this.cfg.num('agent.l2.team_t1', 30), rate: this.cfg.num('agent.l2.rate_t1', 0.02) },
+        { count: this.cfg.num('agent.l2.team_t2', 100), rate: this.cfg.num('agent.l2.rate_t2', 0.03) },
+        { count: this.cfg.num('agent.l2.team_t3', 500), rate: this.cfg.num('agent.l2.rate_t3', 0.04) },
+      ];
+      const hit = l2Tiers.find((t) => teamSizeL2 < t.count);
+      if (hit) l2Next = { needCount: hit.count, rate: hit.rate, gap: hit.count - teamSizeL2 };
+    }
+
     return {
       agentCode: agent.agentCode,
       level: agent.level,
@@ -241,7 +253,9 @@ export class AgentService implements OnModuleInit {
       teamSize,
       subAgentCount: subAgents.length,
       teamSizeL2,
-      rateL2: String(this.cfg.num('rebate.agent_rate_l2', 0.05)),
+      rateL2: String(await this.commission.l2RateForAgent(agent.id)),
+      rateL2Manual: agent.agentRateL2 != null,
+      l2Next,
       ...s,
     };
   }
@@ -289,6 +303,7 @@ export class AgentService implements OnModuleInit {
         mobile: u?.mobile || '',
         nickname: u?.nickname || '',
         teamSize: await this.userRepo.countBy({ agentId: a.id }),
+        teamSizeL2: await this.commission.countTeamSizeL2(a.id),
         stats: await this.commission.agentStats(a.id),
       };
     }));

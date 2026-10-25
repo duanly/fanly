@@ -32,10 +32,16 @@
           <el-tag v-if="row.manualLevel" type="danger" size="small" style="margin-left:4px">手动</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="分成比例" width="140">
+      <el-table-column label="分成比例" width="130">
         <template #default="{ row }">
           <span v-if="row.agentRate">{{ (+row.agentRate * 100).toFixed(0) }}% (自定义)</span>
           <span v-else style="color:#999">{{ levelRateText(row.level) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="二级分成" width="120">
+        <template #default="{ row }">
+          <span v-if="row.agentRateL2">{{ (+row.agentRateL2 * 100).toFixed(0) }}% (自定义)</span>
+          <span v-else style="color:#999">{{ l2AutoText(row) }}</span>
         </template>
       </el-table-column>
       <el-table-column prop="teamSize" label="团队" width="70" />
@@ -62,13 +68,14 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="170" fixed="right">
+      <el-table-column label="操作" width="200" fixed="right">
         <template #default="{ row }">
           <el-button v-if="row.status !== 1" size="small" type="primary" @click="update(row, { status: 1 })">
             通过
           </el-button>
           <el-button v-if="row.status !== 2" size="small" @click="update(row, { status: 2 })">冻结</el-button>
           <el-button size="small" link @click="setRate(row)">改比例</el-button>
+          <el-button size="small" link @click="setL2Rate(row)">改L2</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -97,6 +104,15 @@ const money = (v) => (+(v || 0)).toFixed(2);
 
 const LEVEL_RATES = { 1: '12% (白银)', 2: '15% (黄金)', 3: '20% (钻石)', 0: '0% (预备)' };
 function levelRateText(level) { return LEVEL_RATES[level] || '按等级模板'; }
+
+// 二级分成自动档：≥30人 2% / ≥100人 3% / ≥500人 4%，未达标 0%
+function l2AutoText(row) {
+  const n = row.teamSizeL2 || 0;
+  if (n >= 500) return `4% · ${n}人`;
+  if (n >= 100) return `3% · ${n}人`;
+  if (n >= 30) return `2% · ${n}人`;
+  return `0% · ${n}人`;
+}
 
 async function load() {
   loading.value = true;
@@ -127,6 +143,17 @@ async function setRate(row) {
     { inputValue: row.agentRate ? String(+row.agentRate * 100) : '' },
   );
   await api.updateAgent(row.id, { agentRate: value ? String(+value / 100) : null });
+  ElMessage.success('已更新');
+  load();
+}
+
+async function setL2Rate(row) {
+  const { value } = await ElMessageBox.prompt(
+    '填百分比，例如 4 表示 4%。留空则按二级团队人数自动分档。',
+    `设置 ${row.agentCode} 的二级分成`,
+    { inputValue: row.agentRateL2 ? String(+row.agentRateL2 * 100) : '' },
+  );
+  await api.updateAgent(row.id, { agentRateL2: value ? String(+value / 100) : null });
   ElMessage.success('已更新');
   load();
 }

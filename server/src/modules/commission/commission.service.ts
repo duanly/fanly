@@ -22,6 +22,7 @@ export class CommissionService {
   constructor(
     @InjectRepository(CommissionDetail) private readonly detailRepo: Repository<CommissionDetail>,
     @InjectRepository(Agent) private readonly agentRepo: Repository<Agent>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly ds: DataSource,
     private readonly cfg: SysConfigService,
     private readonly fund: FundService,
@@ -38,10 +39,37 @@ export class CommissionService {
     return this.cfg.num(`rebate.agent_rate.${agent.level}`, agent.level === 3 ? 0.2 : agent.level === 2 ? 0.15 : 0.12);
   }
 
+  /** 二级团队人数：我发展的代理，他们各自名下的用户总数（分档的依据） */
+  async countTeamSizeL2(agentId: number): Promise<number> {
+    const subAgents = await this.agentRepo.find({ where: { parentAgentId: agentId } });
+    if (!subAgents.length) return 0;
+    return this.userRepo.count({ where: subAgents.map((a) => ({ agentId: a.id })) });
+  }
+
+  /**
+   * 某代理作为二级受益人的有效分成比例：
+   * 手动配置优先（agentRateL2），否则按二级团队人数自动分档——
+   * ≥30人 2% / ≥100人 3% / ≥500人 4%，不到门槛 0%。
+   * 阈值与比例都能在系统参数里改。
+   */
+  async l2RateForAgent(agentId: number): Promise<number> {
+    const agent = await this.agentRepo.findOneBy({ id: agentId });
+    if (!agent) return 0;
+    if (agent.agentRateL2 != null) {
+      const manual = toNum(agent.agentRateL2);
+      if (manual > 0) return manual;
+    }
+    const size = await this.countTeamSizeL2(agentId);
+    if (size >= this.cfg.num('agent.l2.team_t3', 500)) return this.cfg.num('agent.l2.rate_t3', 0.04);
+    if (size >= this.cfg.num('agent.l2.team_t2', 100)) return this.cfg.num('agent.l2.rate_t2', 0.03);
+    if (size >= this.cfg.num('agent.l2.team_t1', 30)) return this.cfg.num('agent.l2.rate_t1', 0.02);
+    return 0;
+  }
+
   /**
    * 二级分成：直属代理的上级也能分一笔。
    * 县城熟人社会靠转介绍扩散，只给一级的话，介绍人没动力再去发展下线。
-   * 比例单独配，且一般明显低于一级。
+   * 比例走上级代理自己的「手动配置或团队人数自动档」，不再是全局一个值。
    */
   private async agentL2(agentId: number | null): Promise<{ id: number | null; rate: number }> {
     if (!agentId) return { id: null, rate: 0 };
@@ -49,7 +77,7 @@ export class CommissionService {
     if (!l1?.parentAgentId) return { id: null, rate: 0 };
     const l2 = await this.agentRepo.findOneBy({ id: l1.parentAgentId });
     if (!l2 || l2.status !== 1) return { id: null, rate: 0 };
-    return { id: l2.id, rate: this.cfg.num('rebate.agent_rate_l2', 0.05) };
+    return { id: l2.id, rate: await this.l2RateForAgent(l2.id) };
   }
 
   /** 试算：给前端展示"预计返 ¥X"，不落库 */

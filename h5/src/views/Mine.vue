@@ -80,12 +80,12 @@
     <!-- 返利/分成比例 -->
     <div class="rate-card">
       <div class="rate-item">
-        <div class="rate-num">{{ (p?.userRebateRate * 100).toFixed(0) }}%</div>
+        <div class="rate-num">{{ displayRatePct(p?.userRebateRate) }}%</div>
         <div class="rate-label">自购返利</div>
       </div>
       <div class="rate-divider"></div>
       <div class="rate-item">
-        <div class="rate-num">{{ (p?.agentRate * 100).toFixed(0) }}%</div>
+        <div class="rate-num">{{ displayRatePct(p?.agentRate) }}%</div>
         <div class="rate-label">推广分成</div>
       </div>
     </div>
@@ -354,6 +354,7 @@ import { api } from '../api';
 import NeedLogin from '../components/NeedLogin.vue';
 import BeianFooter from '../components/BeianFooter.vue';
 import AgentBadge from '../components/AgentBadge.vue';
+import { displayRatePct } from '../utils/rate';
 
 const logged = ref(!!localStorage.getItem('token'));
 const p = ref(null);

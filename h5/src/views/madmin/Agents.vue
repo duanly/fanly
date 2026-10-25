@@ -130,7 +130,13 @@
       <van-field
         v-if="pickedLevel > 0"
         v-model="customRate"
-        placeholder="自定义分成比例（选填，如 0.15）"
+        placeholder="自定义一级分成比例（选填，如 0.15）"
+        type="digit"
+        style="margin-top:12px"
+      />
+      <van-field
+        v-model="customRateL2"
+        placeholder="自定义二级分成比例（选填，如 0.04；留空按人数自动）"
         type="digit"
         style="margin-top:12px"
       />
@@ -207,6 +213,7 @@ const showLevelPicker = ref(false);
 const currentAgent = ref(null);
 const pickedLevel = ref(1);
 const customRate = ref('');
+const customRateL2 = ref('');
 const backToAuto = ref(false);
 const settingLevel = ref(false);
 
@@ -214,6 +221,7 @@ function openSetLevel(a) {
   currentAgent.value = a;
   pickedLevel.value = a.level ?? 0;
   customRate.value = a.agentRate || '';
+  customRateL2.value = a.agentRateL2 || '';
   backToAuto.value = false;
   showLevelPicker.value = true;
 }
@@ -224,11 +232,14 @@ async function confirmSetLevel() {
   try {
     const body = { level: pickedLevel.value };
     if (customRate.value) body.agentRate = customRate.value;
+    // 二级分成：填了用手动值，清空则显式回到按人数自动分档
+    body.agentRateL2 = customRateL2.value ? customRateL2.value : null;
     if (backToAuto.value) body.manualLevel = false;
     await adminApi.updateAgent(currentAgent.value.id, body);
     showSuccessToast('设置成功');
     currentAgent.value.level = pickedLevel.value;
     if (customRate.value) currentAgent.value.agentRate = customRate.value;
+    currentAgent.value.agentRateL2 = customRateL2.value || null;
     currentAgent.value.manualLevel = !backToAuto.value && pickedLevel.value > 0;
     showLevelPicker.value = false;
   } catch (e) {

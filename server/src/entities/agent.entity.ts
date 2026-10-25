@@ -28,6 +28,9 @@ export class Agent {
   /** 自定义分成比例；为空则取等级模板 */
   @Column({ type: 'decimal', precision: 5, scale: 4, nullable: true }) agentRate: string | null;
 
+  /** 自定义二级团队分成比例；为空则按二级团队人数自动分档 */
+  @Column({ type: 'decimal', precision: 5, scale: 4, nullable: true }) agentRateL2: string | null;
+
   @Column({ type: 'tinyint', default: AgentStatus.PENDING }) status: number;
 
   @Column({ length: 64, default: '' }) realName: string;

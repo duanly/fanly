@@ -78,7 +78,7 @@
         <div class="l2-card">
           <div class="l2-head">
             <span class="t">二级团队</span>
-            <span class="r">分成 {{ (s.rateL2 * 100).toFixed(0) }}%</span>
+            <span class="r">分成 {{ displayRatePct(s.rateL2) }}%</span>
           </div>
           <div class="l2-nums">
             <div><b>{{ s.subAgentCount ?? 0 }}</b><span>我发展的代理</span></div>
@@ -87,6 +87,12 @@
           <div class="l2-tip">
             你拉的人自己也成了代理，他团队的订单你同样能分一笔。
           </div>
+          <!-- 自动模式：显示下一档进度；手动模式：提示由管理员配置 -->
+          <div v-if="s.rateL2Manual" class="l2-progress manual">分成比例由管理员单独配置</div>
+          <div v-else-if="s.l2Next" class="l2-progress">
+            二级团队再带来 <b>{{ s.l2Next.gap }}</b> 人，分成提升到 <b>{{ displayRatePct(s.l2Next.rate) }}%</b>
+          </div>
+          <div v-else class="l2-progress">已达最高档，分成 <b>{{ displayRatePct(s.rateL2) }}%</b></div>
         </div>
 
         <!-- 分成收益 -->
@@ -155,6 +161,7 @@ import { computed, onMounted, ref } from 'vue';
 import { showToast } from 'vant';
 import { api } from '../api';
 import AgentBadge from '../components/AgentBadge.vue';
+import { displayRatePct } from '../utils/rate';
 
 const p = ref(null);
 const s = ref(null);
@@ -358,6 +365,15 @@ onMounted(load);
 .l2-nums b { font-size: 22px; font-weight: 800; display: block; }
 .l2-nums span { font-size: 11px; opacity: .88; }
 .l2-tip { font-size: 11px; opacity: .85; margin-top: 10px; line-height: 1.6; }
+.l2-progress {
+  margin-top: 10px;
+  padding: 7px 12px;
+  font-size: 12px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 8px;
+}
+.l2-progress b { font-weight: 800; }
+.l2-progress.manual { opacity: .8; font-size: 11px; }
 
 /* 升级提示 */
 .upgrade-tip {
