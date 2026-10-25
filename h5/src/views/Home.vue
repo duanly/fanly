@@ -40,7 +40,10 @@
       <van-swipe class="banner-swipe" :autoplay="banners.length > 1 ? 4000 : 0" indicator-color="rgba(255,255,255,0.5)">
         <van-swipe-item v-for="b in banners" :key="b.id || b.title" @click="openLink(b)">
           <div class="banner-card" :style="{ background: b.image || b.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' }">
-            <div class="bn-text">
+            <!-- 超大半透明 emoji 当背景水印 -->
+            <span v-if="b.watermark" class="bn-watermark">{{ b.watermark }}</span>
+
+            <div class="bn-text" :class="{ 'has-icons': b.icons?.length }">
               <div class="bn-tag">{{ b.subtitle || '限时活动' }}</div>
               <div class="bn-title">{{ b.title }}</div>
               <div v-if="b.desc" class="bn-desc">{{ b.desc }}</div>
@@ -48,6 +51,11 @@
                 <span>{{ bannerBtnText(b) }}</span>
                 <van-icon name="arrow" color="#fff" size="10" />
               </div>
+            </div>
+
+            <!-- 装饰图标：白底圆圈 + emoji，错落排列在右侧，纯 CSS 定位不用图片 -->
+            <div v-if="b.icons?.length" class="bn-icons">
+              <span v-for="(ic, i) in b.icons" :key="i" class="bi-dot">{{ ic }}</span>
             </div>
           </div>
         </van-swipe-item>
@@ -346,24 +354,28 @@ const FALLBACK_BANNERS = [
     id: 'fb-1', subtitle: '每日签到', title: '天天签到领金币',
     desc: '连续签到 7 天 · 额外奖励翻倍 · 攒够直接提现',
     image: 'linear-gradient(135deg,#ff9f43,#ee5a24)',
+    watermark: '🎁', icons: ['🗓️', '🪙', '🎁'],
     url: '/checkin', internal: true, btnText: '立即签到',
   },
   {
     id: 'fb-2', subtitle: '本地生活', title: '吃喝玩乐都省钱',
     desc: '外卖 · 奶茶 · 电影 · 酒店 最高省 30%',
     image: 'linear-gradient(135deg,#7c4dff,#448aff)',
+    watermark: '🍔', icons: ['🍔', '🎬', '🏨'],
     url: '/local-life', internal: true, btnText: '立即抢购',
   },
   {
     id: 'fb-3', subtitle: '购物返利', title: '网购先查返利',
     desc: '淘宝 · 京东 · 拼多多 · 唯品会 隐藏券 + 高额返利',
     image: 'linear-gradient(135deg,#ff3b30,#af52de)',
+    watermark: '🛍️', icons: ['🛒', '🎫', '🏷️'],
     url: '/category/all', internal: true, btnText: '去逛逛',
   },
   {
     id: 'fb-4', subtitle: '邀请好友', title: '二级返利 躺赚佣金',
     desc: '团队下单你赚钱 · 长期分成 永久有效',
     image: 'linear-gradient(135deg,#ff4081,#d500f9)',
+    watermark: '👥', icons: ['👥', '🤝', '🪙'],
     url: '/agent', internal: true, btnText: '立即邀请',
   },
 ];
@@ -999,6 +1011,66 @@ onUnmounted(() => {
   position: relative;
   z-index: 1;
   text-align: center;
+}
+/* 有装饰图标时：文字改左对齐、撑满高度垂直居中，右侧给图标区让位 */
+.bn-text.has-icons {
+  text-align: left;
+  align-self: stretch;
+  padding-right: 76px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.bn-text.has-icons .bn-title {
+  font-size: 24px;
+}
+
+/* 超大半透明 emoji 水印：在文字下层，从左侧透出来 */
+.bn-watermark {
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 130px;
+  line-height: 1;
+  opacity: 0.13;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* 右侧装饰图标组：白底圆圈 + emoji，三个错落定位、轻微旋转 */
+.bn-icons {
+  position: absolute;
+  top: 0;
+  right: 12px;
+  bottom: 0;
+  width: 70px;
+  z-index: 1;
+}
+.bi-dot {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  background: #fff;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+}
+.bi-dot:nth-child(1) {
+  top: 20px;
+  right: 18px;
+  transform: rotate(-8deg);
+}
+.bi-dot:nth-child(2) {
+  top: 76px;
+  right: 0;
+}
+.bi-dot:nth-child(3) {
+  bottom: 20px;
+  right: 20px;
+  transform: rotate(8deg);
 }
 .bn-tag {
   display: inline-block;
