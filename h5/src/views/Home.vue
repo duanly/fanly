@@ -36,8 +36,14 @@
         </div>
       </div>
 
-      <!-- Banner 轮播 -->
-      <van-swipe class="banner-swipe" :autoplay="banners.length > 1 ? 4000 : 0" indicator-color="rgba(255,255,255,0.5)">
+      <!-- Banner 轮播。宽度由 ResizeObserver 显式传入，避免 Vant 挂载时测量到错误宽度导致切换露缝隙 -->
+      <van-swipe
+        ref="bannerSwipeRef"
+        class="banner-swipe"
+        :width="bannerWidth || undefined"
+        :autoplay="banners.length > 1 ? 4000 : 0"
+        indicator-color="rgba(255,255,255,0.5)"
+      >
         <van-swipe-item v-for="b in banners" :key="b.id || b.title" @click="openLink(b)">
           <div class="banner-card" :class="{ 'banner-img': isImageBanner(b.image) }" :style="bannerBgStyle(b)">
             <img v-if="isImageBanner(b.image)" :src="getBannerImageUrl(b.image)" class="banner-image" alt="" />
@@ -216,6 +222,20 @@
         <van-tab v-for="r in RANKS" :key="r.type" :title="r.name" />
       </van-tabs>
 
+      <!-- 返利榜二级排序：绝对金额 / 返佣比例（高比例商品下架快，得给曝光机会） -->
+      <div v-if="currentRankType === 'rebate'" class="rebate-sort">
+        <span
+          class="rs-item"
+          :class="{ on: rebateSortBy === 'amount' }"
+          @click="switchRebateSort('amount')"
+        >💰 返利金额</span>
+        <span
+          class="rs-item"
+          :class="{ on: rebateSortBy === 'rate' }"
+          @click="switchRebateSort('rate')"
+        >📈 返佣比例</span>
+      </div>
+
       <div v-if="rankTip" class="rank-tip">{{ rankTip }}</div>
 
       <van-list
@@ -322,19 +342,23 @@ const auth = reactive({});
 
 const RANKS = [
   { type: 'hot', name: '🔥 热销榜', tip: '按近 7 天实付订单数排序，真金白银选出来的' },
-  { type: 'rebate', name: '💰 返利榜', tip: '佣金绝对金额排序' },
+  { type: 'rebate', name: '💰 返利榜' },
   { type: 'pick', name: '⭐️ 推荐榜', tip: '用户一人一票投出来的' },
 ];
 
 /** 后台没配 banner 时的兜底，不让首页开天窗 */
 const FALLBACK_BANNERS = [
-  { id: 'fb-1', title: '天天签到领金币', subtitle: '每日签到', image: 'url(/banners/checkin.svg)', url: '/checkin', internal: true, btnText: '立即签到' },
-  { id: 'fb-2', title: '吃喝玩乐都省钱', subtitle: '本地生活', image: 'url(/banners/local-life.svg)', url: '/local-life', internal: true, btnText: '立即抢购' },
-  { id: 'fb-3', title: '网购先查返利', subtitle: '购物返利', image: 'url(/banners/shopping.svg)', url: '/category/all', internal: true, btnText: '去逛逛' },
-  { id: 'fb-4', title: '躺赚佣金', subtitle: '邀请好友', image: 'url(/banners/invite.svg)', url: '/agent', internal: true, btnText: '立即邀请' },
+  { id: 'fb-1', title: '天天签到领金币', subtitle: '每日签到', image: 'url(/banners/checkin.svg?v=2)', url: '/checkin', internal: true, btnText: '立即签到' },
+  { id: 'fb-2', title: '吃喝玩乐都省钱', subtitle: '本地生活', image: 'url(/banners/local-life.svg?v=2)', url: '/local-life', internal: true, btnText: '立即抢购' },
+  { id: 'fb-3', title: '网购先查返利', subtitle: '购物返利', image: 'url(/banners/shopping.svg?v=2)', url: '/category/all', internal: true, btnText: '去逛逛' },
+  { id: 'fb-4', title: '躺赚佣金', subtitle: '邀请好友', image: 'url(/banners/invite.svg?v=2)', url: '/agent', internal: true, btnText: '立即邀请' },
 ];
 
 const banners = ref(FALLBACK_BANNERS);
+// banner 宽度：用 ResizeObserver 自己量，显式传给 van-swipe（它只在挂载/resize 时量一次，HMR、异步替换 banner 时会量错）
+const bannerSwipeRef = ref(null);
+const bannerWidth = ref(0);
+let bannerResizeObserver = null;
 const topics = ref([]);
 const links = ref([]);
 const cats = ref([]);
@@ -343,6 +367,8 @@ const compare = ref([]);
 const topSave = ref(0);
 
 const rankIdx = ref(0);
+// 返利榜排序方式：amount 绝对金额 / rate 返佣比例
+const rebateSortBy = ref('amount');
 const list = ref([]);
 const rankPage = ref(1);
 const rankLoading = ref(false);
@@ -365,7 +391,21 @@ const catsRef = ref(null);
 // 开启返利卡片只显示电商平台（JTK 本地生活不需要授权，也不走分类页）
 const authPlats = computed(() => PLATS.filter((p) => p.key !== 'JTK'));
 const allAuth = computed(() => authPlats.value.every((p) => auth[p.key] === true));
-const rankTip = computed(() => RANKS[rankIdx.value]?.tip || '');
+const currentRankType = computed(() => RANKS[rankIdx.value]?.type || 'hot');
+const rankTip = computed(() => {
+  if (currentRankType.value === 'rebate') {
+    return rebateSortBy.value === 'rate'
+      ? '按返佣比例排序，高比例商品手慢无'
+      : '按佣金绝对金额排序，买到手省得最多';
+  }
+  return RANKS[rankIdx.value]?.tip || '';
+});
+
+function switchRebateSort(v) {
+  if (rebateSortBy.value === v) return;
+  rebateSortBy.value = v;
+  resetRank();
+}
 const emptyText = computed(() =>
   RANKS[rankIdx.value].type === 'hot' ? '还没有真实订单数据，榜单在积累中' : '货架还在备货，先看看别的分区',
 );
@@ -658,9 +698,11 @@ async function loadRank() {
     return;
   }
   try {
-    const r = await api.ranking(RANKS[rankIdx.value].type, {
+    const r = await api.ranking(currentRankType.value, {
       page: rankPage.value,
       pageSize: 20,
+      // 返利榜才需要区分金额/比例排序
+      ...(currentRankType.value === 'rebate' ? { sortBy: rebateSortBy.value } : {}),
     });
     const rows = r.list || [];
     list.value.push(...rows);
@@ -728,6 +770,7 @@ function tryRestoreState() {
     const s = JSON.parse(raw);
     if (typeof s.rankIdx !== 'number') return false;
     rankIdx.value = s.rankIdx;
+    if (s.rebateSortBy === 'rate' || s.rebateSortBy === 'amount') rebateSortBy.value = s.rebateSortBy;
     if (Array.isArray(s.list) && s.list.length) {
       list.value = s.list;
       rankPage.value = s.rankPage || 2;
@@ -746,6 +789,7 @@ function saveState() {
     const savedList = list.value.slice(0, 40);
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
       rankIdx: rankIdx.value,
+      rebateSortBy: rebateSortBy.value,
       list: savedList,
       rankPage: Math.min(rankPage.value, 3),
       finished: rankFinished.value,
@@ -781,6 +825,18 @@ onMounted(() => {
   } else {
     loadRank();
   }
+  // banner 宽度观察：异步替换 banner、横竖屏切换等布局变化后，立刻把真实宽度传回 van-swipe
+  nextTick(() => {
+    const el = bannerSwipeRef.value?.$el;
+    if (!el) return;
+    bannerWidth.value = el.offsetWidth;
+    bannerResizeObserver = new ResizeObserver(() => {
+      const w = el.offsetWidth;
+      if (w && w !== bannerWidth.value) bannerWidth.value = w;
+    });
+    bannerResizeObserver.observe(el);
+  });
+
   // 返回顶部按钮
   scrollHandler = onScroll;
   window.addEventListener('scroll', scrollHandler, { passive: true });
@@ -789,6 +845,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (scrollHandler) window.removeEventListener('scroll', scrollHandler);
+  bannerResizeObserver?.disconnect();
 });
 </script>
 
@@ -952,6 +1009,8 @@ onUnmounted(() => {
   padding: 0;
 }
 .banner-image {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: fill;
@@ -1350,6 +1409,36 @@ onUnmounted(() => {
   color: #b0b3b8;
   margin-bottom: 6px;
 }
+
+/* 返利榜二级排序：分段控件 */
+.rebate-sort {
+  display: flex;
+  gap: 6px;
+  margin: 2px 0 8px;
+}
+.rebate-sort .rs-item {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  background: #f5f6f8;
+  border: 1px solid #ebedf0;
+  border-radius: 999px;
+  padding: 5px 0;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.rebate-sort .rs-item:active {
+  transform: scale(0.96);
+}
+.rebate-sort .rs-item.on {
+  color: #fff;
+  background: linear-gradient(135deg, #ff6b35, #ff4b3a);
+  border-color: #ff4b3a;
+}
+/* 高比例排序下给商品卡一点「快抢」暗示，但不写角标数字 */
+
 
 /* ========== 返回顶部悬浮按钮 ========== */
 .back-top-fab {

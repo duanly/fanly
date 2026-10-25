@@ -31,11 +31,13 @@ export class HomeController {
     @Query('type') type = 'hot',
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '20',
+    @Query('sortBy') sortBy = 'amount',
     @CurrentUser('sub') userId?: number,
   ) {
     const p = Math.max(+page || 1, 1);
     const size = Math.min(Math.max(+pageSize || 20, 5), 50);
-    const result = type === 'rebate' ? await this.ranking.rebate(p, size)
+    const rebateSortBy = sortBy === 'rate' ? 'rate' : 'amount';
+    const result = type === 'rebate' ? await this.ranking.rebate(p, size, rebateSortBy)
       : type === 'pick' ? await this.ranking.pick(p, size)
       : await this.ranking.hot(7, p, size);
 

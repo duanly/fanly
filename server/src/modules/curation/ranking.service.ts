@@ -269,30 +269,38 @@ export class RankingService {
     });
   }
 
-  /** 返利榜：选品池里到手返利最高的（按佣金金额降序，等价于按返利降序） */
-  async rebate(page = 1, pageSize = 20) {
-    const cacheKey = `rebate|${page}|${pageSize}`;
+  /**
+   * 返利榜：选品池里到手返利最高的。
+   *
+   * 两种排序：
+   * - amount（默认）按佣金绝对金额降序 —— 买到手能省的钱最多
+   * - rate 按返佣比例降序 —— 高比例商品下架也快，不给曝光就永远没机会被买走
+   */
+  async rebate(page = 1, pageSize = 20, sortBy: 'amount' | 'rate' = 'amount') {
+    const cacheKey = `rebate|${sortBy}|${page}|${pageSize}`;
     const cached = this.getCache<any>(cacheKey);
     if (cached) return cached;
 
     const skip = (page - 1) * pageSize;
     // 先多取一些，去重 + 分档均衡后再按分页切。至少 400 条，让用户能翻到足够多的内容
     const fetchSize = Math.max(pageSize * 10, 400);
+    const byRate = sortBy === 'rate';
     const rows = await this.goodsRepo
       .createQueryBuilder('g')
       .where('g.status = :status', { status: CuratedStatus.ON })
-      .orderBy('g.commission', 'DESC')
+      .orderBy(byRate ? 'g.commissionRate' : 'g.commission', 'DESC')
       .addOrderBy('g.id', 'DESC')
       .skip(0)
       .take(skip + fetchSize)
       .getMany();
     const deduped = this.dedupByTitle(rows);
-    // 分档均衡：按佣金分档，每档内各平台穿插
-    // 档位：≥20元 / ≥10元 / ≥5元 / ≥2元 / <2元
+    // 分档均衡，每档内各平台穿插
+    // 按金额：≥20元 / ≥10元 / ≥5元 / ≥2元
+    // 按比例：≥50% / ≥30% / ≥20% / ≥10%
     const balanced = this.balancePlatformsTiered(
       deduped,
-      (g) => Number(g.commission),
-      [20, 10, 5, 2],
+      byRate ? (g) => Number(g.commissionRate) : (g) => Number(g.commission),
+      byRate ? [0.5, 0.3, 0.2, 0.1] : [20, 10, 5, 2],
     );
     const total = await this.goodsRepo.count({ where: { status: CuratedStatus.ON } });
     const list = balanced.slice(skip, skip + pageSize);
