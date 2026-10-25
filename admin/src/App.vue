@@ -22,6 +22,7 @@
         <el-menu-item index="/orders">订单管理</el-menu-item>
         <el-menu-item index="/jutuike">聚推客订单</el-menu-item>
         <el-menu-item index="/claims">订单找回</el-menu-item>
+        <el-menu-item index="/support">客服工作台</el-menu-item>
         <el-menu-item index="/withdraws">提现审核</el-menu-item>
         <el-menu-item index="/config">系统参数</el-menu-item>
       </el-menu>
@@ -58,6 +59,7 @@ const TITLES = {
   '/orders': '订单管理',
   '/jutuike': '聚推客订单',
   '/claims': '订单找回',
+  '/support': '客服工作台',
   '/withdraws': '提现审核',
   '/config': '系统参数',
 };

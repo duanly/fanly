@@ -91,6 +91,11 @@
     </div>
 
     <van-cell-group inset style="margin-bottom:12px">
+      <van-cell title="联系客服" is-link icon="service-o" to="/support">
+        <template #value>
+          <van-badge v-if="supportUnread > 0" :content="supportUnread" />
+        </template>
+      </van-cell>
       <van-cell title="资金明细" is-link icon="balance-list-o" to="/ledger" />
       <van-cell title="提现记录" is-link icon="after-sale" to="/withdraws" />
       <van-cell title="订单找回" is-link icon="search" to="/claim">
@@ -363,6 +368,7 @@ const coinInfo = ref(null);
 const agentStats = ref(null);
 const realNameStatus = ref(0);
 const payMethodSet = ref(false);
+const supportUnread = ref(0);
 const showBindInviter = ref(false);
 const inviteCodeInput = ref('');
 const bindingInviter = ref(false);
@@ -529,6 +535,11 @@ async function load() {
     realNameStatus.value = 0;
     payMethodSet.value = false;
   }
+  // 客服未读（轻量接口，不创建会话）
+  try {
+    const u = await api.supportUnread();
+    supportUnread.value = u.count || 0;
+  } catch { supportUnread.value = 0; }
 }
 
 async function apply() {

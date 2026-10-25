@@ -17,3 +17,6 @@ export * from './checkin.entity';
 export * from './goods-recommend.entity';
 export * from './topic.entity';
 export * from './goods-topic.entity';
+export * from './support-conversation.entity';
+export * from './support-message.entity';
+export * from './support-auto-reply.entity';

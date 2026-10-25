@@ -32,6 +32,10 @@ export const DEFAULT_CONFIG: Record<string, { value: string; remark: string }> =
   'risk.device_max_account': { value: '3',    remark: '同设备最多绑定账号数' },
   'risk.new_user_days':      { value: '7',    remark: '新用户天数，内大额提现需人工审核' },
   'risk.new_user_amount':    { value: '500',  remark: '新用户大额提现阈值（元）' },
+  // 在线客服
+  'support.welcome':         { value: '您好，欢迎联系客服，请问有什么可以帮您？工作时间内我们会尽快回复～', remark: '客服欢迎语（首次进入会话时发送）' },
+  'support.fallback':        { value: '',     remark: '自动回复未命中时的兜底语；留空则不回复' },
+  'support.auto_reply':      { value: '1',    remark: '自动回复开关 1开 0关' },
 };
 
 @Injectable()

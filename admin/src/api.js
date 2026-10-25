@@ -113,6 +113,16 @@ export const api = {
   jtkOrders: (params) => http.get('/api/admin/jutuike/orders', { params }),
   jtkSync: (hours) => http.post('/api/admin/jutuike/sync', { hours }),
 
+  // 客服工作台
+  supportConversations: (params) => http.get('/api/admin/support/conversations', { params }),
+  supportDetail: (id) => http.get(`/api/admin/support/conversations/${id}`),
+  supportSend: (id, type, content) =>
+    http.post(`/api/admin/support/conversations/${id}/messages`, { type, content }),
+  supportRules: () => http.get('/api/admin/support/rules'),
+  supportRuleCreate: (data) => http.post('/api/admin/support/rules', data),
+  supportRuleUpdate: (id, data) => http.put(`/api/admin/support/rules/${id}`, data),
+  supportRuleRemove: (id) => http.delete(`/api/admin/support/rules/${id}`),
+
   // 上传
   uploadImage: (file) => {
     const fd = new FormData();

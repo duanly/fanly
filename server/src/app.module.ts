@@ -50,6 +50,10 @@ import { CurationService } from './modules/curation/curation.service';
 import { AutoTagService } from './modules/curation/auto-tag.service';
 import { CurationController } from './modules/curation/curation.controller';
 import { JobService } from './modules/job/job.service';
+import { SupportService } from './modules/support/support.service';
+import { SupportGateway } from './modules/support/support.gateway';
+import { SupportController } from './modules/support/support.controller';
+import { SupportAdminController } from './modules/support/support.admin.controller';
 
 const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'function');
 
@@ -103,12 +107,14 @@ const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'functi
     HomeController, HomeAdminController, RecommendController, CartController,
     OrderClaimController, OrderClaimAdminController, CoinController,
     JutuikeController,
+    SupportController, SupportAdminController,
   ],
   providers: [
     SysConfigService, AuthService, CaptchaService, OrderService, CommissionService,
     FundService, AgentService, CurationService, AuthzService, CompareService,
     HomeLinkService, RankingService, RecommendService, TopicService, AutoTagService,
     CartService, OrderClaimService, CoinService, JobService, JutuikeService,
+    SupportService, SupportGateway,
     { provide: APP_GUARD, useClass: JwtGuard },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
     { provide: APP_FILTER, useClass: AllExceptionFilter },

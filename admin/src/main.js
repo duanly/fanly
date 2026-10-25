@@ -16,6 +16,7 @@ const routes = [
   { path: '/agents', component: () => import('./views/Agents.vue') },
   { path: '/users', component: () => import('./views/Users.vue') },
   { path: '/realnames', component: () => import('./views/Realnames.vue') },
+  { path: '/support', component: () => import('./views/Support.vue') },
   { path: '/orders', component: () => import('./views/Orders.vue') },
   { path: '/jutuike', component: () => import('./views/JtkOrders.vue') },
   { path: '/claims', component: () => import('./views/Claims.vue') },

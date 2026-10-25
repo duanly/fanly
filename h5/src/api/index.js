@@ -151,6 +151,17 @@ export const api = {
   // 美团券包
   jtkMtCoupons: (params) => http.get('/api/jtk/mt/coupons', { params }),
   jtkMtCouponConvert: (actId) => http.post('/api/jtk/mt/coupon/convert', { actId }),
+
+  // 在线客服
+  supportUnread: () => http.get('/api/support/unread'),
+  supportConversation: () => http.get('/api/support/conversation'),
+  sendSupportMessage: (type, content) => http.post('/api/support/messages', { type, content }),
+  readSupport: () => http.post('/api/support/read'),
+  supportUpload: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return http.post('/api/support/upload', form);
+  },
 };
 
 // ───────── 管理后台（手机端） ─────────
@@ -240,6 +251,16 @@ export const adminApi = {
   // 聚推客订单
   jtkOrders: (params) => adminHttp.get('/api/admin/jutuike/orders', { params }),
   jtkSync: (hours) => adminHttp.post('/api/admin/jutuike/sync', { hours }),
+
+  // 客服工作台（H5 内嵌管理）
+  supportConversations: (params) => adminHttp.get('/api/admin/support/conversations', { params }),
+  supportDetail: (id) => adminHttp.get(`/api/admin/support/conversations/${id}`),
+  supportSend: (id, type, content) =>
+    adminHttp.post(`/api/admin/support/conversations/${id}/messages`, { type, content }),
+  supportRules: () => adminHttp.get('/api/admin/support/rules'),
+  supportRuleCreate: (data) => adminHttp.post('/api/admin/support/rules', data),
+  supportRuleUpdate: (id, data) => adminHttp.put(`/api/admin/support/rules/${id}`, data),
+  supportRuleRemove: (id) => adminHttp.delete(`/api/admin/support/rules/${id}`),
 };
 
 export default http;

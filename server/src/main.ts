@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { resolve } from 'path';
@@ -11,6 +12,8 @@ import { AdminUser } from './entities';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // Socket.IO 适配器：客服 IM 网关依赖它（rooms、handshake auth）
+  app.useWebSocketAdapter(new IoAdapter(app));
   app.enableCors({ origin: true, credentials: true });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
