@@ -36,14 +36,14 @@
         </div>
       </div>
 
-      <!-- Banner 轮播：Vant 原生测量，海报图作为 img 放在 banner-card 里 -->
+      <!-- Banner 轮播：渐变背景 + DOM 文字（海报内容直接画在卡片上） -->
       <van-swipe class="banner-swipe" :autoplay="banners.length > 1 ? 4000 : 0" indicator-color="rgba(255,255,255,0.5)">
         <van-swipe-item v-for="b in banners" :key="b.id || b.title" @click="openLink(b)">
-          <div class="banner-card" :class="{ 'banner-img': isImageBanner(b.image) }" :style="bannerBgStyle(b)">
-            <img v-if="isImageBanner(b.image)" :src="getBannerImageUrl(b.image)" class="banner-image" alt="" />
-            <div v-else class="bn-text">
+          <div class="banner-card" :style="{ background: b.image || b.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' }">
+            <div class="bn-text">
               <div class="bn-tag">{{ b.subtitle || '限时活动' }}</div>
               <div class="bn-title">{{ b.title }}</div>
+              <div v-if="b.desc" class="bn-desc">{{ b.desc }}</div>
               <div class="bn-btn">
                 <span>{{ bannerBtnText(b) }}</span>
                 <van-icon name="arrow" color="#fff" size="10" />
@@ -340,12 +340,32 @@ const RANKS = [
   { type: 'pick', name: '⭐️ 推荐榜', tip: '用户一人一票投出来的' },
 ];
 
-/** 后台没配 banner 时的兜底，不让首页开天窗 */
+/** 后台没配 banner 时的兜底，不让首页开天窗。渐变背景 + DOM 文字，内容直接画在卡片上 */
 const FALLBACK_BANNERS = [
-  { id: 'fb-1', title: '天天签到领金币', subtitle: '每日签到', image: 'url(/banners/checkin.svg?v=2)', url: '/checkin', internal: true, btnText: '立即签到' },
-  { id: 'fb-2', title: '吃喝玩乐都省钱', subtitle: '本地生活', image: 'url(/banners/local-life.svg?v=2)', url: '/local-life', internal: true, btnText: '立即抢购' },
-  { id: 'fb-3', title: '网购先查返利', subtitle: '购物返利', image: 'url(/banners/shopping.svg?v=2)', url: '/category/all', internal: true, btnText: '去逛逛' },
-  { id: 'fb-4', title: '躺赚佣金', subtitle: '邀请好友', image: 'url(/banners/invite.svg?v=2)', url: '/agent', internal: true, btnText: '立即邀请' },
+  {
+    id: 'fb-1', subtitle: '每日签到', title: '天天签到领金币',
+    desc: '连续签到 7 天 · 额外奖励翻倍 · 攒够直接提现',
+    image: 'linear-gradient(135deg,#ff9f43,#ee5a24)',
+    url: '/checkin', internal: true, btnText: '立即签到',
+  },
+  {
+    id: 'fb-2', subtitle: '本地生活', title: '吃喝玩乐都省钱',
+    desc: '外卖 · 奶茶 · 电影 · 酒店 最高省 30%',
+    image: 'linear-gradient(135deg,#7c4dff,#448aff)',
+    url: '/local-life', internal: true, btnText: '立即抢购',
+  },
+  {
+    id: 'fb-3', subtitle: '购物返利', title: '网购先查返利',
+    desc: '淘宝 · 京东 · 拼多多 · 唯品会 隐藏券 + 高额返利',
+    image: 'linear-gradient(135deg,#ff3b30,#af52de)',
+    url: '/category/all', internal: true, btnText: '去逛逛',
+  },
+  {
+    id: 'fb-4', subtitle: '邀请好友', title: '二级返利 躺赚佣金',
+    desc: '团队下单你赚钱 · 长期分成 永久有效',
+    image: 'linear-gradient(135deg,#ff4081,#d500f9)',
+    url: '/agent', internal: true, btnText: '立即邀请',
+  },
 ];
 
 const banners = ref(FALLBACK_BANNERS);
@@ -614,18 +634,6 @@ function bannerStyle(b) {
 function bannerBtnText(b) {
   if (b.btnText) return b.btnText;
   return '立即抢购';
-}
-function isImageBanner(img) {
-  return img && typeof img === 'string' && img.trim().startsWith('url(');
-}
-function getBannerImageUrl(img) {
-  if (!img) return '';
-  const m = img.match(/url\(['"]?(.*?)['"]?\)/);
-  return m ? m[1] : img;
-}
-function bannerBgStyle(b) {
-  if (isImageBanner(b.image)) return {};
-  return { background: b.image || b.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)' };
 }
 
 function goParse() {
@@ -985,21 +993,7 @@ onUnmounted(() => {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.08) 55%, transparent 100%);
-}
-.banner-card.banner-img::after {
-  display: none;
-}
-.banner-card.banner-img {
-  padding: 0;
-}
-.banner-image {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: fill;
-  display: block;
+  background: linear-gradient(90deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.06) 55%, transparent 100%);
 }
 .bn-text {
   position: relative;
@@ -1008,30 +1002,38 @@ onUnmounted(() => {
 }
 .bn-tag {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 3px 12px;
   background: rgba(255,255,255,0.25);
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   backdrop-filter: blur(4px);
 }
+/* 海报主标题：放大，撑起视觉中心 */
 .bn-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 27px;
+  font-weight: 800;
+  margin-top: 8px;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+/* 海报上的详细说明行 */
+.bn-desc {
   margin-top: 6px;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  font-size: 12px;
+  color: rgba(255,255,255,0.9);
 }
 .bn-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 10px;
-  padding: 4px 12px;
+  margin-top: 12px;
+  padding: 5px 16px;
   background: #fff;
   color: #ff4b3a;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 /* ========== 通用 section ========== */
