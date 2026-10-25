@@ -253,6 +253,11 @@ export const adminApi = {
   jtkSync: (hours) => adminHttp.post('/api/admin/jutuike/sync', { hours }),
 
   // 客服工作台（H5 内嵌管理）
+  adminUploadImage: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return adminHttp.post('/api/admin/upload/image', form);
+  },
   supportConversations: (params) => adminHttp.get('/api/admin/support/conversations', { params }),
   supportDetail: (id) => adminHttp.get(`/api/admin/support/conversations/${id}`),
   supportSend: (id, type, content) =>

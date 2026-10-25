@@ -49,6 +49,9 @@ const routes = [
   { path: '/madmin/users', component: () => import('./views/madmin/Users.vue'), meta: { admin: true } },
   { path: '/madmin/agents', component: () => import('./views/madmin/Agents.vue'), meta: { admin: true } },
   { path: '/madmin/withdraws', component: () => import('./views/madmin/Withdraws.vue'), meta: { admin: true } },
+  { path: '/madmin/support', component: () => import('./views/madmin/Support.vue'), meta: { admin: true } },
+  { path: '/madmin/support-rules', component: () => import('./views/madmin/SupportRules.vue'), meta: { admin: true } },
+  { path: '/madmin/support/:id', component: () => import('./views/madmin/SupportChat.vue'), meta: { admin: true } },
 ];
 
 const router = createRouter({

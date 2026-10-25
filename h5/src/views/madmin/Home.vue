@@ -75,6 +75,12 @@
           </div>
           <div class="grid-name">提现审核</div>
         </div>
+        <div class="grid-item" @click="$router.push('/madmin/support')">
+          <div class="grid-ico" style="background: linear-gradient(135deg,#43cea2,#185a9d)">
+            <van-icon name="service-o" />
+          </div>
+          <div class="grid-name">客服</div>
+        </div>
         <div class="grid-item" @click="onAutoTag">
           <div class="grid-ico" style="background: linear-gradient(135deg,#43e97b,#38f9d7)">
             <van-icon name="label-o" />
