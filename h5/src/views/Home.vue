@@ -825,17 +825,17 @@ onMounted(() => {
   } else {
     loadRank();
   }
-  // banner 宽度观察：异步替换 banner、横竖屏切换等布局变化后，立刻把真实宽度传回 van-swipe
-  nextTick(() => {
-    const el = bannerSwipeRef.value?.$el;
-    if (!el) return;
+  // banner 宽度：onMounted 时 ref 已绑定，先同步量一次（不等下一帧，避免首屏位移用错宽度），
+  // 再用 ResizeObserver 兜住异步替换 banner、横竖屏切换等布局变化
+  const el = bannerSwipeRef.value?.$el;
+  if (el) {
     bannerWidth.value = el.offsetWidth;
     bannerResizeObserver = new ResizeObserver(() => {
       const w = el.offsetWidth;
       if (w && w !== bannerWidth.value) bannerWidth.value = w;
     });
     bannerResizeObserver.observe(el);
-  });
+  }
 
   // 返回顶部按钮
   scrollHandler = onScroll;
@@ -986,6 +986,12 @@ onUnmounted(() => {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 14px rgba(255, 100, 50, 0.18);
+}
+/* item 宽度由 Vant 内联设置（= 精确 offsetWidth），位移也是同一个值。
+   只让相邻 item 重叠 1px，盖住 iOS 上可能出现的亚像素缝隙；
+   不能用 width:100%——item 的包含块是 4 张图总宽的 track，会被撑到 4 倍宽 */
+.banner-swipe :deep(.van-swipe-item) {
+  margin-right: -1px;
 }
 .banner-card {
   height: 192px;
