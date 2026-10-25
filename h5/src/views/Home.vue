@@ -1021,8 +1021,19 @@ onUnmounted(() => {
   flex-direction: column;
   justify-content: center;
 }
+/* flex 子项默认 stretch 会把标签/按钮拉成整行宽；保持内容宽度 */
+.bn-text.has-icons > * {
+  align-self: flex-start;
+}
 .bn-text.has-icons .bn-title {
   font-size: 24px;
+}
+/* 标签、按钮即使被拉宽，内部文字也要居中 */
+.bn-tag {
+  text-align: center;
+}
+.bn-btn {
+  justify-content: center;
 }
 
 /* 超大半透明 emoji 水印：在文字下层，从左侧透出来 */
