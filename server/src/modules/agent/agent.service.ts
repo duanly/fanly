@@ -240,6 +240,7 @@ export class AgentService implements OnModuleInit {
         { count: this.cfg.num('agent.l2.team_t1', 30), rate: this.cfg.num('agent.l2.rate_t1', 0.02) },
         { count: this.cfg.num('agent.l2.team_t2', 100), rate: this.cfg.num('agent.l2.rate_t2', 0.03) },
         { count: this.cfg.num('agent.l2.team_t3', 500), rate: this.cfg.num('agent.l2.rate_t3', 0.04) },
+        // 基础档 1% 不作为「下一档」展示目标——它本身就是兜底，首个可冲的目标是 30 人档
       ];
       const hit = l2Tiers.find((t) => teamSizeL2 < t.count);
       if (hit) l2Next = { needCount: hit.count, rate: hit.rate, gap: hit.count - teamSizeL2 };

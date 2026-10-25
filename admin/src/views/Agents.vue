@@ -105,13 +105,13 @@ const money = (v) => (+(v || 0)).toFixed(2);
 const LEVEL_RATES = { 1: '12% (白银)', 2: '15% (黄金)', 3: '20% (钻石)', 0: '0% (预备)' };
 function levelRateText(level) { return LEVEL_RATES[level] || '按等级模板'; }
 
-// 二级分成自动档：≥30人 2% / ≥100人 3% / ≥500人 4%，未达标 0%
+// 二级分成自动档：≥30人 2% / ≥100人 3% / ≥500人 4%，不足 30 人有 1% 基础档
 function l2AutoText(row) {
   const n = row.teamSizeL2 || 0;
   if (n >= 500) return `4% · ${n}人`;
   if (n >= 100) return `3% · ${n}人`;
   if (n >= 30) return `2% · ${n}人`;
-  return `0% · ${n}人`;
+  return `1% · ${n}人`;
 }
 
 async function load() {

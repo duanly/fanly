@@ -63,7 +63,8 @@ export class CommissionService {
     if (size >= this.cfg.num('agent.l2.team_t3', 500)) return this.cfg.num('agent.l2.rate_t3', 0.04);
     if (size >= this.cfg.num('agent.l2.team_t2', 100)) return this.cfg.num('agent.l2.rate_t2', 0.03);
     if (size >= this.cfg.num('agent.l2.team_t1', 30)) return this.cfg.num('agent.l2.rate_t1', 0.02);
-    return 0;
+    // 基础档：不到 30 人也有 1%，让二级介绍人始终有动力
+    return this.cfg.num('agent.l2.rate_base', 0.01);
   }
 
   /**
