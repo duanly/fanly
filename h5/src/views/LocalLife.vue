@@ -310,6 +310,11 @@ function initTabFromUrl() {
   if (tab && TABS.some((t) => t.key === tab)) {
     activeTab.value = tab;
   }
+  // 全部活动下的子分类（?tab=all&cat=coffee）
+  const cat = params.get('cat');
+  if (cat && ALL_CATS.some((c) => c.key === cat)) {
+    allCat.value = cat;
+  }
 }
 initTabFromUrl();
 

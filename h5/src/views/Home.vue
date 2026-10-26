@@ -95,7 +95,7 @@
                 v-for="e in pageItems"
                 :key="e.key"
                 class="ll-item"
-                @click="openLocalLife(e.tab)"
+                @click="openLocalLife(e)"
               >
                 <div class="ll-ico" :style="{ background: e.bg }">
                   {{ e.icon }}
@@ -582,12 +582,16 @@ const llPages = computed(() => {
   for (let i = 0; i < all.length; i += 5) pages.push(all.slice(i, i + 5));
   return pages.length ? pages : [[]];
 });
-function openLocalLife(tab) {
-  if (tab === 'more') {
+function openLocalLife(item) {
+  // 兼容 'more'（全部入口）；正常传整个宫格对象 { tab, key }
+  if (item === 'more') {
     location.hash = '#/local-life';
-  } else {
-    location.hash = `#/local-life?tab=${tab}`;
+    return;
   }
+  let hash = `#/local-life?tab=${item.tab}`;
+  // 「全部活动」下的具体品类（奶茶咖啡/酒店/打车等）定位到对应子分类
+  if (item.tab === 'all' && item.key) hash += `&cat=${item.key}`;
+  location.hash = hash;
 }
 
 // 品类宫格
@@ -985,12 +989,6 @@ onUnmounted(() => {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 14px rgba(255, 100, 50, 0.18);
-}
-/* item 宽度由 Vant 内联设置（= 精确 offsetWidth），位移也是同一个值。
-   只让相邻 item 重叠 1px，盖住 iOS 上可能出现的亚像素缝隙；
-   不能用 width:100%——item 的包含块是 4 张图总宽的 track，会被撑到 4 倍宽 */
-.banner-swipe :deep(.van-swipe-item) {
-  margin-right: -1px;
 }
 .banner-card {
   height: 192px;
