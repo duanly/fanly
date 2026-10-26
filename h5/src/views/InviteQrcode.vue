@@ -34,38 +34,42 @@
         </div>
       </div>
 
-      <!-- 升级进度 -->
+      <!-- 升级进度：按近90天已结算佣金（合规：只挂业绩不挂人头） -->
       <div class="section-card">
         <div class="sec-head">
-          <span class="sec-title">升级进度</span>
-          <span class="sec-count">{{ p?.inviteCount || 0 }} 人</span>
+          <span class="sec-title">近90天已结算佣金</span>
+          <span class="sec-count">¥{{ stats?.perf ?? 0 }}</span>
         </div>
         <div class="progress-bar">
           <div class="progress-fill" :style="{ width: progressPct + '%' }"></div>
         </div>
         <div class="progress-text">
-          <template v-if="p?.nextLevel">
-            距离 <b>{{ p.nextLevelName }}</b> 还差 {{ p.needForNext }} 人
+          <template v-if="stats?.levelRequest">
+            <template v-if="stats.levelRequest.type === 1">⏳ 等级升级审核中…</template>
+            <template v-else>⚠️ 等级调整审核中（宽限至 {{ fmtDate(stats.levelRequest.graceUntil) }}）</template>
+          </template>
+          <template v-else-if="stats?.nextLevel">
+            距离 <b>{{ levelNames[stats.nextLevel.needPerf] }}</b> 还差 ¥{{ stats.nextLevel.gap }} 已结算佣金
           </template>
           <template v-else>
             已达最高等级，继续加油！
           </template>
         </div>
         <div class="level-ladder">
-          <div class="ladder-item" :class="{ done: (p?.inviteCount ?? 0) >= 10 }">
+          <div class="ladder-item done">
             <span class="ladder-ico">🥈</span>
             <span class="ladder-name">白银</span>
-            <span class="ladder-num">10人</span>
+            <span class="ladder-num">已开通</span>
           </div>
-          <div class="ladder-item" :class="{ done: (p?.inviteCount ?? 0) >= 30 }">
+          <div class="ladder-item" :class="{ done: Number(stats?.perf ?? 0) >= 1000 }">
             <span class="ladder-ico">🥇</span>
             <span class="ladder-name">黄金</span>
-            <span class="ladder-num">30人</span>
+            <span class="ladder-num">¥1000</span>
           </div>
-          <div class="ladder-item" :class="{ done: (p?.inviteCount ?? 0) >= 100 }">
+          <div class="ladder-item" :class="{ done: Number(stats?.perf ?? 0) >= 5000 }">
             <span class="ladder-ico">💎</span>
             <span class="ladder-name">钻石</span>
-            <span class="ladder-num">100人</span>
+            <span class="ladder-num">¥5000</span>
           </div>
         </div>
       </div>
@@ -137,13 +141,20 @@ const qr = ref(null);
 const team = ref({ list: [], total: 0 });
 const stats = ref(null);
 
+// 下一档名称查表：needPerf → 名称
+const levelNames = { 1000: '黄金', 5000: '钻石' };
+function fmtDate(t) {
+  if (!t) return '';
+  const d = new Date(t);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// 进度：近90天佣金相对黄金门槛（¥1000）的占比，到黄金即满
 const progressPct = computed(() => {
-  const count = p.value?.inviteCount || 0;
-  // 到黄金为止的进度，超过了就显示 100%
-  if (count >= 100) return 100;
-  if (count >= 30) return 30 + ((count - 30) / 70) * 70;
-  if (count >= 10) return 10 + ((count - 10) / 20) * 20;
-  return (count / 10) * 10;
+  const perf = Number(stats.value?.perf ?? 0);
+  if (perf >= 1000) return 100;
+  return Math.min(100, (perf / 1000) * 100);
 });
 
 async function load() {
@@ -158,9 +169,8 @@ async function load() {
     qr.value = qrData;
     team.value = teamData;
 
-    if (profile.isAgent) {
-      try { stats.value = await api.agentStats(); } catch { /* ignore */ }
-    }
+    // 业绩数据人人可取（后端按近90天已结算佣金返回；未成为正式代理时为 0）
+    try { stats.value = await api.agentStats(); } catch { stats.value = null; }
   } finally {
     loading.value = false;
   }

@@ -372,8 +372,8 @@ const FALLBACK_BANNERS = [
     url: '/category/all', internal: true, btnText: '去逛逛',
   },
   {
-    id: 'fb-4', subtitle: '邀请好友', title: '二级返利 躺赚佣金',
-    desc: '团队下单你赚钱 · 长期分成 永久有效',
+    id: 'fb-4', subtitle: '邀请好友', title: '邀请好友一起做推广',
+    desc: '好友下单赚佣金 · 长期分成 永久有效',
     image: 'linear-gradient(135deg,#ff4081,#d500f9)',
     watermark: '👥', icons: ['👥', '🤝', '🪙'],
     url: '/agent', internal: true, btnText: '立即邀请',

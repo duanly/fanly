@@ -336,24 +336,16 @@ export class AuthService {
       ? await this.userRepo.countBy({ agentId: agent.id })
       : 0;
 
-    // 等级名称和升级进度
+    // 等级名称（升级进度走 /api/agent/stats 业绩接口，这里不再按邀请人数计算）
     const level = agent?.level ?? 0;
-    const silver = this.cfg.num('agent.upgrade.silver', 10);
-    const gold = this.cfg.num('agent.upgrade.gold', 30);
-    const diamond = this.cfg.num('agent.upgrade.diamond', 100);
     const levelNames = ['预备代理', '白银代理', '黄金代理', '钻石代理'];
 
     // 用户自购返利比例
     const userRebateRate = this.cfg.num('rebate.user_rate', 0.5);
-    // 代理分成比例（按等级，预备代理为 0）
+    // 代理分成比例（按当前等级，预备代理为 0）
     const agentRate = level >= 1
       ? (agent?.agentRate ? Number(agent.agentRate) : this.cfg.num(`rebate.agent_rate.${level}`, 0.12))
       : 0;
-    let nextLevel = null;
-    let needForNext = 0;
-    if (level === 0 && inviteCount < silver) { nextLevel = 1; needForNext = silver - inviteCount; }
-    else if (level === 1 && inviteCount < gold) { nextLevel = 2; needForNext = gold - inviteCount; }
-    else if (level === 2 && inviteCount < diamond) { nextLevel = 3; needForNext = diamond - inviteCount; }
 
     return {
       id: user.id, mobile: user.mobile.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2'),
@@ -367,9 +359,6 @@ export class AuthService {
       agentLevel: level,
       agentLevelName: levelNames[level] || '预备代理',
       agentStatus: agent?.status ?? 1,
-      nextLevel,
-      nextLevelName: nextLevel ? levelNames[nextLevel] : null,
-      needForNext,
       bindAgent,
       agentNeedPay: this.cfg.get('agent.need_pay') === '1',
       userRebateRate,

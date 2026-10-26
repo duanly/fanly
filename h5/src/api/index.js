@@ -259,6 +259,7 @@ export const adminApi = {
     return adminHttp.post('/api/admin/upload/image', form);
   },
   supportConversations: (params) => adminHttp.get('/api/admin/support/conversations', { params }),
+  supportUnreadTotal: () => adminHttp.get('/api/admin/support/unread-total'),
   supportDetail: (id) => adminHttp.get(`/api/admin/support/conversations/${id}`),
   supportSend: (id, type, content) =>
     adminHttp.post(`/api/admin/support/conversations/${id}/messages`, { type, content }),
@@ -266,6 +267,11 @@ export const adminApi = {
   supportRuleCreate: (data) => adminHttp.post('/api/admin/support/rules', data),
   supportRuleUpdate: (id, data) => adminHttp.put(`/api/admin/support/rules/${id}`, data),
   supportRuleRemove: (id) => adminHttp.delete(`/api/admin/support/rules/${id}`),
+
+  // 代理等级升降审核
+  levelRequests: (params) => adminHttp.get('/api/admin/agent-levels', { params }),
+  auditLevel: (id, pass, reason) =>
+    adminHttp.post(`/api/admin/agent-levels/${id}/audit`, { pass, reason }),
 };
 
 export default http;

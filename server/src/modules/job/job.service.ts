@@ -96,11 +96,15 @@ export class JobService {
     else this.logger.log('对账通过');
   }
 
-  /** 代理等级重算，每月 1 日 05:00 */
-  @Cron('0 0 5 1 * *')
-  async recalcAgentLevel() {
-    await this.agent.recalcLevels();
-    this.logger.log('代理等级已重算');
+  /**
+   * 代理等级每日扫描，04:30。
+   * 按近 90 天已结算业绩生成升降级待办（人工审核），并处理宽限期满的自动降级。
+   */
+  @Cron('0 30 4 * * *')
+  async scanAgentLevels() {
+    await this.agent.scanAllLevels();
+    await this.agent.processDowngradeGrace();
+    this.logger.log('代理等级扫描完成');
   }
 
   /**

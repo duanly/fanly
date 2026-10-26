@@ -54,6 +54,7 @@ import { SupportService } from './modules/support/support.service';
 import { SupportGateway } from './modules/support/support.gateway';
 import { SupportController } from './modules/support/support.controller';
 import { SupportAdminController } from './modules/support/support.admin.controller';
+import { AgentLevelAdminController } from './modules/agent/agent-level.admin.controller';
 
 const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'function');
 
@@ -107,7 +108,7 @@ const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'functi
     HomeController, HomeAdminController, RecommendController, CartController,
     OrderClaimController, OrderClaimAdminController, CoinController,
     JutuikeController,
-    SupportController, SupportAdminController,
+    SupportController, SupportAdminController, AgentLevelAdminController,
   ],
   providers: [
     SysConfigService, AuthService, CaptchaService, OrderService, CommissionService,

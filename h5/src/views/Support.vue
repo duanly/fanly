@@ -5,7 +5,10 @@
     <div ref="listRef" class="msg-list">
       <template v-for="(m, i) in messages" :key="m.id">
         <div v-if="showTime(m, i)" class="time-sep">{{ fmtTime(m.createdAt) }}</div>
-        <div class="msg-row" :class="isMine(m) ? 'mine' : 'theirs'">
+        <div v-if="m.senderType === 4" class="system-row">
+          <div class="system-bubble">🔔 {{ m.content }}</div>
+        </div>
+        <div v-else class="msg-row" :class="isMine(m) ? 'mine' : 'theirs'">
           <div v-if="!isMine(m)" class="avatar staff-avatar">🎧</div>
           <div class="bubble" :class="{ image: m.type === 2, fail: m._fail }">
             <img
@@ -191,6 +194,18 @@ onUnmounted(() => {
   font-size: 11px;
   color: #b0b3b8;
   margin: 10px 0;
+}
+/* 系统通知：居中、灰底，区别于人工/自动回复 */
+.system-row { text-align: center; margin: 12px 0; }
+.system-bubble {
+  display: inline-block;
+  max-width: 85%;
+  padding: 7px 14px;
+  font-size: 12px;
+  color: #8c8c8c;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  line-height: 1.6;
 }
 
 .msg-row {

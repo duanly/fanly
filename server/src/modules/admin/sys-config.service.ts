@@ -9,12 +9,16 @@ export const DEFAULT_CONFIG: Record<string, { value: string; remark: string }> =
   'rebate.agent_rate.1':     { value: '0.12', remark: '白银代理分成比例' },
   'rebate.agent_rate.2':     { value: '0.15', remark: '黄金代理分成比例' },
   'rebate.agent_rate.3':     { value: '0.20', remark: '钻石代理分成比例' },
-  // 二级分成：上级的上级也分一笔。比例明显低于一级，
-  // 三方加起来别超过 1，否则平台那份会变负数
-  'rebate.agent_rate_l2':    { value: '0.05', remark: '二级代理分成比例（所有等级统一 5%）' },
-  'agent.upgrade.silver':    { value: '10',   remark: '升级白银代理所需直属邀请人数' },
-  'agent.upgrade.gold':      { value: '30',   remark: '升级黄金代理所需直属邀请人数' },
-  'agent.upgrade.diamond':   { value: '100',  remark: '升级钻石代理所需直属邀请人数' },
+  // 业绩考核：等级与分成只挂钩真实成交业绩、不挂人头（合规要求）
+  'agent.perf.period_days':  { value: '90',   remark: '代理等级滚动考核周期（天）' },
+  'agent.perf.gold':         { value: '1000', remark: '黄金门槛：周期内团队已结算佣金（元）' },
+  'agent.perf.diamond':      { value: '5000', remark: '钻石门槛：周期内团队已结算佣金（元）' },
+  // 二级团队分成档：按周期内二级团队已结算佣金（不再按人数）
+  'agent.l2.perf_t1':        { value: '500',  remark: '二级分成 2% 门槛：二级团队已结算佣金（元）' },
+  'agent.l2.perf_t2':        { value: '2000', remark: '二级分成 3% 门槛（元）' },
+  'agent.l2.perf_t3':        { value: '8000', remark: '二级分成 4% 门槛（元）' },
+  'agent.downgrade.grace_days': { value: '15', remark: '降级宽限天数（期间人工确认或冲刺业绩保留等级）' },
+  'agent.audit.reject_cooldown': { value: '30', remark: '同一升级被驳回后冷却天数' },
   'agent.need_pay':          { value: '0',    remark: '代理是否需付费加盟 1是 0否' },
   'withdraw.min':            { value: '10',   remark: '最低提现金额（元）' },
   'withdraw.max':            { value: '800',  remark: '单笔提现上限（元）' },

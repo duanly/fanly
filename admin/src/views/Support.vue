@@ -55,10 +55,13 @@
                   v-for="m in current.messages"
                   :key="m.id"
                   class="chat-row"
-                  :class="m.senderType === 1 ? 'from-user' : 'from-staff'"
+                  :class="m.senderType === 4
+                    ? 'from-system'
+                    : (m.senderType === 1 ? 'from-user' : 'from-staff')"
                 >
-                  <div class="bubble" :class="{ image: m.type === 2, auto: m.senderType === 3 }">
+                  <div class="bubble" :class="{ image: m.type === 2, auto: m.senderType === 3, system: m.senderType === 4 }">
                     <div v-if="m.senderType === 3" class="auto-tag">自动回复</div>
+                    <div v-if="m.senderType === 4" class="auto-tag">🔔 系统通知</div>
                     <el-image
                       v-if="m.type === 2"
                       :src="m.content"
@@ -438,6 +441,14 @@ onUnmounted(() => {
   font-size: 10px;
   color: #909399;
   margin-bottom: 2px;
+}
+/* 系统通知：居中、浅灰底 */
+.chat-row.from-system { justify-content: center; }
+.bubble.system {
+  max-width: 75%;
+  background: #f4f4f5;
+  color: #8c8c8c;
+  text-align: left;
 }
 .bubble.image { padding: 3px; background: transparent; box-shadow: none; }
 .msg-img {

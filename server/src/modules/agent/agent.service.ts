@@ -3,12 +3,16 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as QRCode from 'qrcode';
-import { Agent, AgentStatus, CpsOrder, OrderStatus, User } from '@/entities';
+import {
+  Agent, AgentLevelRequest, AgentStatus, CpsOrder,
+  LevelRequestStatus, LevelRequestType, OrderStatus, User,
+} from '@/entities';
 import { CoinType } from '@/entities/coin-ledger.entity';
 import { genCode } from '@/common/code';
 import { CommissionService } from '../commission/commission.service';
 import { SysConfigService } from '../admin/sys-config.service';
 import { CoinService } from '../coin/coin.service';
+import { SupportService } from '../support/support.service';
 
 @Injectable()
 export class AgentService implements OnModuleInit {
@@ -18,10 +22,13 @@ export class AgentService implements OnModuleInit {
     @InjectRepository(Agent) private readonly agentRepo: Repository<Agent>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(CpsOrder) private readonly orderRepo: Repository<CpsOrder>,
+    @InjectRepository(AgentLevelRequest)
+    private readonly levelReqRepo: Repository<AgentLevelRequest>,
     private readonly commission: CommissionService,
     private readonly cfg: SysConfigService,
     private readonly config: ConfigService,
     private readonly coin: CoinService,
+    private readonly support: SupportService,
   ) {}
 
   /**
@@ -127,33 +134,217 @@ export class AgentService implements OnModuleInit {
     return this.userRepo.countBy({ agentId: agent.id });
   }
 
-  /**
-   * 检查是否升级。每次有新成员加入时调用。
-   * 只升不降，达到更高等级就升。
-   */
-  async checkAndUpgrade(agentId: number | null) {
-    if (!agentId) return null;
-    const agent = await this.agentRepo.findOneBy({ id: agentId });
-    if (!agent || agent.status !== AgentStatus.ACTIVE) return null;
-    // 手动设置等级的代理，自动升级不生效（手动优先级更高）
-    if (agent.manualLevel) return null;
+  // ───────── 业绩考核（合规：等级只挂钩真实成交，不挂人头） ─────────
 
-    const count = await this.userRepo.countBy({ agentId });
-    const silver = this.cfg.num('agent.upgrade.silver', 10);
-    const gold = this.cfg.num('agent.upgrade.gold', 30);
-    const diamond = this.cfg.num('agent.upgrade.diamond', 100);
+  /** 一级分成：自定义优先，否则按等级模板 */
+  private l1Rate(agent: Agent): number {
+    if (agent.agentRate) return Number(agent.agentRate);
+    return this.cfg.num(`rebate.agent_rate.${agent.level}`,
+      agent.level === 3 ? 0.2 : agent.level === 2 ? 0.15 : 0.12);
+  }
 
-    let targetLevel = agent.level;
-    if (count >= diamond) targetLevel = 3;
-    else if (count >= gold) targetLevel = 2;
-    else if (count >= silver) targetLevel = 1;
+  /** 考核窗口起点：近 N 天（默认 90） */
+  private perfSince(): Date {
+    return new Date(Date.now() - this.cfg.num('agent.perf.period_days', 90) * 86400000);
+  }
 
-    if (targetLevel > agent.level) {
-      agent.level = targetLevel;
-      await this.agentRepo.save(agent);
-      return agent;
+  /** 团队近窗口已结算佣金：CREDITED 状态、剔除退款/失效 */
+  private async teamSettledCommission(agentId: number, since: Date): Promise<number> {
+    const row = await this.orderRepo.createQueryBuilder('o')
+      .select('COALESCE(SUM(o.settleCommission), 0)', 'sum')
+      .where('o.agentId = :agentId', { agentId })
+      .andWhere('o.orderStatus = :s', { s: OrderStatus.CREDITED })
+      .andWhere('o.settleTime >= :since', { since })
+      .getRawOne();
+    return Number(row.sum);
+  }
+
+  /** 业绩 → 建议等级（白银是正式代理的基础级） */
+  private levelForPerf(perf: number): number {
+    if (perf >= this.cfg.num('agent.perf.diamond', 5000)) return 3;
+    if (perf >= this.cfg.num('agent.perf.gold', 1000)) return 2;
+    return 1;
+  }
+
+  /** 每日扫描所有正式代理；业绩与当前等级不符则生成一条待审 */
+  async scanAllLevels() {
+    const agents = await this.agentRepo.find({ where: { status: AgentStatus.ACTIVE } });
+    let created = 0;
+    for (const a of agents) {
+      try { if (await this.scanAgent(a)) created++; } catch (e: any) {
+        this.logger.error(`代理 ${a.id} 等级扫描失败: ${e.message}`);
+      }
     }
-    return null;
+    if (created) this.logger.log(`生成 ${created} 条等级审核待办`);
+  }
+
+  /** 单个代理扫描；返回是否新建待办 */
+  private async scanAgent(agent: Agent): Promise<boolean> {
+    if (agent.manualLevel) return false;  // 特批代理豁免
+    if (agent.level < 1) return false;   // 预备代理先申请转正
+    const since = this.perfSince();
+    const perf = await this.teamSettledCommission(agent.id, since);
+    const target = this.levelForPerf(perf);
+    if (target === agent.level) return false;
+
+    if (target > agent.level) {
+      const open = await this.levelReqRepo.findOne({
+        where: { agentId: agent.id, toLevel: target, status: LevelRequestStatus.PENDING },
+      });
+      if (open) return false;  // 同目标有待审，不重复
+      // 驳回冷却期内不重复生成
+      const cooldown = this.cfg.num('agent.audit.reject_cooldown', 30);
+      if (cooldown > 0) {
+        const rejected = await this.levelReqRepo.findOne({
+          where: { agentId: agent.id, toLevel: target, status: LevelRequestStatus.REJECTED },
+          order: { auditedAt: 'DESC' },
+        });
+        if (rejected?.auditedAt
+          && Date.now() - new Date(rejected.auditedAt).getTime() < cooldown * 86400000) {
+          return false;
+        }
+      }
+      await this.levelReqRepo.save(this.levelReqRepo.create({
+        agentId: agent.id, userId: agent.userId,
+        requestType: LevelRequestType.UPGRADE,
+        fromLevel: agent.level, toLevel: target,
+        perfSnapshot: String(perf),
+      }));
+      return true;
+    }
+
+    // target < level：降级，已有 open 待办则不重复
+    const openDown = await this.levelReqRepo.findOne({
+      where: {
+        agentId: agent.id, status: LevelRequestStatus.PENDING,
+        requestType: LevelRequestType.DOWNGRADE,
+      },
+    });
+    if (openDown) return false;
+
+    const graceDays = this.cfg.num('agent.downgrade.grace_days', 15);
+    const graceUntil = new Date(Date.now() + graceDays * 86400000);
+    await this.levelReqRepo.save(this.levelReqRepo.create({
+      agentId: agent.id, userId: agent.userId,
+      requestType: LevelRequestType.DOWNGRADE,
+      fromLevel: agent.level, toLevel: target,
+      perfSnapshot: String(perf),
+      graceUntil,
+    }));
+    // 宽限预警通知：让用户知道截止时间和业绩差额
+    try {
+      const curThreshold = agent.level === 3
+        ? this.cfg.num('agent.perf.diamond', 5000)
+        : this.cfg.num('agent.perf.gold', 1000);
+      const gap = Math.max(0, Math.ceil(curThreshold - perf));
+      const pad = (n: number) => String(n).padStart(2, '0');
+      await this.support.sendSystemNotice(agent.userId,
+        `⚠️【系统通知】您近 ${this.cfg.num('agent.perf.period_days', 90)} 天推广已结算佣金为 ¥${perf.toFixed(2)}，未达当前等级标准。${graceDays} 天宽限期内（截止 ${graceUntil.getFullYear()}-${pad(graceUntil.getMonth() + 1)}-${pad(graceUntil.getDate())}）再产生 ¥${gap} 已结算佣金即可保留等级。`);
+    } catch { /* 通知失败不阻塞 */ }
+    return true;
+  }
+
+  /** 宽限期满处理：业绩恢复 → 关闭待办；仍不达标 → 自动降级并通知 */
+  async processDowngradeGrace() {
+    const now = new Date();
+    const pending = await this.levelReqRepo.find({
+      where: { status: LevelRequestStatus.PENDING, requestType: LevelRequestType.DOWNGRADE },
+    });
+    for (const req of pending) {
+      if (!req.graceUntil || new Date(req.graceUntil) > now) continue;
+      try {
+        const agent = await this.agentRepo.findOneBy({ id: req.agentId });
+        if (!agent || agent.status !== AgentStatus.ACTIVE || agent.manualLevel) {
+          req.status = LevelRequestStatus.CANCELED;
+          await this.levelReqRepo.save(req);
+          continue;
+        }
+        const perf = await this.teamSettledCommission(agent.id, this.perfSince());
+        const target = this.levelForPerf(perf);
+        if (target >= agent.level) {
+          req.status = LevelRequestStatus.CANCELED;  // 业绩恢复
+          await this.levelReqRepo.save(req);
+          continue;
+        }
+        const finalLevel = Math.min(target, req.toLevel);
+        agent.level = finalLevel;
+        await this.agentRepo.save(agent);
+        req.toLevel = finalLevel;
+        req.status = LevelRequestStatus.APPROVED;
+        req.auditedAt = now;
+        req.rejectReason = '宽限期满自动降级';
+        await this.levelReqRepo.save(req);
+        await this.notifyLevelResult(agent, req);
+      } catch (e: any) {
+        this.logger.error(`降级待办 ${req.id} 处理失败: ${e.message}`);
+      }
+    }
+  }
+
+  /** 升降级生效后的客服通知（升级 🎉 / 降级说明） */
+  private async notifyLevelResult(agent: Agent, req: AgentLevelRequest) {
+    const names = ['', '白银', '黄金', '钻石'];
+    const ratePct = Math.round(this.l1Rate(agent) * 100);
+    const text = req.requestType === LevelRequestType.UPGRADE
+      ? `🎉【系统通知】恭喜您已升级为${names[agent.level]}代理！推广分成比例提升至 ${ratePct}%，继续加油～`
+      : `【系统通知】您近 ${this.cfg.num('agent.perf.period_days', 90)} 天推广业绩未达标准，等级已调整为${names[agent.level]}代理（分成比例 ${ratePct}%）。业绩重新达标后可再升级，加油～`;
+    await this.support.sendSystemNotice(agent.userId, text);
+  }
+
+  /** 升降级审核列表（含用户资料） */
+  async adminLevelList(q: { status?: number; type?: number; page: number; size: number }) {
+    const page = Math.max(q.page || 1, 1);
+    const size = Math.min(Math.max(q.size || 20, 5), 50);
+    const qb = this.levelReqRepo.createQueryBuilder('r')
+      .leftJoin('user', 'u', 'u.id = r.userId')
+      .select('r.id', 'id')
+      .addSelect('r.agentId', 'agentId')
+      .addSelect('r.userId', 'userId')
+      .addSelect('r.requestType', 'requestType')
+      .addSelect('r.fromLevel', 'fromLevel')
+      .addSelect('r.toLevel', 'toLevel')
+      .addSelect('r.perfSnapshot', 'perfSnapshot')
+      .addSelect('r.graceUntil', 'graceUntil')
+      .addSelect('r.status', 'status')
+      .addSelect('r.rejectReason', 'rejectReason')
+      .addSelect('r.createdAt', 'createdAt')
+      .addSelect('r.auditedAt', 'auditedAt')
+      .addSelect('u.nickname', 'nickname')
+      .addSelect('u.mobile', 'mobile');
+    if (q.status !== undefined) qb.andWhere('r.status = :s', { s: q.status });
+    if (q.type !== undefined) qb.andWhere('r.requestType = :t', { t: q.type });
+    qb.orderBy('r.id', 'DESC')
+      .offset((page - 1) * size)
+      .limit(size);
+    const [list, total] = await Promise.all([qb.getRawMany(), qb.getCount()]);
+    return { list, total, page, size };
+  }
+
+  /** 人工审核：通过（等级生效+通知）/ 驳回（不主动通知用户） */
+  async auditLevel(adminId: number, id: number, pass: boolean, reason: string) {
+    const req = await this.levelReqRepo.findOneBy({ id });
+    if (!req) throw new BadRequestException('审核记录不存在');
+    if (req.status !== LevelRequestStatus.PENDING) throw new BadRequestException('该记录已处理');
+    const agent = await this.agentRepo.findOneBy({ id: req.agentId });
+    if (!agent) throw new BadRequestException('代理不存在');
+
+    req.auditAdminId = adminId;
+    req.auditedAt = new Date();
+
+    if (!pass) {
+      req.status = LevelRequestStatus.REJECTED;
+      req.rejectReason = String(reason).slice(0, 255);
+      await this.levelReqRepo.save(req);
+      return { status: req.status };
+    }
+
+    agent.level = req.toLevel;
+    await this.agentRepo.save(agent);
+    req.status = LevelRequestStatus.APPROVED;
+    req.rejectReason = '';
+    await this.levelReqRepo.save(req);
+    try { await this.notifyLevelResult(agent, req); } catch { /* 通知失败不阻塞 */ }
+    return { status: req.status, level: agent.level };
   }
 
   /**
@@ -175,12 +366,7 @@ export class AgentService implements OnModuleInit {
         // 发奖励失败不影响注册流程
       }
     }
-    // 检查升级
-    try {
-      await this.checkAndUpgrade(inviterAgentId);
-    } catch {
-      // ignore
-    }
+    // 等级不再在拉新时触发：只按近周期真实业绩每日扫描
   }
 
   /** 专属二维码：内容 = H5 落地页 + 推广码 */
@@ -223,7 +409,7 @@ export class AgentService implements OnModuleInit {
     const agent = await this.agentRepo.findOneBy({ userId });
     if (!agent) throw new BadRequestException('你还不是代理');
     const teamSize = await this.userRepo.countBy({ agentId: agent.id });
-    // 二级团队：我发展的代理，他们各自带的人
+    // 二级团队：我发展的代理，他们各自带的人（人数仅展示，不挂钩收益）
     const subAgents = await this.agentRepo.findBy({ parentAgentId: agent.id });
     const teamSizeL2 = subAgents.length
       ? await this.userRepo.count({ where: subAgents.map((a) => ({ agentId: a.id })) })
@@ -233,51 +419,76 @@ export class AgentService implements OnModuleInit {
       start ? new Date(start) : undefined,
       end ? new Date(end) : undefined,
     );
-    // 下一档进度：手动配置的不给升级提示，已到最高档的为 null
+
+    const periodDays = this.cfg.num('agent.perf.period_days', 90);
+    const since = this.perfSince();
+    const perf = agent.level >= 1
+      ? await this.teamSettledCommission(agent.id, since) : 0;
+    const l2Perf = await this.commission.sumL2SettledCommission(agent.id, since);
+
+    // 待审记录（审核中/宽限中状态）
+    const pendingReq = await this.levelReqRepo.findOne({
+      where: { agentId: agent.id, status: LevelRequestStatus.PENDING },
+      order: { id: 'DESC' },
+    });
+    const levelRequest = pendingReq ? {
+      type: pendingReq.requestType,
+      fromLevel: pendingReq.fromLevel,
+      toLevel: pendingReq.toLevel,
+      graceUntil: pendingReq.graceUntil,
+    } : null;
+
+    // 一级下一档进度：无待审、非特批、非最高级时
+    let nextLevel = null;
+    if (!levelRequest && !agent.manualLevel && agent.level < 3) {
+      const need = agent.level === 1
+        ? this.cfg.num('agent.perf.gold', 1000)
+        : this.cfg.num('agent.perf.diamond', 5000);
+      if (perf < need) {
+        nextLevel = {
+          needPerf: need,
+          perf: Math.round(perf * 100) / 100,
+          gap: Math.max(0, Math.ceil(need - perf)),
+        };
+      }
+    }
+
+    // 二级下一档（手动配置二级比例时不提示）
     let l2Next = null;
     if (agent.agentRateL2 == null) {
       const l2Tiers = [
-        { count: this.cfg.num('agent.l2.team_t1', 30), rate: this.cfg.num('agent.l2.rate_t1', 0.02) },
-        { count: this.cfg.num('agent.l2.team_t2', 100), rate: this.cfg.num('agent.l2.rate_t2', 0.03) },
-        { count: this.cfg.num('agent.l2.team_t3', 500), rate: this.cfg.num('agent.l2.rate_t3', 0.04) },
-        // 基础档 1% 不作为「下一档」展示目标——它本身就是兜底，首个可冲的目标是 30 人档
+        { perf: this.cfg.num('agent.l2.perf_t1', 500), rate: 0.02 },
+        { perf: this.cfg.num('agent.l2.perf_t2', 2000), rate: 0.03 },
+        { perf: this.cfg.num('agent.l2.perf_t3', 8000), rate: 0.04 },
       ];
-      const hit = l2Tiers.find((t) => teamSizeL2 < t.count);
-      if (hit) l2Next = { needCount: hit.count, rate: hit.rate, gap: hit.count - teamSizeL2 };
+      const hit = l2Tiers.find((t) => l2Perf < t.perf);
+      if (hit) {
+        l2Next = {
+          needPerf: hit.perf, rate: hit.rate,
+          gap: Math.max(0, Math.ceil(hit.perf - l2Perf)),
+        };
+      }
     }
 
     return {
       agentCode: agent.agentCode,
       level: agent.level,
       levelName: ['预备代理', '白银代理', '黄金代理', '钻石代理'][agent.level],
-      rate: agent.agentRate ?? String(this.cfg.num(`rebate.agent_rate.${agent.level}`, agent.level === 3 ? 0.2 : agent.level === 2 ? 0.15 : 0.12)),
+      manualLevel: agent.manualLevel,
+      rate: String(this.l1Rate(agent)),
+      periodDays,
+      perf: Math.round(perf * 100) / 100,
+      l2Perf: Math.round(l2Perf * 100) / 100,
       teamSize,
       subAgentCount: subAgents.length,
       teamSizeL2,
       rateL2: String(await this.commission.l2RateForAgent(agent.id)),
       rateL2Manual: agent.agentRateL2 != null,
+      levelRequest,
+      nextLevel,
       l2Next,
       ...s,
     };
-  }
-
-  /** 月初重算等级：按上月有效订单数，连续两月不达标才降 */
-  async recalcLevels() {
-    const agents = await this.agentRepo.find({ where: { status: AgentStatus.ACTIVE } });
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const end = new Date(now.getFullYear(), now.getMonth(), 1);
-    const up2 = this.cfg.num('agent.upgrade.gold', 30);
-    const up3 = this.cfg.num('agent.upgrade.diamond', 100);
-
-    for (const a of agents) {
-      const count = await this.orderRepo.createQueryBuilder('o')
-        .where('o.agentId = :id AND o.orderTime >= :start AND o.orderTime < :end', { id: a.id, start, end })
-        .andWhere('o.orderStatus != :invalid', { invalid: OrderStatus.INVALID })
-        .getCount();
-      const target = count >= up3 ? 3 : count >= up2 ? 2 : 1;
-      if (target > a.level) { a.level = target; await this.agentRepo.save(a); }
-    }
   }
 
   // ---- 后台 ----

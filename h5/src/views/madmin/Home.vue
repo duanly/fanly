@@ -76,10 +76,17 @@
           <div class="grid-name">提现审核</div>
         </div>
         <div class="grid-item" @click="$router.push('/madmin/support')">
-          <div class="grid-ico" style="background: linear-gradient(135deg,#43cea2,#185a9d)">
+          <div class="grid-ico support-ico-wrap" style="background: linear-gradient(135deg,#43cea2,#185a9d)">
             <van-icon name="service-o" />
+            <span v-if="staffUnread" class="support-badge">{{ staffUnread > 99 ? '99+' : staffUnread }}</span>
           </div>
           <div class="grid-name">客服</div>
+        </div>
+        <div class="grid-item" @click="$router.push('/madmin/level-requests')">
+          <div class="grid-ico" style="background: linear-gradient(135deg,#ff6a88,#ff99ac)">
+            <van-icon name="medal-o" />
+          </div>
+          <div class="grid-name">等级审核</div>
         </div>
         <div class="grid-item" @click="onAutoTag">
           <div class="grid-ico" style="background: linear-gradient(135deg,#43e97b,#38f9d7)">
@@ -194,13 +201,24 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showConfirmDialog, showToast, showSuccessToast } from 'vant';
+import { io } from 'socket.io-client';
 import { adminApi } from '../../api';
 
 const router = useRouter();
 const active = ref(0);
+
+// 客服未读角标（用户消息即使已自动回复也计入）
+const staffUnread = ref(0);
+let supportSocket = null;
+async function refreshStaffUnread() {
+  try {
+    const r = await adminApi.supportUnreadTotal();
+    staffUnread.value = r.total || 0;
+  } catch { /* ignore */ }
+}
 const stats = reactive({ onShelf: 0, pending: 0, offShelf: 0 });
 const overview = reactive({
   orderTotal: 0,
@@ -353,6 +371,19 @@ async function onLogout() {
 onMounted(() => {
   loadStats();
   loadOverview();
+  refreshStaffUnread();
+  // 管理首页保持 socket 连接：新客服消息/已读变化实时更新角标
+  supportSocket = io({
+    auth: { token: localStorage.getItem('adminToken') },
+    transports: ['websocket', 'polling'],
+  });
+  supportSocket.on('support:message', refreshStaffUnread);
+  supportSocket.on('support:conversation', refreshStaffUnread);
+});
+
+onUnmounted(() => {
+  supportSocket?.disconnect();
+  supportSocket = null;
 });
 </script>
 
@@ -438,6 +469,25 @@ onMounted(() => {
   justify-content: center;
   color: #fff;
   font-size: 22px;
+  position: relative;
+}
+/* 客服未读角标：压在图标右上角 */
+.support-badge {
+  position: absolute;
+  top: -7px;
+  right: -11px;
+  min-width: 17px;
+  height: 17px;
+  line-height: 17px;
+  padding: 0 4px;
+  background: #f56c6c;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  border-radius: 9px;
+  border: 2px solid #fff;
+  box-sizing: content-box;
 }
 .grid-name {
   font-size: 12px;

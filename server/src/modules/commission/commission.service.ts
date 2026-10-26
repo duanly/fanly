@@ -23,6 +23,7 @@ export class CommissionService {
     @InjectRepository(CommissionDetail) private readonly detailRepo: Repository<CommissionDetail>,
     @InjectRepository(Agent) private readonly agentRepo: Repository<Agent>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(CpsOrder) private readonly orderRepo: Repository<CpsOrder>,
     private readonly ds: DataSource,
     private readonly cfg: SysConfigService,
     private readonly fund: FundService,
@@ -39,7 +40,21 @@ export class CommissionService {
     return this.cfg.num(`rebate.agent_rate.${agent.level}`, agent.level === 3 ? 0.2 : agent.level === 2 ? 0.15 : 0.12);
   }
 
-  /** 二级团队人数：我发展的代理，他们各自名下的用户总数（分档的依据） */
+  /** 二级团队近窗口已结算佣金：我发展的子代理名下的已结算订单 */
+  async sumL2SettledCommission(agentId: number, since: Date): Promise<number> {
+    const subAgents = await this.agentRepo.find({ where: { parentAgentId: agentId } });
+    if (!subAgents.length) return 0;
+    const ids = subAgents.map((a) => a.id);
+    const row = await this.orderRepo.createQueryBuilder('o')
+      .select('COALESCE(SUM(o.settleCommission), 0)', 'sum')
+      .where('o.agentId IN (:...ids)', { ids })
+      .andWhere('o.orderStatus = :s', { s: OrderStatus.CREDITED })
+      .andWhere('o.settleTime >= :since', { since })
+      .getRawOne();
+    return Number(row.sum);
+  }
+
+  /** 二级团队人数：我发展的代理，他们各自名下的用户总数（仅展示，不挂钩分成） */
   async countTeamSizeL2(agentId: number): Promise<number> {
     const subAgents = await this.agentRepo.find({ where: { parentAgentId: agentId } });
     if (!subAgents.length) return 0;
@@ -48,9 +63,9 @@ export class CommissionService {
 
   /**
    * 某代理作为二级受益人的有效分成比例：
-   * 手动配置优先（agentRateL2），否则按二级团队人数自动分档——
-   * ≥30人 2% / ≥100人 3% / ≥500人 4%，不到门槛 0%。
-   * 阈值与比例都能在系统参数里改。
+   * 手动配置优先（agentRateL2），否则按二级团队近 90 天已结算佣金自动分档——
+   * ≥500元 2% / ≥2000元 3% / ≥8000元 4%；无业绩为 1% 基础档。
+   * 阈值在系统参数里配置。
    */
   async l2RateForAgent(agentId: number): Promise<number> {
     const agent = await this.agentRepo.findOneBy({ id: agentId });
@@ -59,18 +74,20 @@ export class CommissionService {
       const manual = toNum(agent.agentRateL2);
       if (manual > 0) return manual;
     }
-    const size = await this.countTeamSizeL2(agentId);
-    if (size >= this.cfg.num('agent.l2.team_t3', 500)) return this.cfg.num('agent.l2.rate_t3', 0.04);
-    if (size >= this.cfg.num('agent.l2.team_t2', 100)) return this.cfg.num('agent.l2.rate_t2', 0.03);
-    if (size >= this.cfg.num('agent.l2.team_t1', 30)) return this.cfg.num('agent.l2.rate_t1', 0.02);
-    // 基础档：不到 30 人也有 1%，让二级介绍人始终有动力
-    return this.cfg.num('agent.l2.rate_base', 0.01);
+    const since = new Date(
+      Date.now() - this.cfg.num('agent.perf.period_days', 90) * 86400000,
+    );
+    const perf = await this.sumL2SettledCommission(agentId, since);
+    if (perf >= this.cfg.num('agent.l2.perf_t3', 8000)) return 0.04;
+    if (perf >= this.cfg.num('agent.l2.perf_t2', 2000)) return 0.03;
+    if (perf >= this.cfg.num('agent.l2.perf_t1', 500)) return 0.02;
+    // 基础档：只要有二级已结算业绩就有 1%
+    return 0.01;
   }
 
   /**
    * 二级分成：直属代理的上级也能分一笔。
-   * 县城熟人社会靠转介绍扩散，只给一级的话，介绍人没动力再去发展下线。
-   * 比例走上级代理自己的「手动配置或团队人数自动档」，不再是全局一个值。
+   * 比例走上级代理自己的「手动配置或二级团队业绩自动档」。
    */
   private async agentL2(agentId: number | null): Promise<{ id: number | null; rate: number }> {
     if (!agentId) return { id: null, rate: 0 };

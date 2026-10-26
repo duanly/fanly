@@ -19,38 +19,47 @@
           </div>
         </div>
 
-        <!-- 升级进度 -->
+        <!-- 升级进度：按近 90 天已结算佣金（合规：只挂业绩不挂人头） -->
         <div class="progress-wrap">
           <div class="p-head">
-            <span>升级进度</span>
-            <span class="p-count">{{ p?.inviteCount || 0 }} 人</span>
+            <span>近90天已结算佣金</span>
+            <span class="p-count">¥{{ s?.perf ?? 0 }}</span>
           </div>
           <div class="p-bar">
             <div class="p-fill" :style="{ width: progressPct + '%' }"></div>
           </div>
-          <div class="p-text">
-            <template v-if="p?.nextLevel">
-              距离 <b>{{ p.nextLevelName }}</b> 还差 {{ p.needForNext }} 人
+          <!-- 等级审核中状态 -->
+          <div v-if="s?.levelRequest" class="p-text">
+            <template v-if="s.levelRequest.type === 1">
+              ⏳ 升级「<b>{{ levelNames[s.levelRequest.toLevel] }}</b>」审核中…
+            </template>
+            <template v-else>
+              ⚠️ 等级调整审核中（宽限至 {{ fmtDate(s.levelRequest.graceUntil) }}，冲刺业绩可保留等级）
+            </template>
+          </div>
+          <div v-else class="p-text">
+            <template v-if="s?.nextLevel">
+              距离 <b>{{ levelNames[s.nextLevel.needPerf] }}</b> 还差 ¥{{ s.nextLevel.gap }} 已结算佣金
             </template>
             <template v-else>
               已达最高等级，继续加油！
             </template>
           </div>
           <div class="p-ladder">
-            <div class="li" :class="{ done: (p?.inviteCount ?? 0) >= 10 }">
+            <div class="li done">
               <span class="li-ico">🥈</span>
               <span class="li-name">白银</span>
-              <span class="li-num">10人</span>
+              <span class="li-num">已开通</span>
             </div>
-            <div class="li" :class="{ done: (p?.inviteCount ?? 0) >= 30 }">
+            <div class="li" :class="{ done: Number(s?.perf ?? 0) >= 1000 }">
               <span class="li-ico">🥇</span>
               <span class="li-name">黄金</span>
-              <span class="li-num">30人</span>
+              <span class="li-num">¥1000</span>
             </div>
-            <div class="li" :class="{ done: (p?.inviteCount ?? 0) >= 100 }">
+            <div class="li" :class="{ done: Number(s?.perf ?? 0) >= 5000 }">
               <span class="li-ico">💎</span>
               <span class="li-name">钻石</span>
-              <span class="li-num">100人</span>
+              <span class="li-num">¥5000</span>
             </div>
           </div>
         </div>
@@ -90,7 +99,7 @@
           <!-- 自动模式：显示下一档进度；手动模式：提示由管理员配置 -->
           <div v-if="s.rateL2Manual" class="l2-progress manual">分成比例由管理员单独配置</div>
           <div v-else-if="s.l2Next" class="l2-progress">
-            二级团队再带来 <b>{{ s.l2Next.gap }}</b> 人，分成提升到 <b>{{ displayRatePct(s.l2Next.rate) }}%</b>
+            二级团队再产生 <b>¥{{ s.l2Next.gap }}</b> 已结算佣金，分成提升到 <b>{{ displayRatePct(s.l2Next.rate) }}%</b>
           </div>
           <div v-else class="l2-progress">已达最高档，分成 <b>{{ displayRatePct(s.rateL2) }}%</b></div>
         </div>
@@ -114,10 +123,10 @@
         <div class="section-title">我的推广二维码</div>
       </template>
 
-      <!-- 非代理提示 -->
+      <!-- 非代理提示：升级路径只讲业绩 -->
       <div v-else class="upgrade-tip">
         <van-icon name="fire-o" size="20" color="#ff4b3a" />
-        <span>邀请满 10 位好友自动升级为白银代理，享 8% 团队分成</span>
+        <span>成为代理后按推广业绩升级：近 90 天已结算佣金满 ¥1000 升黄金、满 ¥5000 升钻石</span>
       </div>
 
       <!-- 推广二维码（所有用户都有） -->
@@ -171,12 +180,20 @@ const loading = ref(true);
 
 const money = (v) => (+(v || 0)).toFixed(2);
 
+// 下一档名称查表 + 日期格式化（业绩块/审核状态使用）
+const levelNames = { 1000: '黄金', 5000: '钻石' };
+function fmtDate(t) {
+  if (!t) return '';
+  const d = new Date(t);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// 进度：近90天已结算佣金相对黄金门槛（¥1000）占比，到黄金即满
 const progressPct = computed(() => {
-  const count = p.value?.inviteCount || 0;
-  if (count >= 100) return 100;
-  if (count >= 30) return 30 + ((count - 30) / 70) * 70;
-  if (count >= 10) return 10 + ((count - 10) / 20) * 20;
-  return (count / 10) * 10;
+  const perf = Number(s.value?.perf ?? 0);
+  if (perf >= 1000) return 100;
+  return Math.min(100, (perf / 1000) * 100);
 });
 
 async function copyLink() {
@@ -200,10 +217,8 @@ async function load() {
     qr.value = qrData;
     team.value = teamData;
 
-    // 只有代理才有业绩数据
-    if (profile.isAgent) {
-      try { s.value = await api.agentStats(); } catch { s.value = null; }
-    }
+    // 业绩数据人人可取：近90天已结算佣金（未成为正式代理时 perf=0）
+    try { s.value = await api.agentStats(); } catch { s.value = null; }
   } finally {
     loading.value = false;
   }

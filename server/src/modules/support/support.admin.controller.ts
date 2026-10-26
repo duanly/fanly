@@ -3,11 +3,11 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@/common/decorators';
-import { SupportAdminGuard } from './support.admin.guard';
+import { AdminGuard } from '@/common/admin.guard';
 import { SupportService } from './support.service';
 
 @ApiTags('客服工作台')
-@UseGuards(SupportAdminGuard)
+@UseGuards(AdminGuard)
 @Controller('api/admin/support')
 export class SupportAdminController {
   constructor(private readonly support: SupportService) {}
@@ -25,6 +25,10 @@ export class SupportAdminController {
       size: size ? +size : 20,
     });
   }
+
+  @Get('unread-total')
+  @ApiOperation({ summary: '客服未读总条数（入口角标）' })
+  unreadTotal() { return this.support.staffUnreadTotal(); }
 
   @Get('conversations/:id')
   @ApiOperation({ summary: '会话详情（打开即客服已读）' })

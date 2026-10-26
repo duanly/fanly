@@ -115,6 +115,7 @@ export const api = {
 
   // 客服工作台
   supportConversations: (params) => http.get('/api/admin/support/conversations', { params }),
+  supportUnreadTotal: () => http.get('/api/admin/support/unread-total'),
   supportDetail: (id) => http.get(`/api/admin/support/conversations/${id}`),
   supportSend: (id, type, content) =>
     http.post(`/api/admin/support/conversations/${id}/messages`, { type, content }),
@@ -122,6 +123,11 @@ export const api = {
   supportRuleCreate: (data) => http.post('/api/admin/support/rules', data),
   supportRuleUpdate: (id, data) => http.put(`/api/admin/support/rules/${id}`, data),
   supportRuleRemove: (id) => http.delete(`/api/admin/support/rules/${id}`),
+
+  // 代理等级升降审核
+  levelRequests: (params) => http.get('/api/admin/agent-levels', { params }),
+  auditLevel: (id, pass, reason) =>
+    http.post(`/api/admin/agent-levels/${id}/audit`, { pass, reason }),
 
   // 上传
   uploadImage: (file) => {

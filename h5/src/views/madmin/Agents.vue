@@ -183,9 +183,9 @@ function statusTagType(s) {
 
 const levelOptions = [
   { value: 0, name: '预备代理', icon: '🎯', rate: '0%' },
-  { value: 1, name: '白银代理', icon: '🥈', rate: '8%' },
-  { value: 2, name: '黄金代理', icon: '🥇', rate: '12%' },
-  { value: 3, name: '钻石代理', icon: '💎', rate: '18%' },
+  { value: 1, name: '白银代理', icon: '🥈', rate: '12%' },
+  { value: 2, name: '黄金代理', icon: '🥇', rate: '15%' },
+  { value: 3, name: '钻石代理', icon: '💎', rate: '20%' },
 ];
 
 function levelName(l) {

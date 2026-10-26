@@ -52,6 +52,7 @@ const routes = [
   { path: '/madmin/support', component: () => import('./views/madmin/Support.vue'), meta: { admin: true } },
   { path: '/madmin/support-rules', component: () => import('./views/madmin/SupportRules.vue'), meta: { admin: true } },
   { path: '/madmin/support/:id', component: () => import('./views/madmin/SupportChat.vue'), meta: { admin: true } },
+  { path: '/madmin/level-requests', component: () => import('./views/madmin/LevelRequests.vue'), meta: { admin: true } },
 ];
 
 const router = createRouter({

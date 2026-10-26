@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
-export enum SupportSender { USER = 1, STAFF = 2, AUTO = 3 }
+export enum SupportSender { USER = 1, STAFF = 2, AUTO = 3, SYSTEM = 4 }
 export enum SupportMsgType { TEXT = 1, IMAGE = 2 }
 
 @Entity('support_message')

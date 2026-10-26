@@ -181,6 +181,43 @@ export class SupportService {
     return { count: conv?.userUnread ?? 0 };
   }
 
+  /**
+   * 系统通知：自动建/复用客服会话，插入一条「系统通知」消息（代理升降级等官方通知的统一通道）。
+   * 用户未读 +1，实时推送；客服端会话里也看得到这条官方通知。
+   */
+  async sendSystemNotice(userId: number, text: string) {
+    const content = text.trim().slice(0, 1000);
+    if (!content) throw new BadRequestException('通知内容不能为空');
+
+    let conv = await this.convRepo.findOneBy({ userId });
+    if (!conv) conv = await this.convRepo.save(this.convRepo.create({ userId }));
+
+    const msg = await this.msgRepo.save(this.msgRepo.create({
+      conversationId: conv.id,
+      senderType: SupportSender.SYSTEM,
+      type: SupportMsgType.TEXT,
+      content,
+    }));
+    conv.lastMessage = content.slice(0, 255);
+    conv.lastMessageType = SupportMsgType.TEXT;
+    conv.lastMessageAt = msg.createdAt;
+    conv.userUnread += 1;
+    await this.convRepo.save(conv);
+
+    const payload = { message: this.msgJson(msg), conversation: this.convSummary(conv, null) };
+    this.gateway.emitToUser(userId, 'support:message', payload);
+    this.gateway.emitToStaff('support:message', payload);
+    return payload;
+  }
+
+  /** 客服未读总条数（入口角标用；一次 SUM 不拉列表） */
+  async staffUnreadTotal() {
+    const row = await this.convRepo.createQueryBuilder('c')
+      .select('COALESCE(SUM(c.staffUnread), 0)', 'total')
+      .getRawOne();
+    return { total: Number(row.total) };
+  }
+
   // ---- 客服端 ----
 
   /** 客服会话列表（含用户资料），按最后消息时间倒序 */

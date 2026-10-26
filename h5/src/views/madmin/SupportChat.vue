@@ -12,7 +12,10 @@
     <div ref="listRef" class="msg-list">
       <template v-for="(m, i) in messages" :key="m.id">
         <div v-if="showTime(m, i)" class="time-sep">{{ fmtTime(m.createdAt) }}</div>
-        <div class="msg-row" :class="m.senderType === 1 ? 'from-user' : 'from-staff'">
+        <div v-if="m.senderType === 4" class="system-row">
+          <div class="system-bubble">🔔 {{ m.content }}</div>
+        </div>
+        <div v-else class="msg-row" :class="m.senderType === 1 ? 'from-user' : 'from-staff'">
           <div class="bubble" :class="{ image: m.type === 2, auto: m.senderType === 3 }">
             <div v-if="m.senderType === 3" class="auto-tag">自动回复</div>
             <van-image
@@ -172,6 +175,17 @@ onUnmounted(() => {
   font-size: 11px;
   color: #b0b3b8;
   margin: 10px 0;
+}
+.system-row { text-align: center; margin: 12px 0; }
+.system-bubble {
+  display: inline-block;
+  max-width: 85%;
+  padding: 7px 14px;
+  font-size: 12px;
+  color: #8c8c8c;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  line-height: 1.6;
 }
 
 .msg-row { display: flex; margin-bottom: 14px; }
