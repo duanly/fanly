@@ -368,14 +368,14 @@ const FALLBACK_BANNERS = [
     id: 'fb-3', subtitle: '购物返利', title: '网购先查返利',
     desc: '淘宝 · 京东 · 拼多多 · 唯品会 隐藏券 + 高额返利',
     image: 'linear-gradient(135deg,#ff3b30,#af52de)',
-    watermark: '🛍️', icons: ['🛒', '🎫', '🏷️'],
+    watermark: '🛍️', icons: ['🛒', '🎫', '👗'],
     url: '/category/all', internal: true, btnText: '去逛逛',
   },
   {
     id: 'fb-4', subtitle: '邀请好友', title: '邀请好友一起做推广',
     desc: '好友下单赚佣金 · 长期分成 永久有效',
     image: 'linear-gradient(135deg,#ff4081,#d500f9)',
-    watermark: '👥', icons: ['👥', '🤝', '🪙'],
+    watermark: '🧑‍🤝‍🧑', icons: ['👯', '🤝', '🪙'],
     url: '/agent', internal: true, btnText: '立即邀请',
   },
 ];
