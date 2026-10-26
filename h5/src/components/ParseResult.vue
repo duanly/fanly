@@ -48,8 +48,8 @@
         <van-button plain round size="small" style="flex:1" @click="$router.push(`/goods/${g.platform}/${g.goodsId}`)">
           看详情
         </van-button>
-        <van-button round size="small" type="primary" color="#ff4b3a" style="flex:2" @click="$emit('open')">
-          领券购买
+        <van-button round size="small" type="primary" color="#ff4b3a" style="flex:2" @click="$router.push(`/goods/${g.platform}/${g.goodsId}`)">
+          查看商品购买
         </van-button>
       </div>
     </div>

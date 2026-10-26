@@ -20,6 +20,7 @@ export const DEFAULT_CONFIG: Record<string, { value: string; remark: string }> =
   'agent.downgrade.grace_days': { value: '15', remark: '降级宽限天数（期间人工确认或冲刺业绩保留等级）' },
   'agent.audit.reject_cooldown': { value: '30', remark: '同一升级被驳回后冷却天数' },
   'agent.need_pay':          { value: '0',    remark: '代理是否需付费加盟 1是 0否' },
+  'goods.convert_sort_weight': { value: '900', remark: '转链抓取商品的高推荐权重（越大越靠前）' },
   'withdraw.min':            { value: '10',   remark: '最低提现金额（元）' },
   'withdraw.max':            { value: '800',  remark: '单笔提现上限（元）' },
   'withdraw.fee_rate':       { value: '0',    remark: '提现手续费率，按金融通道实收设置' },

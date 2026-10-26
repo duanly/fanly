@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,11 +9,15 @@ import { Public } from '@/common/jwt.guard';
 import { CommissionService } from '../commission/commission.service';
 import { platformName } from '@/common/share-content';
 import { CurationService } from '../curation/curation.service';
+import { AutoTagService } from '../curation/auto-tag.service';
+import { SysConfigService } from '../admin/sys-config.service';
 import { AuthzService } from './authz.service';
 
 @ApiTags('选品与转链')
 @Controller('api')
 export class GoodsController {
+  private readonly logger = new Logger(GoodsController.name);
+
   constructor(
     private readonly cps: CpsService,
     private readonly commission: CommissionService,
@@ -21,6 +25,8 @@ export class GoodsController {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(CuratedGoods) private readonly curatedRepo: Repository<CuratedGoods>,
     private readonly curation: CurationService,
+    private readonly autoTag: AutoTagService,
+    private readonly cfg: SysConfigService,
     private readonly authz: AuthzService,
   ) {}
 
@@ -198,6 +204,16 @@ export class GoodsController {
     if (!goods) {
       // 认不出来也算正常结果，带上原因让前端直接展示，不要抛 500
       return { ok: false, platform, reason: reason || '没认出这个商品' };
+    }
+
+    // 抓到的商品直接放到平台：佣金>0 即 ON 上架 + 高推荐权重 + 「转链」标签；
+    // 已在池里的不降级。失败只记日志，不挡住本次转链结果展示
+    try {
+      const sortWeight = this.cfg.num('goods.convert_sort_weight', 900);
+      const row = await this.curation.addFromConvert(goods, sortWeight);
+      await this.autoTag.tagAsConvert(row.curatedId);
+    } catch (e: any) {
+      this.logger.warn(`转链商品入库失败: ${e.message}`);
     }
 
     const [withRebate] = await this.withRebate([goods], userId);

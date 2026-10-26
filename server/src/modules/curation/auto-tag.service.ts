@@ -179,6 +179,30 @@ export class AutoTagService implements OnModuleInit {
    * 给一件商品自动打标。
    * 返回实际新增的标签关联数。
    */
+  /**
+   * 打上「转链」运营标签：转链抓来的商品统一挂这个标签，便于筛选/推荐位识别。
+   * 标签固定 slug=convert、slot=hidden（只做标签，不占首页宫格），幂等。
+   * 返回是否新增关联。
+   */
+  async tagAsConvert(curatedId: number): Promise<number> {
+    let topic = await this.topicRepo.findOneBy({ slug: 'convert' });
+    if (!topic) {
+      topic = await this.topicRepo.save(this.topicRepo.create({
+        slug: 'convert',
+        name: '转链',
+        icon: '🔗',
+        slot: 'hidden',
+        type: 'operate',
+        sortWeight: 0,
+      }));
+      this.logger.log('已创建「转链」运营标签');
+    }
+    const exist = await this.relRepo.findOneBy({ curatedId, topicId: topic.id });
+    if (exist) return 0;
+    await this.relRepo.save(this.relRepo.create({ curatedId, topicId: topic.id }));
+    return 1;
+  }
+
   async tagOne(curatedId: number, title: string): Promise<number> {
     if (!curatedId || !title) return 0;
     const { categoryIds, matchedBrands } = this.matchFromTitle(title);

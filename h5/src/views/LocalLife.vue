@@ -484,6 +484,10 @@ async function onUnionClick(item) {
 
 // ─── 通用跳转逻辑 ───
 
+function isWechat() {
+  return /MicroMessenger/i.test(navigator.userAgent);
+}
+
 function handleConvertResult(r) {
   // 收集所有可用的跳转方式
   const options = {
@@ -498,13 +502,22 @@ function handleConvertResult(r) {
 
   h5Url.value = options.h5 || options.taobaoH5 || options.alipayH5 || '';
 
-  // 优先级 1：有 H5 直接跳
+  // 美团/饿了么等红包是微信小程序专属：聚推客返回的 h5 是微信内中转页，
+  // 在普通浏览器直接打开会报「不在微信里 / 缺少 user_id」。
+  // 有微信小程序码且当前不在微信时，弹码引导，不硬跳。
+  if (options.wechatQr && !isWechat()) {
+    qrCode.value = options.wechatQr;
+    showQrPopup.value = true;
+    return;
+  }
+
+  // 微信内 / 无微信码的普通活动：有 H5 直接跳
   if (options.h5) {
     window.location.href = options.h5;
     return;
   }
 
-  // 优先级 2：有淘宝/支付宝 H5 也直接跳
+  // 有淘宝/支付宝 H5 也直接跳
   if (options.taobaoH5) {
     window.location.href = options.taobaoH5;
     return;
@@ -514,7 +527,7 @@ function handleConvertResult(r) {
     return;
   }
 
-  // 优先级 3：展示二维码弹层（微信/淘宝/支付宝 哪个有显示哪个）
+  // 展示二维码弹层（微信/淘宝/支付宝 哪个有显示哪个）
   const qr = options.wechatQr || options.taobaoQr || options.alipayQr;
   if (qr) {
     qrCode.value = qr;

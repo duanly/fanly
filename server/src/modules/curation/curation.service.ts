@@ -713,6 +713,14 @@ export class CurationService {
     return result;
   }
 
+  /**
+   * 转链商品直接上架：用户粘贴链接抓到的商品，佣金>0 即 ON 上架、给高推荐权重。
+   * 已在池里的不降级（复用 upsert 保护逻辑）；返回入库行（含 curatedId）。
+   */
+  async addFromConvert(g: UnifiedGoods, sortWeight: number) {
+    return this.upsert(g, 'default', sortWeight, CuratedStatus.ON);
+  }
+
   /** 后台列表：不过滤状态，下架的也要看得见 */
   async list(q: { groupKey?: string; topicId?: number; status?: number; keyword?: string; page?: number; pageSize?: number }) {
     const page = Math.max(q.page ?? 1, 1);
