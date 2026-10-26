@@ -6,7 +6,7 @@
         <div class="ll-banner-title">
           <template v-if="activeTab === 'ele'">🍜 饿了么外卖</template>
           <template v-else-if="activeTab === 'mt'">🎫 美团券包</template>
-          <template v-else-if="activeTab === 'all'">{{ currentAllCat.icon }} {{ currentAllCat.name }}</template>
+          <template v-else-if="activeTab === 'all'"><AppIcon :name="currentAllCat.icon" :size="18" /> {{ currentAllCat.name }}</template>
         </div>
         <div class="ll-banner-sub">
           <template v-if="activeTab === 'ele'">天天领红包 · 每餐都能省</template>
@@ -113,7 +113,7 @@
           :class="{ active: allCat === c.key }"
           @click="onAllCatChange(c.key)"
         >
-          <span class="ac-ico">{{ c.icon }}</span>
+          <span class="ac-ico"><AppIcon :name="c.icon" :size="20" /></span>
           <span class="ac-name">{{ c.name }}</span>
         </div>
       </div>
@@ -189,6 +189,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import AppIcon from '../components/AppIcon.vue';
 import { api } from '../api';
 import { showToast } from 'vant';
 

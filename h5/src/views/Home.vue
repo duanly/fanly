@@ -98,7 +98,7 @@
                 @click="openLocalLife(e)"
               >
                 <div class="ll-ico" :style="{ background: e.bg }">
-                  {{ e.icon }}
+                  <AppIcon :name="e.icon" :size="26" />
                 </div>
                 <div class="ll-name">{{ e.name }}</div>
                 <div class="ll-tag">{{ e.tag }}</div>
@@ -146,8 +146,7 @@
                 @click="openCat(e)"
               >
                 <div class="cat-ico" :style="{ background: isImageUrl(e.icon) ? 'transparent' : e.bg }">
-                  <img v-if="isImageUrl(e.icon)" :src="e.icon" alt="" />
-                  <template v-else>{{ e.icon }}</template>
+                  <AppIcon :name="e.icon" :size="26" />
                 </div>
                 <div class="cat-name">{{ e.name }}</div>
               </div>
@@ -202,8 +201,7 @@
             @click="openLink(a)"
           >
             <div class="ac-ico" :style="{ background: isImageUrl(a.icon) ? 'transparent' : (a.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)') }">
-              <img v-if="isImageUrl(a.icon)" :src="a.icon" alt="" />
-              <template v-else>{{ a.icon || '🎁' }}</template>
+              <AppIcon :name="a.icon || '🎁'" :size="24" />
             </div>
             <div class="ac-info">
               <div class="ac-title">{{ a.title }}</div>
@@ -289,8 +287,7 @@
             @click="openLink(a); showAllActs = false"
           >
             <div class="aa-ico" :style="{ background: isImageUrl(a.icon) ? 'transparent' : (a.bg || gradientFromName(a.title)) }">
-              <img v-if="isImageUrl(a.icon)" :src="a.icon" alt="" />
-              <template v-else>{{ a.icon || '🎁' }}</template>
+              <AppIcon :name="a.icon || '🎁'" :size="26" />
             </div>
             <div class="aa-name">{{ a.title }}</div>
           </div>
@@ -334,6 +331,7 @@ import { api } from '../api';
 import { showToast } from 'vant';
 import GoodsCard from '../components/GoodsCard.vue';
 import BeianFooter from '../components/BeianFooter.vue';
+import AppIcon from '../components/AppIcon.vue';
 import { PLATFORMS as PLATS } from '../utils/platform';
 
 const router = useRouter();
@@ -1439,6 +1437,7 @@ onUnmounted(() => {
   justify-content: center;
   border-radius: 14px;
   font-size: 22px;
+  color: #fff;
   box-shadow: 0 4px 10px rgba(0,0,0,0.06);
   transition: transform 0.2s;
 }

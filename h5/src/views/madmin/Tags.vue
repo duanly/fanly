@@ -35,9 +35,8 @@
         class="tag-item"
         @click="goTag(t)"
       >
-        <div class="t-ico" :style="{ background: t.bg || gradientFromName(t.name) }">
-          <img v-if="isImageUrl(t.icon)" :src="t.icon" alt="" />
-          <template v-else>{{ t.icon || '🏷️' }}</template>
+        <div class="t-ico" :style="{ background: isImageUrl(t.icon) ? 'transparent' : (t.bg || gradientFromName(t.name)) }">
+          <AppIcon :name="t.icon || '🏷️'" :size="24" color="#fff" />
         </div>
         <div class="t-info">
           <div class="t-name">{{ t.name }}</div>
@@ -145,6 +144,7 @@ import { ref, computed, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { showToast, showConfirmDialog, showSuccessToast } from 'vant';
 import { adminApi } from '../../api';
+import AppIcon from '../../components/AppIcon.vue';
 
 const router = useRouter();
 

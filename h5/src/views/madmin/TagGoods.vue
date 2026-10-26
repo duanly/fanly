@@ -11,8 +11,8 @@
 
     <!-- 标签信息头 -->
     <div v-if="topic" class="tag-header">
-      <div class="th-ico" :style="{ background: topic.bg || gradientFromName(topic.name) }">
-        {{ topic.icon || '🏷️' }}
+      <div class="th-ico" :style="{ background: isImageUrl(topic.icon) ? 'transparent' : (topic.bg || gradientFromName(topic.name)) }">
+        <AppIcon :name="topic.icon || '🏷️'" :size="26" color="#fff" />
       </div>
       <div class="th-info">
         <div class="th-name">{{ topic.name }}</div>
@@ -70,6 +70,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { showToast, showConfirmDialog, showSuccessToast } from 'vant';
 import { adminApi } from '../../api';
+import AppIcon from '../../components/AppIcon.vue';
 
 const route = useRoute();
 const router = useRouter();

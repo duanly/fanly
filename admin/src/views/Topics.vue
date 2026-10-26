@@ -21,8 +21,7 @@
       <el-table-column label="图标" width="60" align="center">
         <template #default="{ row }">
           <span :style="{ background: isImageUrl(row.icon) ? 'transparent' : (row.bg || '#eee') }" class="ico">
-            <img v-if="isImageUrl(row.icon)" :src="row.icon" alt="" />
-            <template v-else>{{ row.icon || '📦' }}</template>
+            <AppIcon :name="row.icon || '📦'" :size="22" />
           </span>
         </template>
       </el-table-column>
@@ -128,19 +127,20 @@
               class="icon-preview"
               :style="{ background: isImageUrl(form.icon) ? 'transparent' : (form.bg || '#eee') }"
             >
-              <img v-if="isImageUrl(form.icon)" :src="form.icon" alt="" />
-              <template v-else>{{ form.icon || '📦' }}</template>
+              <AppIcon :name="form.icon || '📦'" :size="36" />
             </div>
             <div class="icon-edit-right">
-              <el-input v-model="form.icon" style="width:220px" placeholder="emoji 或图片 URL，比如 🍼 或 /uploads/xxx.png" />
-              <el-button
-                size="small"
-                type="primary"
-                plain
-                :loading="uploadingIcon"
-                style="margin-left:8px"
-                @click="$refs.iconFileInput?.click()"
-              >上传图片</el-button>
+              <el-input v-model="form.icon" style="width:220px" placeholder="图标库 / emoji / 图片URL" />
+              <div style="margin-left:8px;display:flex;gap:6px">
+                <el-button size="small" type="success" plain @click="iconPickerRef?.open()">图标库</el-button>
+                <el-button
+                  size="small"
+                  type="primary"
+                  plain
+                  :loading="uploadingIcon"
+                  @click="$refs.iconFileInput?.click()"
+                >上传图片</el-button>
+              </div>
               <input
                 ref="iconFileInput"
                 type="file"
@@ -148,7 +148,8 @@
                 style="display:none"
                 @change="onIconFileChange"
               />
-              <div class="tip">可以填 emoji，也可以上传图片（自动压缩到 128×128）或填图片 URL</div>
+              <div class="tip">可从图标库选、填 emoji、上传图片（自动压缩到 128×128）或填图片 URL</div>
+              <IconPicker ref="iconPickerRef" v-model="form.icon" />
             </div>
           </div>
         </el-form-item>
@@ -328,6 +329,8 @@
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../api';
+import AppIcon from '../components/AppIcon.vue';
+import IconPicker from '../components/IconPicker.vue';
 
 function isImageUrl(v) {
   return typeof v === 'string' && /^(https?:|\/)/.test(v);
@@ -353,6 +356,7 @@ const keywordText = ref('');
 const activeType = ref('');
 const uploadingIcon = ref(false);
 const iconFileInput = ref(null);
+const iconPickerRef = ref(null);
 
 async function onIconFileChange(e) {
   const file = e.target.files?.[0];
@@ -569,7 +573,7 @@ onMounted(load);
 .hint { color: #909399; font-size: 12px; }
 .ico {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; border-radius: 7px; font-size: 15px; overflow: hidden;
+  width: 28px; height: 28px; border-radius: 7px; font-size: 15px; color: #fff; overflow: hidden;
 }
 .ico img { width: 100%; height: 100%; object-fit: cover; }
 .tip { color: #909399; font-size: 12px; line-height: 1.5; margin-top: 3px; }

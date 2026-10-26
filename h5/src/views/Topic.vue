@@ -24,7 +24,7 @@
     </van-swipe>
 
     <div class="topic-head" :style="headStyle">
-      <div class="th-icon" v-if="topic.icon && !topic.cover && !banners.length">{{ topic.icon }}</div>
+      <div class="th-icon" v-if="topic.icon && !topic.cover && !banners.length"><AppIcon :name="topic.icon" :size="30" /></div>
       <div class="th-name">{{ topic.name }}</div>
       <div v-if="topic.intro" class="th-intro">{{ topic.intro }}</div>
 
@@ -122,6 +122,7 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { api } from '../api';
 import GoodsCard from '../components/GoodsCard.vue';
+import AppIcon from '../components/AppIcon.vue';
 import BeianFooter from '../components/BeianFooter.vue';
 
 const SORTS = [

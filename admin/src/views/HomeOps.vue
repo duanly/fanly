@@ -28,7 +28,7 @@
       <el-table :data="rows" v-loading="loading" size="small">
       <el-table-column label="图标" width="70">
         <template #default="{ row }">
-          <span style="font-size:22px">{{ row.icon }}</span>
+          <AppIcon :name="row.icon || '🎁'" :size="22" />
         </template>
       </el-table-column>
 
@@ -77,7 +77,12 @@
     <el-dialog v-model="visible" :title="form.id ? '编辑' : '新增'" width="480px">
       <el-form label-width="80px">
         <el-form-item label="图标">
-          <el-input v-model="form.icon" placeholder="一个 emoji，例如 🎁" style="width:120px" />
+          <div style="display:flex;align-items:center;gap:8px">
+            <AppIcon :name="form.icon || '🎁'" :size="26" />
+            <el-input v-model="form.icon" placeholder="图标库/emoji" style="width:130px" />
+            <el-button size="small" type="success" plain @click="iconPickerRef?.open()">图标库</el-button>
+          </div>
+          <IconPicker ref="iconPickerRef" v-model="form.icon" />
         </el-form-item>
         <el-form-item v-if="slot === 'banner' || slot === 'category'" label="背景">
           <el-input
@@ -126,6 +131,10 @@
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../api';
+import AppIcon from '../components/AppIcon.vue';
+import IconPicker from '../components/IconPicker.vue';
+
+const iconPickerRef = ref(null);
 
 const rows = ref([]);
 const loading = ref(false);
