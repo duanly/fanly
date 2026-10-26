@@ -89,6 +89,7 @@
         <div class="rate-label">推广分成</div>
       </div>
     </div>
+    <div class="rate-note">返利与分成均按联盟每笔订单实际结算到平台的佣金 × 对应比例计算，实际以结算为准。</div>
 
     <van-cell-group inset style="margin-bottom:12px">
       <van-cell title="联系客服" is-link icon="service-o" to="/support">
@@ -715,7 +716,7 @@ onUnmounted(() => {
   color: #e67700;
 }
 .rate-card {
-  margin: -18px 16px 12px;
+  margin: -18px 16px 0;
   background: #fff;
   border-radius: 12px;
   padding: 16px 0;
@@ -724,6 +725,13 @@ onUnmounted(() => {
   box-shadow: 0 2px 12px rgba(0,0,0,.06);
   position: relative;
   z-index: 1;
+}
+.rate-note {
+  margin: 8px 28px 12px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: #999;
+  text-align: center;
 }
 .rate-item {
   flex: 1;

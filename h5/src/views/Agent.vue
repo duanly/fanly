@@ -19,11 +19,10 @@
           </div>
         </div>
 
-        <!-- 升级进度：按近 90 天已结算佣金（合规：只挂业绩不挂人头） -->
+        <!-- 升级进度：纯进度条，只挂团队推广真实业绩（合规：不挂人头） -->
         <div class="progress-wrap">
           <div class="p-head">
-            <span>近90天已结算佣金</span>
-            <span class="p-count">¥{{ s?.perf ?? 0 }}</span>
+            <span>团队推广已结算佣金</span>
           </div>
           <div class="p-bar">
             <div class="p-fill" :style="{ width: progressPct + '%' }"></div>
@@ -39,7 +38,7 @@
           </div>
           <div v-else class="p-text">
             <template v-if="s?.nextLevel">
-              距离 <b>{{ levelNames[s.nextLevel.needPerf] }}</b> 还差 ¥{{ s.nextLevel.gap }} 已结算佣金
+              距离 <b>{{ levelNames[s.nextLevel.needPerf] }}</b> 还差 ¥{{ s.nextLevel.gap }} 团队推广已结算佣金
             </template>
             <template v-else>
               已达最高等级，继续加油！
@@ -62,6 +61,7 @@
               <span class="li-num">¥5000</span>
             </div>
           </div>
+          <div class="p-note">分成按每笔订单联盟实际结算到平台的佣金 × 你的分成比例计算；联盟结算时会扣除技术服务费等，实际入账以每笔结算为准。</div>
         </div>
       </div>
 
@@ -126,7 +126,7 @@
       <!-- 非代理提示：升级路径只讲业绩 -->
       <div v-else class="upgrade-tip">
         <van-icon name="fire-o" size="20" color="#ff4b3a" />
-        <span>成为代理后按推广业绩升级：近 90 天已结算佣金满 ¥1000 升黄金、满 ¥5000 升钻石</span>
+        <span>成为代理后按推广业绩升级：团队推广已结算佣金满 ¥1000 升黄金、满 ¥5000 升钻石</span>
       </div>
 
       <!-- 推广二维码（所有用户都有） -->
@@ -365,6 +365,14 @@ onMounted(load);
 }
 
 /* 二级团队卡 */
+/* 口径说明小字 */
+.p-note {
+  margin-top: 10px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .l2-card {
   background: linear-gradient(135deg, #4a3aff, #7b3ad5);
   color: #fff;

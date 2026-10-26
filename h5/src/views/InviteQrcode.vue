@@ -37,8 +37,7 @@
       <!-- 升级进度：按近90天已结算佣金（合规：只挂业绩不挂人头） -->
       <div class="section-card">
         <div class="sec-head">
-          <span class="sec-title">近90天已结算佣金</span>
-          <span class="sec-count">¥{{ stats?.perf ?? 0 }}</span>
+          <span class="sec-title">团队推广已结算佣金</span>
         </div>
         <div class="progress-bar">
           <div class="progress-fill" :style="{ width: progressPct + '%' }"></div>
@@ -49,7 +48,7 @@
             <template v-else>⚠️ 等级调整审核中（宽限至 {{ fmtDate(stats.levelRequest.graceUntil) }}）</template>
           </template>
           <template v-else-if="stats?.nextLevel">
-            距离 <b>{{ levelNames[stats.nextLevel.needPerf] }}</b> 还差 ¥{{ stats.nextLevel.gap }} 已结算佣金
+            距离 <b>{{ levelNames[stats.nextLevel.needPerf] }}</b> 还差 ¥{{ stats.nextLevel.gap }} 团队推广已结算佣金
           </template>
           <template v-else>
             已达最高等级，继续加油！
