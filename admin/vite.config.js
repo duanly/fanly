@@ -8,6 +8,9 @@ export default defineConfig({
   server: {
     host: true,
     port: 5174,
+    // 图标库在仓库根 icons/，位于本项目根之外，必须放行 Vite 的文件访问白名单，
+    // 否则 import.meta.glob 扫不到、后台图标选择器为空
+    fs: { allow: ['..'] },
     proxy: {
       '/api': { target: 'http://localhost:3000', changeOrigin: true },
       '/uploads': { target: 'http://localhost:3000', changeOrigin: true },

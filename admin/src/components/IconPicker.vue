@@ -8,36 +8,33 @@
   >
     <el-input
       v-model="kw"
-      placeholder="搜索图标名，如 coffee / 咖啡（按文件名）"
+      placeholder="搜索图标名，如 coffee"
       clearable
       :prefix-icon="Search"
       style="margin-bottom:14px"
     />
 
     <div class="ip-groups">
-      <div v-for="(names, group) in filteredGroups" :key="group" class="ip-group">
-        <div class="ip-group-name">{{ groupTitle(group) }}</div>
-        <div class="ip-grid">
-          <button
-            v-for="n in names"
-            :key="n"
-            type="button"
-            class="ip-cell"
-            :class="{ active: modelValue === 'icon:' + n }"
-            :title="n"
-            @click="pick(n)"
-          >
-            <AppIcon :name="'icon:' + n" :size="24" color="#333" />
-            <span class="ip-label">{{ n.split('/').pop() }}</span>
-          </button>
-        </div>
+      <div class="ip-grid">
+        <button
+          v-for="n in filteredNames"
+          :key="n"
+          type="button"
+          class="ip-cell"
+          :class="{ active: modelValue === 'icon:' + n }"
+          :title="n"
+          @click="pick(n)"
+        >
+          <AppIcon :name="'icon:' + n" :size="24" color="#333" />
+          <span class="ip-label">{{ n }}</span>
+        </button>
       </div>
 
-      <el-empty v-if="!Object.keys(filteredGroups).length" description="没有匹配的图标" :image-size="60" />
+      <el-empty v-if="!filteredNames.length" description="没有匹配的图标" :image-size="60" />
     </div>
 
     <template #footer>
-      <span class="ip-hint">图标来自共享 icons 目录，把 iconfont 下载的 SVG 放入对应文件夹后此处自动出现</span>
+      <span class="ip-hint">图标来自共享 icons 目录，把 iconfont 下载的 SVG 放进去后此处自动出现</span>
     </template>
   </el-dialog>
 </template>
@@ -46,7 +43,7 @@
 import { computed, ref } from 'vue';
 import { Search } from '@element-plus/icons-vue';
 import AppIcon from './AppIcon.vue';
-import { ICON_GROUPS } from './icon-lib';
+import { ICON_NAMES } from './icon-lib';
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -56,22 +53,9 @@ const emit = defineEmits(['update:modelValue']);
 const visible = ref(false);
 const kw = ref('');
 
-const GROUP_TITLES = {
-  'local-life': '本地生活',
-  common: '通用',
-  category: '电商品类',
-  other: '其他',
-};
-const groupTitle = (g) => GROUP_TITLES[g] || g;
-
-const filteredGroups = computed(() => {
+const filteredNames = computed(() => {
   const k = kw.value.trim().toLowerCase();
-  const out = {};
-  for (const [group, names] of Object.entries(ICON_GROUPS)) {
-    const hit = k ? names.filter((n) => n.toLowerCase().includes(k)) : names;
-    if (hit.length) out[group] = hit;
-  }
-  return out;
+  return k ? ICON_NAMES.filter((n) => n.toLowerCase().includes(k)) : ICON_NAMES;
 });
 
 function open() {
@@ -88,13 +72,6 @@ defineExpose({ open });
 
 <style scoped>
 .ip-groups { max-height: 60vh; overflow-y: auto; }
-.ip-group { margin-bottom: 18px; }
-.ip-group-name {
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
 .ip-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);

@@ -5,6 +5,8 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     host: true,
+    // 图标库在仓库根 icons/、位于本项目根之外，放行 Vite 文件白名单，否则 glob 扫不到
+    fs: { allow: ['..'] },
     port: 5173,
     proxy: {
       '/api': { target: 'http://localhost:3000', changeOrigin: true },
