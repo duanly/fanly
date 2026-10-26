@@ -4,7 +4,7 @@
  * 数据库存储格式：icon:coffee；本模块只负责 name → svg 的映射。
  */
 
-const modules = import.meta.glob('../../../icons/*.svg', {
+const modules = import.meta.glob('/@icons/*.svg', {
   query: '?raw',
   import: 'default',
   eager: true,
