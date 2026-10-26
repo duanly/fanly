@@ -490,8 +490,10 @@ function isWechat() {
 
 function handleConvertResult(r) {
   // 收集所有可用的跳转方式
+  // 优先用 longH5：短链（kurl05.cn 等）在非微信/部分环境跳转时会丢掉 user_id，
+  // 报「缺少 user_id 参数」；长链自带完整签名跟单参数，最稳
   const options = {
-    h5: r.h5 || r.shortH5 || r.longH5 || r.jump_url || r.url || '',
+    h5: r.longH5 || r.h5 || r.shortH5 || r.jump_url || r.url || '',
     taobaoH5: r.taobaoH5 || r.taobaoInfo?.h5Url || '',
     alipayH5: r.alipayH5 || r.alipayInfo?.h5Url || '',
     wechatQr: r.weAppInfo?.miniCode || r.we_app_info?.mini_code || '',
