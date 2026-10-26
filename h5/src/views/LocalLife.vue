@@ -6,7 +6,7 @@
         <div class="ll-banner-title">
           <template v-if="activeTab === 'ele'">🍜 饿了么外卖</template>
           <template v-else-if="activeTab === 'mt'">🎫 美团券包</template>
-          <template v-else-if="activeTab === 'all'"><AppIcon :name="currentAllCat.icon" :size="18" /> {{ currentAllCat.name }}</template>
+          <template v-else-if="activeTab === 'all'"><AppIcon :name="currentAllCat.icon" :size="18" color="#fff" /> {{ currentAllCat.name }}</template>
         </div>
         <div class="ll-banner-sub">
           <template v-if="activeTab === 'ele'">天天领红包 · 每餐都能省</template>

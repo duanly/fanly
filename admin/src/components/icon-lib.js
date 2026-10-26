@@ -11,19 +11,11 @@ const modules = import.meta.glob('../../../icons/**/*.svg', {
   eager: true,
 });
 
-/** 单色化：固定 fill/stroke 色统一改成 currentColor，none/currentColor 保留 */
-function toMono(svg) {
-  return svg
-    .replace(/fill="([^"]*)"/gi, (_m, v) =>
-      (/^(none|currentColor)$/i.test(v) ? `fill="${v}"` : 'fill="currentColor"'))
-    .replace(/stroke="([^"]*)"/gi, (_m, v) =>
-      (/^(none|currentColor)$/i.test(v) ? `stroke="${v}"` : 'stroke="currentColor"'));
-}
-
+// SVG 保留原始颜色；需要变白/变色时由 AppIcon 传 color 局部覆盖
 export const ICON_MAP = {};
 for (const [path, raw] of Object.entries(modules)) {
   const name = path.replace(/^.*\/icons\//, '').replace(/\.svg$/, '');
-  ICON_MAP[name] = toMono(raw);
+  ICON_MAP[name] = raw;
 }
 
 export const ICON_NAMES = Object.keys(ICON_MAP).sort();

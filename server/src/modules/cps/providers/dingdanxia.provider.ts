@@ -326,23 +326,16 @@ export class DingdanxiaProvider implements CpsProvider {
     };
   }
 
+  /**
+   * 商品详情（刷新价格/佣金、转链页展示用）。
+   *
+   * 只用物料搜索接口，**不要调 id_privilege**——那是高佣「转链」接口，
+   * 给每次全量刷新都计一次转链调用量，池一大就把订单侠的转链配额刷爆；
+   * 且它对无券/非高佣商品大量报错，又触发一次搜索回退，一件商品打两次接口。
+   * id_privilege 只在 convertLink（用户真正购买转链）时调用。
+   */
   async getGoodsDetail(goodsId: string): Promise<UnifiedGoods | null> {
     if (!goodsId) return null;
-    // 优先用高佣转链接口（id_privilege），它返回的详情最完整
-    // 不需要 relation_id 也能调用（没有的话就只传 pid）
-    try {
-      const params: Record<string, any> = { id: goodsId };
-      if (this.opt.pid) params.pid = this.opt.pid;
-      if (this.opt.relationId) params.relation_id = this.opt.relationId;
-      const data = await this.call<any>('/tbk/id_privilege', params);
-      if (data && (data.item_id || data.itemInfo)) {
-        return this.mapPrivilegeDetail(data);
-      }
-    } catch (e: any) {
-      this.logger.debug(`淘宝详情(id_privilege)失败: ${e.message}`);
-    }
-
-    // 兜底：用超级搜索接口，把 item_id 当搜索词传进去
     const data = await this.call<any>('/tbk/super_search_material', {
       q: goodsId,
       page_no: 1,
@@ -352,56 +345,6 @@ export class DingdanxiaProvider implements CpsProvider {
     const hit = list.find((r: any) => String(r.item_id ?? r.goods_id ?? r.id) === goodsId)
       ?? list[0];
     return hit ? this.mapGoods(hit) : null;
-  }
-
-  /**
-   * 把 id_privilege 接口返回的详情数据映射成统一格式。
-   * 这个接口返回的字段跟物料精选不一样：
-   * - 顶层有 item_id、max_commission_rate、coupon、item_url 等
-   * - 商品详情在 itemInfo 里（title、pict_url、volume、zk_final_price、qh_final_price 等）
-   */
-  private mapPrivilegeDetail(data: any): UnifiedGoods {
-    const info = data?.itemInfo ?? {};
-    const price = Number(info.zk_final_price ?? data.zk_final_price ?? info.reserve_price ?? 0);
-    const couponAmount = Number(data.coupon ?? data.coupon_amount ?? 0);
-    const couponPrice = Number(info.qh_final_price ?? data.qh_final_price ?? 0)
-      || Math.max(price - couponAmount, 0);
-    const rate = Number(data.max_commission_rate ?? info.commission_rate ?? 0) / 100;
-    const commission = Number(info.qh_final_commission ?? data.commission_amount ?? 0)
-      || round2(couponPrice * rate);
-
-    const rawImg = info.pict_url ?? data.pict_url ?? '';
-    const image = rawImg && rawImg.startsWith('//') ? `https:${rawImg}` : rawImg;
-
-    // 多张图
-    const smallImgs = info.small_images ?? data.small_images ?? null;
-    let images: string[] = [];
-    if (smallImgs) {
-      if (Array.isArray(smallImgs)) {
-        images = smallImgs;
-      } else if (Array.isArray(smallImgs.string)) {
-        images = smallImgs.string;
-      } else if (typeof smallImgs === 'string') {
-        images = [smallImgs];
-      }
-    }
-    if (image && !images.includes(image)) images.unshift(image);
-    images = images.map((img) => (img && img.startsWith('//') ? `https:${img}` : img));
-
-    return {
-      platform: 'TB',
-      goodsId: String(data.item_id ?? info.item_id ?? ''),
-      title: info.title ?? data.title ?? '',
-      image,
-      images,
-      shopName: info.nick ?? info.shop_title ?? data.shop_title ?? '',
-      price: round2(price),
-      couponPrice: round2(couponPrice),
-      couponAmount: round2(couponAmount),
-      commissionRate: rate,
-      commission: round2(commission),
-      salesVolume: Number(info.volume ?? data.volume ?? 0),
-    };
   }
 
   /**

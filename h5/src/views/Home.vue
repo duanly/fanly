@@ -98,7 +98,7 @@
                 @click="openLocalLife(e)"
               >
                 <div class="ll-ico" :style="{ background: e.bg }">
-                  <AppIcon :name="e.icon" :size="26" />
+                  <AppIcon :name="e.icon" :size="26" color="#fff" />
                 </div>
                 <div class="ll-name">{{ e.name }}</div>
                 <div class="ll-tag">{{ e.tag }}</div>
@@ -146,7 +146,7 @@
                 @click="openCat(e)"
               >
                 <div class="cat-ico" :style="{ background: isImageUrl(e.icon) ? 'transparent' : e.bg }">
-                  <AppIcon :name="e.icon" :size="26" />
+                  <AppIcon :name="e.icon" :size="26" color="#fff" />
                 </div>
                 <div class="cat-name">{{ e.name }}</div>
               </div>
@@ -201,7 +201,7 @@
             @click="openLink(a)"
           >
             <div class="ac-ico" :style="{ background: isImageUrl(a.icon) ? 'transparent' : (a.bg || 'linear-gradient(135deg,#ff6b35,#f7931e)') }">
-              <AppIcon :name="a.icon || '🎁'" :size="24" />
+              <AppIcon :name="a.icon || '🎁'" :size="24" color="#fff" />
             </div>
             <div class="ac-info">
               <div class="ac-title">{{ a.title }}</div>
@@ -287,7 +287,7 @@
             @click="openLink(a); showAllActs = false"
           >
             <div class="aa-ico" :style="{ background: isImageUrl(a.icon) ? 'transparent' : (a.bg || gradientFromName(a.title)) }">
-              <AppIcon :name="a.icon || '🎁'" :size="26" />
+              <AppIcon :name="a.icon || '🎁'" :size="26" color="#fff" />
             </div>
             <div class="aa-name">{{ a.title }}</div>
           </div>
