@@ -1,12 +1,13 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { fileURLToPath } from 'node:url';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// 图标目录在仓库根 icons/，位于本项目根之外
-const ICONS_DIR = join(__dirname, '../icons');
+// 图标目录：本地 dev 读仓库根 ../icons；Docker 构建时 COPY 进项目内 ./icons
+const ICONS_DIR = [join(__dirname, 'icons'), join(__dirname, '../icons')]
+  .find((p) => existsSync(p)) || join(__dirname, '../icons');
 
 /**
  * 虚拟图标模块插件：用 Node fs 直接读 icons/*.svg，
