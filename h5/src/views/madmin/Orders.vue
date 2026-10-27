@@ -16,6 +16,7 @@
       <van-tab title="已结算" name="3" />
       <van-tab title="已入账" name="5" />
       <van-tab title="已失效" name="4" />
+      <van-tab title="未归属" name="unassigned" />
     </van-tabs>
 
     <div class="search-row">
@@ -104,8 +105,9 @@
       </div>
       <van-search
         v-model="assignKeyword"
-        placeholder="搜索用户手机号/昵称/邀请码"
+        placeholder="输入手机号/昵称/邀请码，自动搜索"
         shape="round"
+        @update:model-value="onAssignInput"
         @search="onAssignSearch"
       />
       <div style="max-height:calc(70vh - 110px);overflow-y:auto">
@@ -210,7 +212,8 @@ async function onLoad() {
       page: page.value,
       pageSize,
     };
-    if (status.value) params.status = status.value;
+    if (status.value === 'unassigned') params.unassigned = true;
+    else if (status.value) params.status = status.value;
     if (keyword.value.trim()) params.keyword = keyword.value.trim();
 
     const r = await adminApi.orders(params);
@@ -242,6 +245,13 @@ function openAssign(o) {
   assignList.value = [];
   assignSearched.value = false;
   showAssign.value = true;
+}
+
+// 输入自动搜索（防抖）
+let assignTimer = null;
+function onAssignInput() {
+  clearTimeout(assignTimer);
+  assignTimer = setTimeout(onAssignSearch, 350);
 }
 
 async function onAssignSearch() {

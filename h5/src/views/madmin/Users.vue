@@ -163,13 +163,52 @@
         </div>
       </div>
     </van-popup>
+
+    <!-- 指派订单弹层：默认列出未归属订单，也可粘贴订单号搜索 -->
+    <van-popup
+      v-model:show="showAssignOrder"
+      position="bottom"
+      round
+      :style="{ height: '78vh', padding: '16px 16px 0' }"
+    >
+      <div class="ao-head">
+        <div class="ao-title">指派订单{{ currentUser ? '给 ' + (currentUser.nickname || currentUser.mobile || '该用户') : '' }}</div>
+        <van-icon name="cross" size="20" @click="showAssignOrder = false" />
+      </div>
+      <van-search
+        v-model="assignOrderNo"
+        placeholder="粘贴或输入订单号搜索，留空显示未归属订单"
+        shape="round"
+        @update:model-value="onAssignOrderInput"
+        @search="searchOrdersForAssign"
+        @clear="loadUnassignedOrders"
+      />
+      <div class="ao-list">
+        <div v-if="assignLoading" class="ao-empty"><van-loading size="20px" /> 加载中...</div>
+        <van-empty v-else-if="!assignCandidates.length" description="没有可指派的订单" />
+        <div
+          v-for="o in assignCandidates"
+          :key="o.id"
+          class="ao-item"
+        >
+          <div class="ao-info">
+            <div class="ao-no">{{ o.platformOrderNo }}</div>
+            <div class="ao-meta">
+              {{ o.goodsTitle || '商品' }} · ¥{{ (+o.payAmount).toFixed(2) }}
+              <span v-if="!o.userId" class="ao-un">未归属</span>
+            </div>
+          </div>
+          <van-button size="mini" type="primary" plain round @click="doAssignOrder(o)">指派</van-button>
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { showToast, showDialog } from 'vant';
+import { showToast, showDialog, showConfirmDialog, showSuccessToast } from 'vant';
 import { adminApi } from '../../api';
 
 const router = useRouter();
@@ -253,35 +292,65 @@ function viewOrders(u) {
   router.push({ path: '/madmin/orders', query: { userId: u.id } });
 }
 
+// ---- 指派订单：弹层 + 未归属列表 + 订单号搜索 ----
+const showAssignOrder = ref(false);
+const assignOrderNo = ref('');
+const assignCandidates = ref([]);
+const assignLoading = ref(false);
+let assignSearchTimer = null;
+
 async function assignOrders(u) {
+  currentUser.value = u;
+  showDetail.value = false;
+  assignOrderNo.value = '';
+  assignCandidates.value = [];
+  showAssignOrder.value = true;
+  loadUnassignedOrders();
+}
+
+async function loadUnassignedOrders() {
+  assignLoading.value = true;
   try {
-    const result = await showDialog({
-      title: '指派订单给该用户',
-      message: '请输入订单号（平台订单号）',
-      showInput: true,
-      inputPlaceholder: '请输入订单号',
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      showCancelButton: true,
+    const r = await adminApi.orders({ unassigned: true, page: 1, pageSize: 30 });
+    assignCandidates.value = r.list || r || [];
+  } catch (e) {
+    showToast(e.message || '加载失败');
+  } finally {
+    assignLoading.value = false;
+  }
+}
+
+function onAssignOrderInput() {
+  clearTimeout(assignSearchTimer);
+  assignSearchTimer = setTimeout(searchOrdersForAssign, 350);
+}
+
+async function searchOrdersForAssign() {
+  const kw = assignOrderNo.value.trim();
+  if (!kw) { loadUnassignedOrders(); return; }
+  assignLoading.value = true;
+  try {
+    const r = await adminApi.orders({ keyword: kw, page: 1, pageSize: 30 });
+    assignCandidates.value = r.list || r || [];
+  } catch (e) {
+    showToast(e.message || '搜索失败');
+  } finally {
+    assignLoading.value = false;
+  }
+}
+
+async function doAssignOrder(o) {
+  try {
+    await showConfirmDialog({
+      title: '确认指派',
+      message: `将订单 ${o.platformOrderNo} 指派给 ${currentUser.value.nickname || currentUser.value.mobile}？`,
     });
-    const orderNo = (result?.value || result?.inputValue || '').trim();
-    if (!orderNo) return;
-    // 先搜索该订单，再指派
-    const r = await adminApi.orders({ keyword: orderNo, page: 1, pageSize: 10 });
-    const orders = r.list || r || [];
-    if (orders.length === 0) {
-      showToast('未找到该订单');
-      return;
-    }
-    const order = orders[0];
-    await adminApi.assignOrder(order.id, u.id);
-    showToast('指派成功');
-    showDetail.value = false;
+    await adminApi.assignOrder(o.id, currentUser.value.id);
+    showSuccessToast('指派成功');
+    showAssignOrder.value = false;
     reset();
   } catch (e) {
-    if (e !== 'cancel') {
-      showToast(e.message || '指派失败');
-    }
+    if (e !== 'cancel') showToast(e.message || '指派失败');
   }
 }
 
@@ -322,6 +391,46 @@ async function onResetPassword(u) {
   min-height: 100vh;
   background: #f5f6f8;
   padding-bottom: 60px;
+}
+
+/* 指派订单弹层 */
+.ao-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 10px;
+}
+.ao-title { font-size: 16px; font-weight: 600; }
+.ao-list {
+  max-height: calc(78vh - 110px);
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+.ao-empty { text-align: center; padding: 30px; color: #999; font-size: 13px; }
+.ao-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid #f5f5f5;
+}
+.ao-info { flex: 1; min-width: 0; }
+.ao-no { font-size: 13px; font-weight: 500; color: #1a1a1a; }
+.ao-meta {
+  font-size: 11px;
+  color: #999;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ao-un {
+  color: #fff;
+  background: #f56c6c;
+  border-radius: 3px;
+  padding: 0 5px;
+  margin-left: 6px;
+  font-size: 10px;
 }
 .search-row {
   padding: 8px 12px;
