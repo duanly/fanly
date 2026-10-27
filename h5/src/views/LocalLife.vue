@@ -722,7 +722,7 @@ function copyLink() {
 
 .ll-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
   gap: 10px;
   width: 100%;
   touch-action: manipulation;
@@ -730,28 +730,36 @@ function copyLink() {
 }
 
 .ll-card {
-  background: #fafafa;
+  display: flex;
+  align-items: stretch;
+  background: #fff;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 .ll-card:active {
-  transform: scale(0.98);
+  transform: scale(0.99);
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
-/* 图片区 */
+/* 图片区：固定尺寸横排在左，contain 完整显示不裁剪 */
 .llc-img {
   position: relative;
-  width: 100%;
-  aspect-ratio: 4 / 3;
+  flex: 0 0 116px;
+  width: 116px;
+  min-height: 96px;
   overflow: hidden;
   background: #f7f8fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .llc-img img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  padding: 6px;
+  box-sizing: border-box;
 }
 .llc-img-fallback {
   width: 100%;
@@ -759,30 +767,33 @@ function copyLink() {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40px;
+  font-size: 34px;
 }
 
-/* 内容区 */
+/* 内容区：右侧，垂直居中 */
 .llc-body {
-  padding: 8px 10px 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
   background: #fff;
-  border-radius: 0 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .llc-name {
-  font-size: 12px;
-  line-height: 1.4;
-  height: 34px;
-  color: #333;
+  font-size: 15px;
+  line-height: 1.35;
+  color: #1a1a1a;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-weight: 500;
+  font-weight: 600;
 }
 .llc-desc {
-  font-size: 11px;
+  font-size: 12px;
   color: #999;
-  margin-top: 4px;
+  margin-top: 3px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
