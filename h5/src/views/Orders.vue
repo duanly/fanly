@@ -31,7 +31,14 @@
           <div class="muted" style="margin-top:4px">
             {{ platformName(o.platform) }} · {{ fmt(o.orderTime) }}
           </div>
-          <div class="muted" style="font-size:11px">单号 {{ o.platformOrderNo }}</div>
+          <div
+            class="muted"
+            style="font-size:11px;display:inline-flex;align-items:center;gap:3px"
+            @click="copyOrderNo(o.platformOrderNo)"
+          >
+            单号 {{ o.platformOrderNo }}
+            <van-icon name="description" size="12" style="color:#969799" />
+          </div>
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px">
             <span class="muted">实付 ¥{{ (+o.payAmount).toFixed(2) }}</span>
             <span>
@@ -57,6 +64,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { showToast } from 'vant';
 import { api } from '../api';
 import NeedLogin from '../components/NeedLogin.vue';
 import { platName as platformName } from '../utils/platform';
@@ -67,6 +75,15 @@ const router = useRouter();
 function back() {
   if (window.history.length > 1) router.back();
   else router.replace('/');
+}
+
+async function copyOrderNo(no) {
+  try {
+    await navigator.clipboard.writeText(no);
+    showToast('订单号已复制');
+  } catch {
+    showToast(no);
+  }
 }
 
 const tabs = [

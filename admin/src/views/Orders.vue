@@ -15,6 +15,12 @@
           <el-option :value="5" label="已入账" />
           <el-option :value="4" label="已失效" />
         </el-select>
+        <el-switch
+          v-model="unassignedOnly"
+          active-text="仅未归属"
+          inline-prompt
+          @change="onFilterChange"
+        />
         <el-input
           v-model="agentKeyword"
           placeholder="搜索代理（推广码/姓名/昵称）"
@@ -124,15 +130,15 @@
 
       <el-input
         v-model="searchUserKw"
-        placeholder="搜索用户（手机号/昵称/邀请码）"
+        placeholder="粘贴/输入手机号、昵称或邀请码，自动搜索"
         clearable
+        @input="onSearchInput"
         @keyup.enter="searchUsers"
         @clear="userList = []"
-      >
-        <template #append>
-          <el-button :loading="userSearching" @click="searchUsers">搜索</el-button>
-        </template>
-      </el-input>
+      />
+      <div class="muted" style="font-size:12px;margin-top:6px;color:#909399">
+        输入后自动搜索，点选下方用户即可指派
+      </div>
 
       <div style="margin-top:12px;max-height:320px;overflow-y:auto;border:1px solid #ebeef5;border-radius:4px">
         <div
@@ -189,6 +195,7 @@ const data = ref({ list: [], total: 0 });
 const platform = ref('');
 const status = ref('');
 const agentKeyword = ref('');
+const unassignedOnly = ref(false);
 const page = ref(1);
 const loading = ref(false);
 const syncing = ref(false);
@@ -219,6 +226,7 @@ async function load() {
       platform: platform.value || undefined,
       status: status.value || undefined,
       agentKeyword: agentKeyword.value.trim() || undefined,
+      unassigned: unassignedOnly.value || undefined,
       page: page.value,
       pageSize: 20,
     });
@@ -278,9 +286,16 @@ function openAssign(row) {
   assignVisible.value = true;
 }
 
+// 输入即搜（防抖），粘贴手机号/昵称也能自动出结果
+let searchTimer = null;
+function onSearchInput() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(searchUsers, 350);
+}
+
 async function searchUsers() {
   const kw = searchUserKw.value.trim();
-  if (!kw) return;
+  if (!kw) { userList.value = []; return; }
   userSearching.value = true;
   try {
     const r = await api.users({ keyword: kw, page: 1, pageSize: 20 });

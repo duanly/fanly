@@ -81,6 +81,7 @@ export class AdminController {
       userId: q.userId ? +q.userId : undefined,
       keyword: q.keyword || undefined,
       agentKeyword: q.agentKeyword || undefined,
+      unassigned: q.unassigned === '1' || q.unassigned === 'true',
       page: q.page ? +q.page : 1, size: q.pageSize ? +q.pageSize : 20,
     });
   }

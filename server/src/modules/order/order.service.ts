@@ -202,7 +202,7 @@ export class OrderService {
   }
 
   /** 后台用：全量列表，带用户昵称/手机和代理信息 */
-  async listAll(q: { platform?: string; status?: number; agentId?: number; page?: number; size?: number; agentKeyword?: string; keyword?: string; userId?: number; brandId?: number }) {
+  async listAll(q: { platform?: string; status?: number; agentId?: number; page?: number; size?: number; agentKeyword?: string; keyword?: string; userId?: number; brandId?: number; unassigned?: boolean }) {
     const { page = 1, size = 20 } = q;
     const qb = this.orderRepo.createQueryBuilder('o')
       .leftJoin('user', 'u', 'u.id = o.userId')
@@ -218,6 +218,7 @@ export class OrderService {
     if (q.status) qb.andWhere('o.orderStatus = :status', { status: q.status });
     if (q.agentId) qb.andWhere('o.agentId = :agentId', { agentId: q.agentId });
     if (q.userId) qb.andWhere('o.userId = :userId', { userId: q.userId });
+    if (q.unassigned) qb.andWhere('o.userId IS NULL');
     if (q.brandId) {
       // rawJson 是 simple-json（TEXT 存 JSON 字符串），用 MySQL JSON_EXTRACT 提取 brand_id
       qb.andWhere("JSON_EXTRACT(o.rawJson, '$.brand_id') = :brandId", { brandId: q.brandId });
