@@ -185,13 +185,8 @@ function back() {
   else router.replace('/');
 }
 
-onMounted(async () => {
+onMounted(() => {
+  // 不主动读取剪贴板：用户自己长按粘贴，或点「读取剪贴板」按钮
   loadHistory();
-  // 进页面顺手看一眼剪贴板，命中就直接查，省一次点击
-  const t = await readClipboard();
-  if (t && looksLikeShare(t)) {
-    content.value = t;
-    doParse();
-  }
 });
 </script>
