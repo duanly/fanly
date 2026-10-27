@@ -29,6 +29,9 @@ export interface JtkActivity {
 export interface JtkConvertResult {
   h5: string;
   longH5: string;
+  shortH5: string;
+  /** App 唤起协议（飞猪/淘宝/支付宝 scheme），有则直接唤起，避免走 H5 中转页多次跳转 */
+  deeplink: string;
   weAppInfo: {
     appId: string;
     pagePath: string;
@@ -195,6 +198,8 @@ export class JutuikeProvider {
     return {
       h5: data.h5 || '',
       longH5: data.long_h5 || '',
+      shortH5: data.short_h5 || '',
+      deeplink: data.deeplink || data.deep_link || data.schema || data.scheme || '',
       actName: data.act_name || '',
       weAppInfo: weApp ? {
         appId: weApp.app_id || '',

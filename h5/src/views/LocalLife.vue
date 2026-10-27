@@ -497,11 +497,52 @@ function isWechat() {
   return /MicroMessenger/i.test(navigator.userAgent);
 }
 
+/**
+ * 尝试用 scheme 唤起外部 App，不刷新当前页。
+ * 隐藏 iframe 触发协议跳转；onFail 在「超时仍停留在本页」时调用（说明没装 App）。
+ * 页面一旦切走，visibilitychange 会取消回落定时器。
+ */
+function tryOpenApp(scheme, onFail) {
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    document.removeEventListener('visibilitychange', onVis);
+    if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+  };
+  const onVis = () => {
+    // 页面隐藏 = App 被拉起，取消回落
+    if (document.visibilityState === 'hidden') {
+      finish();
+    }
+  };
+
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'display:none;border:0;width:0;height:0;';
+  document.body.appendChild(iframe);
+  document.addEventListener('visibilitychange', onVis);
+
+  // iOS Safari 对 iframe scheme 支持不稳定，必要时直接 location 尝试（仍只触发一次跳转）
+  try {
+    iframe.src = scheme;
+  } catch (_) {
+    window.location.href = scheme;
+  }
+
+  setTimeout(() => {
+    if (!done) {
+      finish();
+      onFail();
+    }
+  }, 1600);
+}
+
 function handleConvertResult(r) {
   // 收集所有可用的跳转方式
   // 优先用 longH5：短链（kurl05.cn 等）在非微信/部分环境跳转时会丢掉 user_id，
   // 报「缺少 user_id 参数」；长链自带完整签名跟单参数，最稳
   const options = {
+    deeplink: r.deeplink || r.deepLink || '',
     h5: r.longH5 || r.h5 || r.shortH5 || r.jump_url || r.url || '',
     taobaoH5: r.taobaoH5 || r.taobaoInfo?.h5Url || '',
     alipayH5: r.alipayH5 || r.alipayInfo?.h5Url || '',
@@ -512,6 +553,22 @@ function handleConvertResult(r) {
   };
 
   h5Url.value = options.h5 || options.taobaoH5 || options.alipayH5 || '';
+
+  // 有 App 唤起协议：直接外部唤起 App（飞猪/淘宝），不先进 H5 中转页连环跳。
+  // 1.6s 内页面没切走 = 没装/被拦截，再回落 H5 或二维码引导。
+  if (options.deeplink) {
+    tryOpenApp(options.deeplink, () => {
+      if (options.h5) {
+        window.location.href = options.h5;
+      } else if (options.wechatQr && !isWechat()) {
+        qrCode.value = options.wechatQr;
+        showQrPopup.value = true;
+      } else {
+        showToast('未检测到对应 App，请先安装');
+      }
+    });
+    return;
+  }
 
   // 美团/饿了么等红包是微信小程序专属：聚推客返回的 h5 是微信内中转页，
   // 在普通浏览器直接打开会报「不在微信里 / 缺少 user_id」。
@@ -756,8 +813,9 @@ function copyLink() {
 .llc-img img {
   width: 100%;
   height: auto;
-  display: block;
+  max-height: 260px;
   object-fit: contain;
+  display: block;
 }
 .llc-img-fallback {
   width: 100%;
