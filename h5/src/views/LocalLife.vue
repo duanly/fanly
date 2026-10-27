@@ -34,9 +34,10 @@
     <div v-show="activeTab === 'ele'" class="ll-section">
       <div v-if="ele.list.length" class="ll-grid">
         <div
-          v-for="item in ele.list"
+          v-for="(item, ei) in ele.list"
           :key="'e-' + item.actId"
           class="ll-card"
+          :class="'c' + (ei % 5)"
           @click="onEleClick(item)"
         >
           <div class="llc-img">
@@ -70,9 +71,10 @@
     <div v-show="activeTab === 'mt'" class="ll-section">
       <div v-if="mt.list.length" class="ll-grid">
         <div
-          v-for="item in mt.list"
+          v-for="(item, mi) in mt.list"
           :key="'m-' + item.actId"
           class="ll-card"
+          :class="'c' + (mi % 5)"
           @click="onMtClick(item)"
         >
           <div class="llc-img">
@@ -121,9 +123,10 @@
       <div class="ll-section">
         <div v-if="filteredAllList.length" class="ll-grid">
           <div
-            v-for="item in filteredAllList"
+            v-for="(item, ai) in filteredAllList"
             :key="'a-' + item.actId"
             class="ll-card"
+            :class="'c' + (ai % 5)"
             @click="onUnionClick(item)"
           >
             <div class="llc-img">
@@ -730,8 +733,7 @@ function copyLink() {
 }
 
 .ll-card {
-  display: flex;
-  align-items: stretch;
+  display: block;
   background: #fff;
   border-radius: 12px;
   overflow: hidden;
@@ -742,12 +744,11 @@ function copyLink() {
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
-/* 图片区：固定尺寸横排在左，contain 完整显示不裁剪 */
+/* 图片区：占满整行宽度，高度按图片比例自适应、铺满不留白 */
 .llc-img {
   position: relative;
-  flex: 0 0 116px;
-  width: 116px;
-  min-height: 96px;
+  width: 100%;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
   background: #f7f8fa;
   display: flex;
@@ -757,9 +758,8 @@ function copyLink() {
 .llc-img img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  padding: 6px;
-  box-sizing: border-box;
+  object-fit: cover;
+  display: block;
 }
 .llc-img-fallback {
   width: 100%;
@@ -767,18 +767,13 @@ function copyLink() {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 34px;
+  font-size: 44px;
 }
 
-/* 内容区：右侧，垂直居中 */
+/* 内容区：图片下方，文字左对齐 */
 .llc-body {
-  flex: 1;
-  min-width: 0;
-  padding: 10px 12px;
+  padding: 10px 12px 12px;
   background: #fff;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
 }
 .llc-name {
   font-size: 15px;
@@ -799,20 +794,36 @@ function copyLink() {
   white-space: nowrap;
 }
 
-/* 底部按钮 */
+/* 底部按钮：居中 */
 .llc-foot {
-  margin-top: 8px;
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
 }
 .llc-btn {
   display: inline-block;
-  font-size: 11px;
+  font-size: 12px;
   color: #fff;
   background: linear-gradient(135deg, #ff9500, #ff6b35);
   border-radius: 999px;
-  padding: 3px 10px;
+  padding: 5px 22px;
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* 每张卡片淡淡的轮换底色（5 色循环，极浅，图片与文字区一体） */
+.ll-card.c0 { background: #fff7f3; }
+.ll-card.c1 { background: #f6f8ff; }
+.ll-card.c2 { background: #f4fbf7; }
+.ll-card.c3 { background: #fffdf3; }
+.ll-card.c4 { background: #fdf5fb; }
+/* 图片区同色，作为图片加载/留白时的兜底，比卡片底色再略深一点点 */
+.c0 .llc-img { background: #fbeae2; }
+.c1 .llc-img { background: #eef1fc; }
+.c2 .llc-img { background: #ebf7f0; }
+.c3 .llc-img { background: #faf5e2; }
+.c4 .llc-img { background: #faeef5; }
+.llc-body { background: transparent; }
 .ele-btn {
   background: linear-gradient(135deg, #00b43c, #00963a);
 }
