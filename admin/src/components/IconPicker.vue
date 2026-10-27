@@ -25,8 +25,7 @@
           :title="n"
           @click="pick(n)"
         >
-          <AppIcon :name="'icon:' + n" :size="24" color="#333" />
-          <span class="ip-label">{{ n }}</span>
+          <AppIcon :name="'icon:' + n" :size="26" />
         </button>
       </div>
 
@@ -79,10 +78,11 @@ defineExpose({ open });
 }
 .ip-cell {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 5px;
-  padding: 10px 4px 8px;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
   border: 1px solid #ebeef5;
   border-radius: 8px;
   background: #fff;
@@ -94,14 +94,6 @@ defineExpose({ open });
   border-color: #ff4b3a;
   background: #fff1ef;
   box-shadow: 0 0 0 1px #ff4b3a inset;
-}
-.ip-label {
-  font-size: 10px;
-  color: #999;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .ip-hint { color: #bbb; font-size: 12px; }
 </style>

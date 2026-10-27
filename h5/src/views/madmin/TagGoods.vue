@@ -12,7 +12,7 @@
     <!-- 标签信息头 -->
     <div v-if="topic" class="tag-header">
       <div class="th-ico" :style="{ background: isImageUrl(topic.icon) ? 'transparent' : (topic.bg || gradientFromName(topic.name)) }">
-        <AppIcon :name="topic.icon || '🏷️'" :size="26" color="#fff" />
+        <AppIcon :name="topic.icon || '🏷️'" :size="34" dot />
       </div>
       <div class="th-info">
         <div class="th-name">{{ topic.name }}</div>

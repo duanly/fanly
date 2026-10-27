@@ -36,7 +36,7 @@
         @click="goTag(t)"
       >
         <div class="t-ico" :style="{ background: isImageUrl(t.icon) ? 'transparent' : (t.bg || gradientFromName(t.name)) }">
-          <AppIcon :name="t.icon || '🏷️'" :size="24" color="#fff" />
+          <AppIcon :name="t.icon || '🏷️'" :size="32" dot />
         </div>
         <div class="t-info">
           <div class="t-name">{{ t.name }}</div>
@@ -89,7 +89,14 @@
           placeholder="留空自动生成，比如 baby-milk"
           :disabled="!!form.id"
         />
-        <van-field v-model="form.icon" label="图标" placeholder="emoji 或图片 URL" />
+        <van-field label="图标" is-link @click="iconPickerOpen = true">
+          <template #input>
+            <div class="icon-field">
+              <AppIcon :name="form.icon || '🏷️'" :size="24" />
+              <span class="icon-field-text">{{ form.icon ? '点击更换' : '点击选择' }}</span>
+            </div>
+          </template>
+        </van-field>
         <van-field v-model="form.bg" label="底色" placeholder="CSS 渐变或颜色，留空自动分配" />
         <van-field
           v-model="form.intro"
@@ -136,6 +143,32 @@
         <van-button type="primary" block :loading="saving" @click="save">保存</van-button>
       </div>
     </van-popup>
+    <!-- 图标库选择弹层 -->
+    <van-popup
+      v-model:show="iconPickerOpen"
+      position="bottom"
+      round
+      :style="{ height: '80%' }"
+    >
+      <div class="ipicker-head">
+        <span class="ipicker-title">选择图标</span>
+        <van-icon name="cross" size="20" @click="iconPickerOpen = false" />
+      </div>
+      <van-search v-model="iconKw" placeholder="搜索图标名" shape="round" />
+      <div class="ipicker-grid">
+        <div
+          v-for="n in filteredIconNames"
+          :key="n"
+          class="ipicker-cell"
+          :class="{ active: form.icon === 'icon:' + n }"
+          :title="n"
+          @click="pickIcon(n)"
+        >
+          <AppIcon :name="'icon:' + n" :size="28" />
+        </div>
+      </div>
+      <van-empty v-if="!filteredIconNames.length" description="没有匹配的图标" />
+    </van-popup>
   </div>
 </template>
 
@@ -145,6 +178,7 @@ import { useRouter } from 'vue-router';
 import { showToast, showConfirmDialog, showSuccessToast } from 'vant';
 import { adminApi } from '../../api';
 import AppIcon from '../../components/AppIcon.vue';
+import { ICON_NAMES } from '../../components/icon-lib';
 
 const router = useRouter();
 
@@ -192,6 +226,18 @@ const active = ref('tags');
 
 const editOpen = ref(false);
 const saving = ref(false);
+
+// 图标库选择
+const iconPickerOpen = ref(false);
+const iconKw = ref('');
+const filteredIconNames = computed(() => {
+  const k = iconKw.value.trim().toLowerCase();
+  return k ? ICON_NAMES.filter((n) => n.toLowerCase().includes(k)) : ICON_NAMES;
+});
+function pickIcon(n) {
+  form.icon = `icon:${n}`;
+  iconPickerOpen = false;
+}
 const form = reactive({ ...EMPTY });
 const keywordRulesText = ref('');
 
@@ -398,6 +444,45 @@ onMounted(load);
   font-size: 12px;
   color: #999;
   line-height: 1.5;
+}
+
+/* 图标选择字段 */
+.icon-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.icon-field-text { font-size: 13px; color: #999; }
+
+/* 图标库弹层 */
+.ipicker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eee;
+}
+.ipicker-title { font-size: 16px; font-weight: 600; }
+.ipicker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 12px 16px 20px;
+}
+.ipicker-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ebeef5;
+  border-radius: 10px;
+  background: #fff;
+}
+.ipicker-cell:active { background: #f7f8fa; }
+.ipicker-cell.active {
+  border-color: #ff4b3a;
+  background: #fff1ef;
+  box-shadow: 0 0 0 1px #ff4b3a inset;
 }
 .edit-footer {
   padding: 12px 16px;

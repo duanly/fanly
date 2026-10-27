@@ -21,7 +21,7 @@
       <el-table-column label="图标" width="60" align="center">
         <template #default="{ row }">
           <span :style="{ background: isImageUrl(row.icon) ? 'transparent' : (row.bg || '#eee') }" class="ico">
-            <AppIcon :name="row.icon || '📦'" :size="22" color="#fff" />
+            <AppIcon :name="row.icon || '📦'" :size="28" dot />
           </span>
         </template>
       </el-table-column>
@@ -127,7 +127,7 @@
               class="icon-preview"
               :style="{ background: isImageUrl(form.icon) ? 'transparent' : (form.bg || '#eee') }"
             >
-              <AppIcon :name="form.icon || '📦'" :size="36" color="#fff" />
+              <AppIcon :name="form.icon || '📦'" :size="36" dot />
             </div>
             <div class="icon-edit-right">
               <el-input v-model="form.icon" style="width:220px" placeholder="图标库 / emoji / 图片URL" />

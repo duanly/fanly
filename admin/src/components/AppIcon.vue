@@ -1,6 +1,6 @@
 <template>
   <!-- 统一图标渲染：icon:xxx 走共享 SVG 库；/ 或 http 走图片；其余当 emoji -->
-  <span class="app-icon" :style="boxStyle">
+  <span class="app-icon" :class="{ dot: !!dotProp }" :style="boxStyle">
     <img v-if="kind.type === 'img'" class="app-icon-img" :src="name" alt="" />
     <span
       v-else-if="kind.type === 'svg' && svgHtml"
@@ -19,7 +19,10 @@ const props = defineProps({
   name: { type: String, default: '' },
   size: { type: [Number, String], default: 24 },
   color: { type: String, default: '' },
+  /** 半透明白色圆形底托：彩色渐变底上衬托原色图标 */
+  dot: { type: Boolean, default: false },
 });
+const dotProp = computed(() => props.dot);
 
 const px = computed(() => (typeof props.size === 'number' ? `${props.size}px` : props.size));
 
@@ -51,6 +54,13 @@ const svgHtml = computed(() =>
   vertical-align: middle;
   flex: 0 0 auto;
 }
+.app-icon.dot {
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+}
+.app-icon.dot .app-icon-svg,
+.app-icon.dot .app-icon-img,
+.app-icon.dot .app-icon-emoji { width: 72%; height: 72%; font-size: 72%; }
 .app-icon-svg { display: inline-flex; width: 100%; height: 100%; }
 .app-icon-svg :deep(svg) { width: 100%; height: 100%; display: block; }
 /* SVG 始终保留文件内原始颜色，不用 CSS 覆盖 */

@@ -3,7 +3,7 @@
        icon:xxx  → 共享图标库 SVG（颜色随 color / 字号）
        / 或 http 开头 → 图片
        其他文本 → 当作 emoji 直接显示 -->
-  <span class="app-icon" :style="boxStyle">
+  <span class="app-icon" :class="{ dot: !!dotProp }" :style="boxStyle">
     <img v-if="kind.type === 'img'" class="app-icon-img" :src="name" alt="" />
     <span
       v-else-if="kind.type === 'svg' && svgHtml"
@@ -23,9 +23,12 @@ const props = defineProps({
   name: { type: String, default: '' },
   /** 像素数字或任意 CSS 尺寸，默认 24 */
   size: { type: [Number, String], default: 24 },
-  /** 图标颜色（仅对图标库单色 SVG 生效） */
+  /** 图标颜色（仅对图标自身用 currentColor 的 SVG 生效） */
   color: { type: String, default: '' },
+  /** 半透明白色圆形底托：彩色渐变底上衬托原色图标 */
+  dot: { type: Boolean, default: false },
 });
+const dotProp = computed(() => props.dot);
 
 const px = computed(() => (typeof props.size === 'number' ? `${props.size}px` : props.size));
 
@@ -57,6 +60,14 @@ const svgHtml = computed(() =>
   vertical-align: middle;
   flex: 0 0 auto;
 }
+/* 半透明白色圆托：原色图标缩到约 72% 居中 */
+.app-icon.dot {
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+}
+.app-icon.dot .app-icon-svg,
+.app-icon.dot .app-icon-img,
+.app-icon.dot .app-icon-emoji { width: 72%; height: 72%; font-size: 72%; }
 .app-icon-svg { display: inline-flex; width: 100%; height: 100%; }
 .app-icon-svg :deep(svg) { width: 100%; height: 100%; display: block; }
 /* SVG 始终保留文件内原始颜色（iconfont 的红绿等），不用 CSS 覆盖；
