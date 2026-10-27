@@ -744,26 +744,24 @@ function copyLink() {
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
-/* 图片区：占满整行宽度，高度按图片比例自适应、铺满不留白 */
+/* 图片区：宽度铺满，高度跟随图片自身比例（左右完整不裁切，卡片不等高） */
 .llc-img {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
   overflow: hidden;
   background: #f7f8fa;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
+  line-height: 0;
 }
 .llc-img img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
   display: block;
+  object-fit: contain;
 }
 .llc-img-fallback {
   width: 100%;
-  height: 100%;
+  height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
