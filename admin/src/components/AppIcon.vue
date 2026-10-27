@@ -5,7 +5,6 @@
     <span
       v-else-if="kind.type === 'svg' && svgHtml"
       class="app-icon-svg"
-      :class="{ mono: !!color }"
       v-html="svgHtml"
     ></span>
     <span v-else-if="kind.type === 'emoji'" class="app-icon-emoji">{{ name }}</span>
@@ -54,8 +53,7 @@ const svgHtml = computed(() =>
 }
 .app-icon-svg { display: inline-flex; width: 100%; height: 100%; }
 .app-icon-svg :deep(svg) { width: 100%; height: 100%; display: block; }
-.app-icon-svg.mono :deep([fill]:not([fill='none']):not([fill='currentColor'])) { fill: currentColor; }
-.app-icon-svg.mono :deep([stroke]:not([stroke='none']):not([stroke='currentColor'])) { stroke: currentColor; }
+/* SVG 始终保留文件内原始颜色，不用 CSS 覆盖 */
 .app-icon-img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .app-icon-emoji { line-height: 1; }
 </style>
