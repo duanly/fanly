@@ -554,32 +554,26 @@ function handleConvertResult(r) {
 
   h5Url.value = options.h5 || options.taobaoH5 || options.alipayH5 || '';
 
-  // 有 App 唤起协议：直接外部唤起 App（飞猪/淘宝），不先进 H5 中转页连环跳。
-  // 1.6s 内页面没切走 = 没装/被拦截，再回落 H5 或二维码引导。
-  if (options.deeplink) {
-    tryOpenApp(options.deeplink, () => {
-      if (options.h5) {
-        window.location.href = options.h5;
-      } else if (options.wechatQr && !isWechat()) {
-        qrCode.value = options.wechatQr;
-        showQrPopup.value = true;
-      } else {
-        showToast('未检测到对应 App，请先安装');
-      }
-    });
-    return;
-  }
-
-  // 美团/饿了么等红包是微信小程序专属：聚推客返回的 h5 是微信内中转页，
-  // 在普通浏览器直接打开会报「不在微信里 / 缺少 user_id」。
-  // 有微信小程序码且当前不在微信时，弹码引导，不硬跳。
-  if (options.wechatQr && !isWechat()) {
+  // 飞猪等只返回「微信小程序信息 + H5 短链」的活动：
+  // 那条短链（如 a.feizhu.com）内部会自行「试唤起App→授权→回落H5」连环重定向，
+  // 直接 location 跳会在浏览器/微信/App 间来回跳。统一改成先弹小程序码引导，
+  // 由用户长按识别进入；弹层里另给「浏览器打开/复制链接」兜底，不再一上来就硬跳。
+  if (options.wechatQr) {
     qrCode.value = options.wechatQr;
     showQrPopup.value = true;
     return;
   }
 
-  // 微信内 / 无微信码的普通活动：有 H5 直接跳
+  // 没有小程序码、但有原生 App 唤起协议：直接唤起 App，失败回落 H5。
+  if (options.deeplink) {
+    tryOpenApp(options.deeplink, () => {
+      if (options.h5) window.location.href = options.h5;
+      else showToast('未检测到对应 App，请先安装');
+    });
+    return;
+  }
+
+  // 既无小程序码也无 deeplink 的普通活动：有 H5 直接跳
   if (options.h5) {
     window.location.href = options.h5;
     return;

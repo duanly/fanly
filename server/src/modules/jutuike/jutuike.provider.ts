@@ -191,8 +191,8 @@ export class JutuikeProvider {
       act_id: actId,
       sid,
     });
-    this.logger.warn(
-      `[飞猪转链原始返回] act_id=${actId} sid=${sid} keys=${Object.keys(data).join(',')} raw=${JSON.stringify(data).slice(0, 1500)}`,
+    this.logger.debug(
+      `活动转链 act_id=${actId} sid=${sid} keys=${Object.keys(data).join(',')} h5=${data.h5 || '(空)'}`,
     );
     const weApp = data.we_app_info;
     return {
