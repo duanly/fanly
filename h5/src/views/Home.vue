@@ -1126,60 +1126,24 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-/* ───────── 硬朗对角交叉背景 ─────────
-   每个区块一组明亮配色；两层反向「硬色标」渐变叠加，
-   在约 50% 处颜色突变，做出带棱角的 X 形几何切面。
-   第一层半透,避免两色叠加后变暗。 */
+/* ───────── S 形曲线四区背景 ─────────
+   两条 S 形贝塞尔曲线在中心交叉、分出四个区域，每区平滑渐变。
+   背景为 public/bg/*.svg（preserveAspectRatio=none，跟随卡片拉伸）。 */
 
-/* 本地生活：暖橙 × 珊瑚红 */
 .pat-ll {
-  background-color: #ffd2b8;
-  background-image:
-    linear-gradient(125deg,
-      rgba(255,138,92,.92) 0%, rgba(255,138,92,.92) 48%,
-      rgba(255,107,107,.92) 52%, rgba(255,107,107,.92) 100%),
-    linear-gradient(55deg,
-      rgba(255,190,120,.85) 0%, rgba(255,190,120,.55) 46%,
-      rgba(255,92,120,.55) 54%, rgba(255,92,120,.85) 100%);
+  background: url('/bg/ll.svg') center/100% 100% no-repeat;
 }
-
-/* 商品分类：天蓝 × 靛蓝 */
 .pat-cat {
-  background-color: #d6ecff;
-  background-image:
-    linear-gradient(125deg,
-      rgba(92,200,255,.92) 0%, rgba(92,200,255,.92) 48%,
-      rgba(107,142,245,.92) 52%, rgba(107,142,245,.92) 100%),
-    linear-gradient(55deg,
-      rgba(120,220,255,.85) 0%, rgba(120,220,255,.55) 46%,
-      rgba(130,110,245,.55) 54%, rgba(130,110,245,.85) 100%);
+  background: url('/bg/cat.svg') center/100% 100% no-repeat;
 }
-
-/* 品牌专区：紫罗兰 × 玫粉 */
 .pat-brand {
-  background-color: #f0dcff;
-  background-image:
-    linear-gradient(125deg,
-      rgba(199,128,255,.92) 0%, rgba(199,128,255,.92) 48%,
-      rgba(240,107,181,.92) 52%, rgba(240,107,181,.92) 100%),
-    linear-gradient(55deg,
-      rgba(220,150,255,.85) 0%, rgba(220,150,255,.55) 46%,
-      rgba(255,120,200,.55) 54%, rgba(255,120,200,.85) 100%);
+  background: url('/bg/brand.svg') center/100% 100% no-repeat;
 }
-
-/* 限时活动：金黄 × 橙红 */
 .pat-act {
-  background-color: #ffe9c2;
-  background-image:
-    linear-gradient(125deg,
-      rgba(255,193,77,.92) 0%, rgba(255,193,77,.92) 48%,
-      rgba(255,142,83,.92) 52%, rgba(255,142,83,.92) 100%),
-    linear-gradient(55deg,
-      rgba(255,210,120,.85) 0%, rgba(255,210,120,.55) 46%,
-      rgba(255,120,80,.55) 54%, rgba(255,120,80,.85) 100%);
+  background: url('/bg/act.svg') center/100% 100% no-repeat;
 }
 
-/* 内层宫格容器透明，让交叉背景透出 */
+/* 内层宫格容器透明，让 S 曲线背景透出 */
 [class*='pat-'] .grid-card {
   background: transparent;
 }
