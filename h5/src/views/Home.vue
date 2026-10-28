@@ -82,7 +82,7 @@
       <span class="sec-title">本地生活 🍔</span>
       <span class="sec-more" @click="$router.push('/local-life')">全部 ›</span>
     </div>
-    <div class="section ll-section pattern-bg">
+    <div class="section ll-section pat-ll">
       <div class="grid-card">
         <van-swipe
           :autoplay="llPages.length > 1 ? 5000 : 0"
@@ -130,7 +130,7 @@
       <span class="sec-title">商品分类 🍡</span>
       <span class="sec-more">共 {{ catGroups.length }} 个</span>
     </div>
-    <div class="section cats-section pattern-bg" ref="catsRef">
+    <div class="section cats-section pat-cat" ref="catsRef">
       <div class="grid-card">
         <van-swipe
           :autoplay="catPages.length > 1 ? 5000 : 0"
@@ -161,7 +161,7 @@
       <span class="sec-title">品牌专区 ™️</span>
       <span class="sec-more" @click="showAllBrands = true">全部品牌 ›</span>
     </div>
-    <div v-if="brandTopics.length" class="section brand-section pattern-bg">
+    <div v-if="brandTopics.length" class="section brand-section pat-brand">
       <van-swipe
         :autoplay="brandPages.length > 1 ? 4000 : 0"
         indicator-color="rgba(255,75,58,0.3)"
@@ -191,7 +191,7 @@
       <span class="sec-title">限时活动 ⏰</span>
       <span class="sec-more" @click="showAllActs = true">全部活动 ›</span>
     </div>
-    <div v-if="acts.length" class="section act-section">
+    <div v-if="acts.length" class="section act-section pat-act">
       <div class="act-marquee" @mouseenter="marqueePause = true" @mouseleave="marqueePause = false" @touchstart="marqueePause = true" @touchend="marqueePause = false">
         <div class="am-track" :style="{ animationDuration: marqueeDuration + 's', animationPlayState: marqueePause ? 'paused' : 'running' }">
           <div
@@ -1126,28 +1126,61 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-/* 对角交叉背景（复刻参考图：暗红/紫/橙斜切色块交叉）。
-   多层渐变叠加：两个相反方向的斜切，做出 X 形交叉的半透明色块 */
-.pattern-bg {
-  background-color: #6e2230;
+/* ───────── 硬朗对角交叉背景 ─────────
+   每个区块一组明亮配色；两层反向「硬色标」渐变叠加，
+   在约 50% 处颜色突变，做出带棱角的 X 形几何切面。
+   第一层半透,避免两色叠加后变暗。 */
+
+/* 本地生活：暖橙 × 珊瑚红 */
+.pat-ll {
+  background-color: #ffd2b8;
   background-image:
-    /* 左上→右下 的酒红色斜带 */
     linear-gradient(125deg,
-      rgba(142, 32, 39, 0.92) 0%,
-      rgba(142, 32, 39, 0.55) 28%,
-      rgba(91, 42, 69, 0.35) 50%,
-      rgba(200, 70, 46, 0.55) 74%,
-      rgba(200, 70, 46, 0.9) 100%),
-    /* 右上→左下 的暗紫/橙斜带，与上层交叉出 X 形 */
-    linear-gradient(52deg,
-      rgba(91, 42, 69, 0.85) 0%,
-      rgba(91, 42, 69, 0.4) 30%,
-      rgba(110, 34, 48, 0.25) 52%,
-      rgba(214, 110, 64, 0.45) 72%,
-      rgba(214, 110, 64, 0.8) 100%);
+      rgba(255,138,92,.92) 0%, rgba(255,138,92,.92) 48%,
+      rgba(255,107,107,.92) 52%, rgba(255,107,107,.92) 100%),
+    linear-gradient(55deg,
+      rgba(255,190,120,.85) 0%, rgba(255,190,120,.55) 46%,
+      rgba(255,92,120,.55) 54%, rgba(255,92,120,.85) 100%);
 }
-/* 内层宫格容器不再用白底，让交叉背景透出 */
-.pattern-bg .grid-card {
+
+/* 商品分类：天蓝 × 靛蓝 */
+.pat-cat {
+  background-color: #d6ecff;
+  background-image:
+    linear-gradient(125deg,
+      rgba(92,200,255,.92) 0%, rgba(92,200,255,.92) 48%,
+      rgba(107,142,245,.92) 52%, rgba(107,142,245,.92) 100%),
+    linear-gradient(55deg,
+      rgba(120,220,255,.85) 0%, rgba(120,220,255,.55) 46%,
+      rgba(130,110,245,.55) 54%, rgba(130,110,245,.85) 100%);
+}
+
+/* 品牌专区：紫罗兰 × 玫粉 */
+.pat-brand {
+  background-color: #f0dcff;
+  background-image:
+    linear-gradient(125deg,
+      rgba(199,128,255,.92) 0%, rgba(199,128,255,.92) 48%,
+      rgba(240,107,181,.92) 52%, rgba(240,107,181,.92) 100%),
+    linear-gradient(55deg,
+      rgba(220,150,255,.85) 0%, rgba(220,150,255,.55) 46%,
+      rgba(255,120,200,.55) 54%, rgba(255,120,200,.85) 100%);
+}
+
+/* 限时活动：金黄 × 橙红 */
+.pat-act {
+  background-color: #ffe9c2;
+  background-image:
+    linear-gradient(125deg,
+      rgba(255,193,77,.92) 0%, rgba(255,193,77,.92) 48%,
+      rgba(255,142,83,.92) 52%, rgba(255,142,83,.92) 100%),
+    linear-gradient(55deg,
+      rgba(255,210,120,.85) 0%, rgba(255,210,120,.55) 46%,
+      rgba(255,120,80,.55) 54%, rgba(255,120,80,.85) 100%);
+}
+
+/* 内层宫格容器透明，让交叉背景透出 */
+[class*='pat-'] .grid-card {
   background: transparent;
 }
 
