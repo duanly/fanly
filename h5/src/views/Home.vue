@@ -1131,16 +1131,16 @@ onUnmounted(() => {
    背景为 public/bg/*.svg（preserveAspectRatio=none，跟随卡片拉伸）。 */
 
 .pat-ll {
-  background: url('/bg/ll.svg?v=2') center/100% 100% no-repeat;
+  background: url('/bg/ll.svg?v=3') center/100% 100% no-repeat;
 }
 .pat-cat {
-  background: url('/bg/cat.svg?v=2') center/100% 100% no-repeat;
+  background: url('/bg/cat.svg?v=3') center/100% 100% no-repeat;
 }
 .pat-brand {
-  background: url('/bg/brand.svg?v=2') center/100% 100% no-repeat;
+  background: url('/bg/brand.svg?v=3') center/100% 100% no-repeat;
 }
 .pat-act {
-  background: url('/bg/act.svg?v=2') center/100% 100% no-repeat;
+  background: url('/bg/act.svg?v=3') center/100% 100% no-repeat;
 }
 
 /* 内层宫格容器透明，让 S 曲线背景透出 */
