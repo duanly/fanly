@@ -82,7 +82,7 @@
       <span class="sec-title">本地生活 🍔</span>
       <span class="sec-more" @click="$router.push('/local-life')">全部 ›</span>
     </div>
-    <div class="section ll-section">
+    <div class="section ll-section pattern-bg">
       <div class="grid-card">
         <van-swipe
           :autoplay="llPages.length > 1 ? 5000 : 0"
@@ -130,7 +130,7 @@
       <span class="sec-title">商品分类 🍡</span>
       <span class="sec-more">共 {{ catGroups.length }} 个</span>
     </div>
-    <div class="section cats-section" ref="catsRef">
+    <div class="section cats-section pattern-bg" ref="catsRef">
       <div class="grid-card">
         <van-swipe
           :autoplay="catPages.length > 1 ? 5000 : 0"
@@ -161,7 +161,7 @@
       <span class="sec-title">品牌专区 ™️</span>
       <span class="sec-more" @click="showAllBrands = true">全部品牌 ›</span>
     </div>
-    <div v-if="brandTopics.length" class="section brand-section">
+    <div v-if="brandTopics.length" class="section brand-section pattern-bg">
       <van-swipe
         :autoplay="brandPages.length > 1 ? 4000 : 0"
         indicator-color="rgba(255,75,58,0.3)"
@@ -1126,6 +1126,31 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
+/* 对角交叉背景（复刻参考图：暗红/紫/橙斜切色块交叉）。
+   多层渐变叠加：两个相反方向的斜切，做出 X 形交叉的半透明色块 */
+.pattern-bg {
+  background-color: #6e2230;
+  background-image:
+    /* 左上→右下 的酒红色斜带 */
+    linear-gradient(125deg,
+      rgba(142, 32, 39, 0.92) 0%,
+      rgba(142, 32, 39, 0.55) 28%,
+      rgba(91, 42, 69, 0.35) 50%,
+      rgba(200, 70, 46, 0.55) 74%,
+      rgba(200, 70, 46, 0.9) 100%),
+    /* 右上→左下 的暗紫/橙斜带，与上层交叉出 X 形 */
+    linear-gradient(52deg,
+      rgba(91, 42, 69, 0.85) 0%,
+      rgba(91, 42, 69, 0.4) 30%,
+      rgba(110, 34, 48, 0.25) 52%,
+      rgba(214, 110, 64, 0.45) 72%,
+      rgba(214, 110, 64, 0.8) 100%);
+}
+/* 内层宫格容器不再用白底，让交叉背景透出 */
+.pattern-bg .grid-card {
+  background: transparent;
+}
+
 /* 标题在卡片外面 */
 .sec-head-wrap {
   display: flex;
@@ -1255,7 +1280,7 @@ onUnmounted(() => {
 }
 .ll-name {
   font-size: 12px;
-  color: #333;
+  color: #fff;
   font-weight: 500;
 }
 .ll-tag {
@@ -1443,7 +1468,7 @@ onUnmounted(() => {
 }
 .cat-name {
   font-size: 12px;
-  color: #333;
+  color: #fff;
 }
 
 /* ========== 好物推荐 ========== */
@@ -1637,7 +1662,7 @@ onUnmounted(() => {
 .b-name {
   font-size: 12px;
   font-weight: 500;
-  color: #1a1a1a;
+  color: #fff;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
