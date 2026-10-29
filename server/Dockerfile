@@ -23,10 +23,13 @@ COPY . .
 # 清掉 TS 增量缓存 + 旧 dist：incremental:true 时跨机器的 .tsbuildinfo 会让 tsc 输出损坏，
 # 旧 dist 也可能残留未编译的 .ts，必须删干净
 RUN rm -f *.tsbuildinfo && rm -rf dist
-# build = tsc + tsc-alias（后者把 @/别名改写成相对路径）。
-# 历史代码存在若干「纯类型错误」（Multer 类型等），但 tsc 报错时默认仍 emit JS、运行正常。
-# 因此不能让类型错误阻断镜像构建；加 `|| true` 兜底，真正的语法/导入错误会在启动时暴露。
-RUN npx tsc -p tsconfig.build.json && npx tsc-alias -p tsconfig.build.json || true
+# 第一步 tsc 编译。历史代码有若干「纯类型错误」（Multer 等），报错时默认仍 emit JS，
+# 故用 || true 不让类型错误中断构建。
+# 注意：绝不能用 `tsc && tsc-alias`——tsc 因类型错误返回非 0 会导致 tsc-alias 被跳过，
+# dist 里残留 @/ 别名、Node 启动报 Cannot find module。
+RUN npx tsc -p tsconfig.build.json || true
+# 第二步 tsc-alias 必须独立、必定执行：把 @/ 别名改写成相对路径
+RUN npx tsc-alias -p tsconfig.build.json
 
 # ---- 运行阶段 ----
 # 生产用 MySQL，不装 better-sqlite3，也就不需要任何编译器
