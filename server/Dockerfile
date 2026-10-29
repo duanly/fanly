@@ -20,14 +20,12 @@ RUN sed -i "s#https://registry.npmjs.org/#${NPM_REGISTRY}#g" package-lock.json \
 # 生产用 MySQL，better-sqlite3 不需要编译；--ignore-scripts 跳过原生模块编译，
 # 避免国内访问 nodejs.org 超时报错
 COPY . .
-# 直接用 tsc 构建，绕开 nest CLI 在某些环境下静默不输出的问题
-# build = tsc + tsc-alias，后者把 @/ 别名改写成相对路径，
-# 否则 node 直接跑 dist 会报 Cannot find module '@/entities'
-RUN echo "=== tsc 前 /app 内容 ===" && ls -la /app && echo "=== src 目录 ===" && ls /app/src/ | head -10
-RUN npx tsc -p tsconfig.build.json --listFiles 2>&1 | head -20 || true
-RUN npx tsc -p tsconfig.build.json 2>&1 && echo "=== tsc 成功 ===" || echo "=== tsc 失败 ==="
-RUN npx tsc-alias -p tsconfig.build.json 2>&1 || true
-RUN echo "=== tsc 后 /app 内容 ===" && ls -la /app && echo "=== dist 目录 ===" && ls -la /app/dist 2>&1 || echo "dist 不存在"
+# 清掉 TS 增量缓存 + 旧 dist：incremental:true 时跨机器的 .tsbuildinfo 会让 tsc 输出损坏，
+# 旧 dist 也可能残留未编译的 .ts，必须删干净
+RUN rm -f *.tsbuildinfo && rm -rf dist
+# build = tsc + tsc-alias（后者把 @/ 别名改写成相对路径）。
+# 不能加 || true：tsc 失败必须让镜像构建失败，否则会带着半成品 dist 启动
+RUN npx tsc -p tsconfig.build.json && npx tsc-alias -p tsconfig.build.json
 
 # ---- 运行阶段 ----
 # 生产用 MySQL，不装 better-sqlite3，也就不需要任何编译器
