@@ -61,29 +61,23 @@
         </van-swipe-item>
       </van-swipe>
 
-      <!-- 签到入口条 -->
-      <div class="checkin-bar" @click="$router.push('/checkin')">
-        <div class="cb-left">
+      <!-- 签到 + 转链 同一行 -->
+      <div class="entry-row">
+        <!-- 签到入口（左，占主体） -->
+        <div class="checkin-bar" @click="$router.push('/checkin')">
           <span class="cb-ico">🎁</span>
           <div class="cb-text">
             <span class="cb-title">每日签到领金币</span>
-            <span class="cb-sub">攒够就能换钱 · 今天还没签</span>
+            <span class="cb-sub">攒够就能换钱</span>
           </div>
+          <van-icon class="cb-arrow" name="arrow" color="#ff4b3a" size="10" />
         </div>
-        <div class="cb-right">
-          <span>去签到</span>
-          <van-icon name="arrow" color="#ff4b3a" size="10" />
-        </div>
-      </div>
 
-      <!-- 转链查返利入口（原底部 Tab，收进首页签到下方） -->
-      <div class="parse-bar" @click="$router.push('/parse')">
-        <span class="pb-ico">🔁</span>
-        <div class="pb-text">
-          <span class="pb-title">转链查返利</span>
-          <span class="pb-sub">粘贴商品链接或口令，查隐藏优惠券</span>
+        <!-- 转链入口（右，紧凑按钮） -->
+        <div class="parse-btn" @click="$router.push('/parse')">
+          <span class="pb-ico">💵</span>
+          <span class="pb-label">转链</span>
         </div>
-        <van-icon name="arrow" color="#fff" size="12" />
       </div>
     </div>
 
@@ -940,86 +934,79 @@ onUnmounted(() => {
 }
 
 /* 签到入口条 */
-.checkin-bar {
+/* 签到 + 转链 同一行 */
+.entry-row {
   position: relative;
   z-index: 1;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 44px;
-  padding: 0 14px;
+  align-items: stretch;
+  gap: 8px;
   margin: 10px 0;
+}
+
+/* 签到条（行内左侧，自适应宽度） */
+.checkin-bar {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 12px;
   background: linear-gradient(135deg, #fff5e6, #fff0ed);
-  border-radius: 22px;
+  border-radius: 24px;
   font-size: 12px;
   color: #333;
   box-shadow: 0 2px 10px rgba(255, 150, 50, 0.15);
   border: 1px solid #ffe0cc;
 }
-.cb-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.cb-ico { font-size: 20px; }
+.checkin-bar:active { transform: scale(0.99); }
+.cb-ico { font-size: 18px; flex-shrink: 0; }
 .cb-text {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 .cb-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #ff6b35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cb-sub {
-  font-size: 11px;
+  font-size: 10px;
   color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.cb-right {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: #ff4b3a;
-  font-weight: 600;
-  font-size: 13px;
-  padding: 4px 12px;
-  background: #fff;
-  border-radius: 999px;
-  box-shadow: 0 2px 6px rgba(255,75,58,0.15);
-}
+.cb-arrow { flex-shrink: 0; }
 
-/* 转链查返利入口（红橙实底，与浅色签到条区分） */
-.parse-bar {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 52px;
-  padding: 0 16px;
-  margin: 0 0 6px;
-  background: linear-gradient(135deg, #ff7a4d, #ff4b3a);
-  border-radius: 26px;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(255, 75, 58, 0.28);
-}
-.parse-bar:active { transform: scale(0.99); }
-.pb-ico { font-size: 20px; }
-.pb-text {
-  flex: 1;
+/* 转链按钮（行内右侧，固定宽度紧凑） */
+.parse-btn {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-.pb-title {
-  font-size: 14px;
-  font-weight: 700;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 60px;
+  height: 48px;
+  border-radius: 24px;
   color: #fff;
+  background: linear-gradient(135deg, #ff7a4d, #ff4b3a);
+  box-shadow: 0 4px 12px rgba(255, 75, 58, 0.28);
 }
-.pb-sub {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.85);
+.parse-btn:active { transform: scale(0.96); }
+.pb-ico { font-size: 17px; line-height: 1; }
+.pb-label {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.1;
 }
 
 /* Banner */
