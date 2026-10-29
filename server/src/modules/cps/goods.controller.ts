@@ -12,6 +12,7 @@ import { CurationService } from '../curation/curation.service';
 import { AutoTagService } from '../curation/auto-tag.service';
 import { SysConfigService } from '../admin/sys-config.service';
 import { AuthzService } from './authz.service';
+import { ConvertLogService } from '../order/convert-log.service';
 
 @ApiTags('选品与转链')
 @Controller('api')
@@ -28,6 +29,7 @@ export class GoodsController {
     private readonly autoTag: AutoTagService,
     private readonly cfg: SysConfigService,
     private readonly authz: AuthzService,
+    private readonly convertLog: ConvertLogService,
   ) {}
 
   /**
@@ -194,7 +196,16 @@ export class GoodsController {
 
     const pos = await this.posRepo.findOneBy({ userId, platform: body.platform });
     if (!pos) throw new Error('推广位缺失，请重新登录');
-    return this.cps.convertLink(body.platform, body.goodsId, pos.positionId);
+    const result = await this.cps.convertLink(body.platform, body.goodsId, pos.positionId);
+    // 记录转链，作为订单标识丢失时的兜底依据
+    await this.convertLog.record({
+      userId,
+      platform: body.platform,
+      goodsId: body.goodsId,
+      positionId: pos.positionId,
+      source: 'convert',
+    });
+    return result;
   }
 
   @Post('link/parse')
@@ -235,6 +246,17 @@ export class GoodsController {
     const link = pos
       ? await this.cps.convertLink(goods.platform, goods.goodsId, pos.positionId)
       : null;
+
+    // 记录本次解析转链（标识丢失兜底）
+    if (link) {
+      await this.convertLog.record({
+        userId,
+        platform: goods.platform,
+        goodsId: goods.goodsId,
+        positionId: pos?.positionId,
+        source: 'parse',
+      });
+    }
 
     return {
       ok: true,

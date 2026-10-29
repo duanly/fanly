@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PromotionPosition, User } from '@/entities';
 import { OrderService } from '../order/order.service';
+import { ConvertLogService } from '../order/convert-log.service';
 import { JutuikeProvider } from './jutuike.provider';
 
 /**
@@ -22,6 +23,7 @@ export class JutuikeService {
     @InjectRepository(PromotionPosition) private readonly posRepo: Repository<PromotionPosition>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly orderService: OrderService,
+    private readonly convertLog: ConvertLogService,
   ) {
     const apiKey = this.config.get<string>('JTK_API_KEY', '');
     if (apiKey) {
@@ -82,6 +84,13 @@ export class JutuikeService {
     }
 
     const r = await p.convertAct(actId, pos.positionId);
+    await this.convertLog.record({
+      userId,
+      platform: 'JTK',
+      goodsId: String(actId),
+      positionId: pos.positionId,
+      source: 'jutuike',
+    });
     return r;
   }
 
@@ -110,7 +119,15 @@ export class JutuikeService {
       }));
       pos = saved;
     }
-    return await p.eleConvert(activityId, pos.positionId);
+    const r = await p.eleConvert(activityId, pos.positionId);
+    await this.convertLog.record({
+      userId,
+      platform: 'JTK',
+      goodsId: activityId,
+      positionId: pos.positionId,
+      source: 'jutuike',
+    });
+    return r;
   }
 
   // ─── 美团券包 ───
@@ -138,7 +155,15 @@ export class JutuikeService {
       }));
       pos = saved;
     }
-    return await p.mtCouponConvert(actId, pos.positionId);
+    const r = await p.mtCouponConvert(actId, pos.positionId);
+    await this.convertLog.record({
+      userId,
+      platform: 'JTK',
+      goodsId: actId,
+      positionId: pos.positionId,
+      source: 'jutuike',
+    });
+    return r;
   }
 
   private genSid(userId: number): string {

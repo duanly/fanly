@@ -55,6 +55,7 @@ import { SupportGateway } from './modules/support/support.gateway';
 import { SupportController } from './modules/support/support.controller';
 import { SupportAdminController } from './modules/support/support.admin.controller';
 import { AgentLevelAdminController } from './modules/agent/agent-level.admin.controller';
+import { ConvertLogModule } from './modules/order/convert-log.module';
 
 const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'function');
 
@@ -89,6 +90,7 @@ const ENTITIES = Object.values(Entities).filter((e: any) => typeof e === 'functi
       },
     }),
     TypeOrmModule.forFeature(ENTITIES as any),
+    ConvertLogModule,
     JwtModule.registerAsync({
       global: true,
       inject: [ConfigService],

@@ -21,3 +21,4 @@ export * from './support-conversation.entity';
 export * from './support-message.entity';
 export * from './support-auto-reply.entity';
 export * from './agent-level-request.entity';
+export * from './convert-log.entity';

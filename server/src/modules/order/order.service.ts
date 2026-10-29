@@ -7,6 +7,7 @@ import { CpsService, PLATFORMS } from '../cps/cps.service';
 import { CommissionService } from '../commission/commission.service';
 import { SysConfigService } from '../admin/sys-config.service';
 import { add, mul, sub, toNum } from '@/common/money';
+import { ConvertLogService } from './convert-log.service';
 
 @Injectable()
 export class OrderService {
@@ -20,7 +21,27 @@ export class OrderService {
     private readonly commission: CommissionService,
     private readonly cfg: SysConfigService,
     private readonly ds: DataSource,
+    private readonly convertLog: ConvertLogService,
   ) {}
+
+  /** 反解子渠道参数 → 用户；标识丢失时用转链记录兜底（取消重下/换规格场景） */
+  private async resolveUserWithFallback(
+    platform: string,
+    positionId: string,
+    goodsId: string,
+  ): Promise<User | null> {
+    const direct = await this.resolveUser(platform, positionId);
+    if (direct) return direct;
+    const uid = await this.convertLog.findAttributor(platform, goodsId);
+    if (uid) {
+      const u = await this.userRepo.findOneBy({ id: uid });
+      if (u) {
+        this.logger.log(`订单 ${platform} 标识丢失，按转链记录兜底归属用户 ${uid}`);
+        return u;
+      }
+    }
+    return null;
+  }
 
   /** 反解子渠道参数 → 用户 */
   private async resolveUser(platform: string, positionId: string): Promise<User | null> {
@@ -52,7 +73,7 @@ export class OrderService {
 
     const isNew = !order;
     if (!order) {
-      const user = await this.resolveUser(u.platform, u.positionId);
+      const user = await this.resolveUserWithFallback(u.platform, u.positionId, u.goodsId);
       order = this.orderRepo.create({
         platform: u.platform,
         platformOrderNo: u.platformOrderNo,
@@ -76,9 +97,9 @@ export class OrderService {
     order.settleTime = u.settleTime ?? order.settleTime;
     order.rawJson = u.raw ?? null;
 
-    // 老订单首次归属：之前 userId 为 null，这次解析出了用户
+    // 老订单首次归属：之前 userId 为 null，这次解析用户（含转链记录兜底）
     if (!isNew && !prevUserId) {
-      const user = await this.resolveUser(u.platform, u.positionId);
+      const user = await this.resolveUserWithFallback(u.platform, u.positionId, u.goodsId);
       if (user) {
         order.userId = user.id;
         order.agentId = user.agentId ?? null;
