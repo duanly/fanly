@@ -11,11 +11,11 @@ import { ConvertLog } from '@/entities';
  */
 @Injectable()
 export class ConvertLogService {
-  private readonly logger = Logger(ConvertLogService.name);
+  private readonly logger = new Logger(ConvertLogService.name);
 
   constructor(
     @InjectRepository(ConvertLog)
-    private readonly repo: Repository<ConvertLog>,
+    private readonly repo: Repository<ConvertLog),
   ) {}
 
   /** 记一条转链。失败只警告，绝不阻塞主转链流程 */
@@ -38,7 +38,7 @@ export class ConvertLogService {
         }),
       );
     } catch (e: any) {
-      this.logger.warn?.call?.(this.logger, `转链记录写入失败: ${e.message}`);
+      this.logger.warn(`转链记录写入失败: ${e.message}`);
     }
   }
 
