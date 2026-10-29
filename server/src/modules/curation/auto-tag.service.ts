@@ -205,7 +205,7 @@ export class AutoTagService implements OnModuleInit {
 
   async tagOne(curatedId: number, title: string): Promise<number> {
     if (!curatedId || !title) return 0;
-    const { categoryIds, matchedBrands } = this.matchFromTitle(title);
+    const { categoryIds, matchedBrands } = await this.matchFromTitle(title);
     const topicIds = await this.resolveBrandTopics(matchedBrands, categoryIds);
     return this.addTags(curatedId, topicIds);
   }

@@ -496,7 +496,6 @@ export class JutuikeProvider {
       settleCommission: settle,
       status,
       orderTime: r.tk_create_time ? new Date(r.tk_create_time) : new Date(),
-      payTime: r.tk_paid_time ? new Date(r.tk_paid_time) : undefined,
       settleTime: status === 3 && r.tk_earning_time ? new Date(r.tk_earning_time) : undefined,
       raw: {
         ...r,
