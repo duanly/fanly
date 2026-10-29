@@ -807,7 +807,6 @@ function copyLink() {
 .llc-img img {
   width: 100%;
   height: auto;
-  max-height: 260px;
   object-fit: contain;
   display: block;
 }
