@@ -179,9 +179,8 @@
               class="brand-item"
               @click="$router.push(`/topic/${b.slug}`)"
             >
-              <div class="b-ico" :style="{ background: isImageUrl(brandIcon(b)) ? 'transparent' : brandBg(b) }">
-                <img v-if="isImageUrl(brandIcon(b))" :src="brandIcon(b)" alt="" />
-                <template v-else>{{ brandIcon(b) }}</template>
+              <div class="b-ico">
+                <AppIcon :name="brandIcon(b)" :size="30" />
               </div>
               <div class="b-name">{{ brandName(b) }}</div>
             </div>
@@ -313,9 +312,8 @@
             class="bg-item"
             @click="$router.push(`/topic/${b.slug}`); showAllBrands = false"
           >
-            <div class="bg-ico" :style="{ background: isImageUrl(brandIcon(b)) ? 'transparent' : brandBg(b) }">
-              <img v-if="isImageUrl(brandIcon(b))" :src="brandIcon(b)" alt="" />
-              <template v-else>{{ brandIcon(b) }}</template>
+            <div class="bg-ico">
+              <AppIcon :name="brandIcon(b)" :size="32" />
             </div>
             <div class="bg-name">{{ brandName(b) }}</div>
           </div>
