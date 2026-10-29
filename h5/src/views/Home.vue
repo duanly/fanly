@@ -1147,6 +1147,10 @@ onUnmounted(() => {
 [class*='pat-'] .grid-card {
   background: transparent;
 }
+/* 带 S 曲线背景的区块去掉橙色描边，背景本身已是卡片视觉 */
+[class*='pat-'] {
+  border: none;
+}
 
 /* 标题在卡片外面 */
 .sec-head-wrap {
