@@ -15,7 +15,7 @@ export class ConvertLogService {
 
   constructor(
     @InjectRepository(ConvertLog)
-    private readonly repo: Repository<ConvertLog),
+    private readonly repo: Repository<ConvertLog>,
   ) {}
 
   /** 记一条转链。失败只警告，绝不阻塞主转链流程 */
