@@ -986,27 +986,28 @@ onUnmounted(() => {
 }
 .cb-arrow { flex-shrink: 0; }
 
-/* 转链按钮（行内右侧，固定宽度紧凑） */
+/* 转链按钮（与签到各占 50%） */
 .parse-btn {
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  width: 60px;
+  gap: 5px;
   height: 48px;
   border-radius: 24px;
   color: #fff;
   background: linear-gradient(135deg, #ff7a4d, #ff4b3a);
   box-shadow: 0 4px 12px rgba(255, 75, 58, 0.28);
 }
-.parse-btn:active { transform: scale(0.96); }
-.pb-ico { font-size: 17px; line-height: 1; }
+.parse-btn:active { transform: scale(0.98); }
+.pb-ico { font-size: 18px; line-height: 1; }
 .pb-label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 /* Banner */
