@@ -89,7 +89,7 @@
           placeholder="留空自动生成，比如 baby-milk"
           :disabled="!!form.id"
         />
-        <van-field label="图标" is-link @click="iconPickerOpen = true">
+        <van-field label="图标" is-link @click="openIconPicker">
           <template #input>
             <div class="icon-field">
               <AppIcon :name="form.icon || '🏷️'" :size="24" />
@@ -154,20 +154,46 @@
         <span class="ipicker-title">选择图标</span>
         <van-icon name="cross" size="20" @click="iconPickerOpen = false" />
       </div>
-      <van-search v-model="iconKw" placeholder="搜索图标名" shape="round" />
-      <div class="ipicker-grid">
-        <div
-          v-for="n in filteredIconNames"
-          :key="n"
-          class="ipicker-cell"
-          :class="{ active: form.icon === 'icon:' + n }"
-          :title="n"
-          @click="pickIcon(n)"
-        >
-          <AppIcon :name="'icon:' + n" :size="28" />
-        </div>
+      <!-- 图标库 / Emoji 两种方式切换 -->
+      <div class="ipicker-tabs">
+        <span :class="{ on: iconPickerTab === 'lib' }" @click="iconPickerTab = 'lib'">图标库</span>
+        <span :class="{ on: iconPickerTab === 'emoji' }" @click="iconPickerTab = 'emoji'">输入 Emoji</span>
       </div>
-      <van-empty v-if="!filteredIconNames.length" description="没有匹配的图标" />
+
+      <template v-if="iconPickerTab === 'lib'">
+        <van-search v-model="iconKw" placeholder="搜索图标名" shape="round" />
+        <div class="ipicker-grid">
+          <div
+            v-for="n in filteredIconNames"
+            :key="n"
+            class="ipicker-cell"
+            :class="{ active: form.icon === 'icon:' + n }"
+            :title="n"
+            @click="pickIcon(n)"
+          >
+            <AppIcon :name="'icon:' + n" :size="28" />
+          </div>
+        </div>
+        <van-empty v-if="!filteredIconNames.length" description="没有匹配的图标" />
+      </template>
+
+      <div v-else class="ipicker-emoji">
+        <van-field
+          v-model="emojiInput"
+          placeholder="直接输入或粘贴一个 emoji，如 🍔🎁☕"
+          maxlength="8"
+        />
+        <div class="ipicker-emoji-preview">
+          <AppIcon :name="emojiInput || '🏷️'" :size="40" />
+          <span class="muted">输入后点「使用此 Emoji」</span>
+        </div>
+        <van-button
+          type="primary"
+          block
+          :disabled="!emojiInput.trim()"
+          @click="confirmEmoji"
+        >使用此 Emoji</van-button>
+      </div>
     </van-popup>
   </div>
 </template>
@@ -229,7 +255,9 @@ const saving = ref(false);
 
 // 图标库选择
 const iconPickerOpen = ref(false);
+const iconPickerTab = ref('lib'); // lib 图标库 / emoji 直接输入
 const iconKw = ref('');
+const emojiInput = ref('');
 const filteredIconNames = computed(() => {
   const k = iconKw.value.trim().toLowerCase();
   return k ? ICON_NAMES.filter((n) => n.toLowerCase().includes(k)) : ICON_NAMES;
@@ -237,6 +265,19 @@ const filteredIconNames = computed(() => {
 function pickIcon(n) {
   form.icon = `icon:${n}`;
   iconPickerOpen = false;
+}
+// 直接输入 emoji 作为图标
+function confirmEmoji() {
+  const e = emojiInput.value.trim();
+  if (!e) return;
+  form.icon = e;
+  iconPickerOpen = false;
+}
+// 打开弹层时同步当前值、切回图标库 tab
+function openIconPicker() {
+  emojiInput.value = form.icon && !form.icon.startsWith('icon:') ? form.icon : '';
+  iconPickerTab.value = 'lib';
+  iconPickerOpen.value = true;
 }
 const form = reactive({ ...EMPTY });
 const keywordRulesText = ref('');
@@ -483,6 +524,41 @@ onMounted(load);
   border-color: #ff4b3a;
   background: #fff1ef;
   box-shadow: 0 0 0 1px #ff4b3a inset;
+}
+/* 图标库 / Emoji 切换 tab */
+.ipicker-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 14px 10px;
+}
+.ipicker-tabs span {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  background: #f5f6f8;
+  border: 1px solid #ebedf0;
+  border-radius: 999px;
+  padding: 7px 0;
+}
+.ipicker-tabs span.on {
+  color: #fff;
+  background: linear-gradient(135deg, #ff6b35, #ff4b3a);
+  border-color: #ff4b3a;
+}
+/* Emoji 输入区 */
+.ipicker-emoji {
+  padding: 4px 14px 16px;
+}
+.ipicker-emoji-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0;
+  padding: 12px;
+  background: #f7f8fa;
+  border-radius: 10px;
 }
 .edit-footer {
   padding: 12px 16px;

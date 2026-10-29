@@ -10,6 +10,8 @@
       class="app-icon-svg"
       v-html="svgHtml"
     ></span>
+    <!-- icon:xxx 但图标库找不到时，不显示文件名，避免露出英文 key -->
+    <span v-else-if="kind.type === 'svg'" class="app-icon-emoji">📦</span>
     <span v-else-if="kind.type === 'emoji'" class="app-icon-emoji">{{ name }}</span>
   </span>
 </template>
@@ -40,8 +42,12 @@ const boxStyle = computed(() => ({
 }));
 
 const kind = computed(() => {
-  const v = props.name || '';
+  const v = (props.name || '').trim();
   if (v.startsWith('icon:')) return { type: 'svg', key: v.slice(5) };
+  // 裸文件名（coffee / coffee.svg）也按图标库处理，避免被当成 emoji 显示出英文
+  if (/^[a-z0-9_-]+(\.svg)?$/i.test(v) && ICON_MAP[v.replace(/\.svg$/i, '')]) {
+    return { type: 'svg', key: v.replace(/\.svg$/i, '') };
+  }
   if (/^(https?:)?\/\//.test(v) || v.startsWith('/')) return { type: 'img' };
   return { type: 'emoji' };
 });

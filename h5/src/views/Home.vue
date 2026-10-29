@@ -75,6 +75,16 @@
           <van-icon name="arrow" color="#ff4b3a" size="10" />
         </div>
       </div>
+
+      <!-- 转链查返利入口（原底部 Tab，收进首页签到下方） -->
+      <div class="parse-bar" @click="$router.push('/parse')">
+        <span class="pb-ico">🔁</span>
+        <div class="pb-text">
+          <span class="pb-title">转链查返利</span>
+          <span class="pb-sub">粘贴商品链接或口令，查隐藏优惠券</span>
+        </div>
+        <van-icon name="arrow" color="#fff" size="12" />
+      </div>
     </div>
 
     <!-- 本地生活入口（宫格轮播） -->
@@ -977,6 +987,39 @@ onUnmounted(() => {
   background: #fff;
   border-radius: 999px;
   box-shadow: 0 2px 6px rgba(255,75,58,0.15);
+}
+
+/* 转链查返利入口（红橙实底，与浅色签到条区分） */
+.parse-bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 16px;
+  margin: 0 0 6px;
+  background: linear-gradient(135deg, #ff7a4d, #ff4b3a);
+  border-radius: 26px;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(255, 75, 58, 0.28);
+}
+.parse-bar:active { transform: scale(0.99); }
+.pb-ico { font-size: 20px; }
+.pb-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pb-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+.pb-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* Banner */

@@ -25,7 +25,10 @@
         :key="o.id"
         style="background:#fff;margin:10px 12px;border-radius:12px;padding:12px;display:flex;gap:10px"
       >
-        <img :src="o.goodsImg" style="width:72px;height:72px;border-radius:8px;object-fit:cover;background:#eee" />
+        <img v-if="o.goodsImg" :src="o.goodsImg" style="width:72px;height:72px;border-radius:8px;object-fit:cover;background:#eee" />
+        <div v-else style="width:72px;height:72px;border-radius:8px;background:#f2f2f2;display:flex;align-items:center;justify-content:center;color:#bbb">
+          <van-icon name="photo" size="26" />
+        </div>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;line-height:1.4;max-height:36px;overflow:hidden">{{ o.goodsTitle }}</div>
           <div class="muted" style="margin-top:4px">

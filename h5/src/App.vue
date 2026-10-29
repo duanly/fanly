@@ -16,7 +16,7 @@
     class="app-tabbar"
   >
     <van-tabbar-item to="/" icon="shop-o">首页</van-tabbar-item>
-    <van-tabbar-item to="/parse" icon="exchange">转链</van-tabbar-item>
+    <van-tabbar-item to="/local-life" icon="shop-collect-o">本地生活</van-tabbar-item>
     <van-tabbar-item to="/cart" icon="star-o" :badge="cartBadge">收藏夹</van-tabbar-item>
     <van-tabbar-item to="/mine" icon="user-o">我的</van-tabbar-item>
   </van-tabbar>
