@@ -9,13 +9,13 @@
       placeholder
     />
 
-    <!-- 搜索 -->
     <div class="search-bar">
       <van-field
         v-model="keyword"
         placeholder="搜手机号 / 昵称 / 姓名"
         clearable
         left-icon="search"
+        class="search-input"
         @keyup.enter="doSearch"
         @clear="doSearch"
       />
@@ -35,42 +35,42 @@
       @load="onLoad"
     >
       <div class="rn-list">
-        <div v-for="r in list" :key="r.id" class="rn-card">
+        <div v-for="row in list" :key="row.id" class="rn-card">
           <div class="rn-head">
-            <span class="rn-name">{{ r.realName || '未填姓名' }}</span>
-            <van-tag :type="statusTagType(r.realNameStatus)" size="medium">
-              {{ statusName(r.realNameStatus) }}
+            <span class="rn-name">{{ row.realName || '未填姓名' }}</span>
+            <van-tag :type="statusTagType(row.realNameStatus)" size="medium">
+              {{ statusName(row.realNameStatus) }}
             </van-tag>
           </div>
           <div class="rn-body">
             <div class="rn-row">
               <span class="rn-label">用户 ID</span>
-              <span class="rn-value">{{ r.id }}</span>
-            </view>
+              <span class="rn-value">{{ row.id }}</span>
+            </div>
             <div class="rn-row">
               <span class="rn-label">昵称</span>
-              <span class="rn-value">{{ r.nickname || '—' }}</span>
+              <span class="rn-value">{{ row.nickname || '未设置' }}</span>
             </div>
             <div class="rn-row">
               <span class="rn-label">手机号</span>
-              <span class="rn-value">{{ r.mobile || '—' }}</span>
+              <span class="rn-value">{{ row.mobile || '未绑定' }}</span>
             </div>
             <div class="rn-row">
               <span class="rn-label">身份证号</span>
-              <span class="rn-value">{{ maskId(r.idCardNo) }}</span>
+              <span class="rn-value">{{ maskId(row.idCardNo) }}</span>
             </div>
             <div class="rn-row">
               <span class="rn-label">提交时间</span>
-              <span class="rn-value">{{ formatTime(r.createdAt) }}</span>
+              <span class="rn-value">{{ formatTime(row.createdAt) }}</span>
             </div>
-            <div v-if="r.realNameRemark" class="rn-row">
+            <div v-if="row.realNameRemark" class="rn-row">
               <span class="rn-label">备注</span>
-              <span class="rn-value" :class="{ fail: r.realNameStatus === 3 }">{{ r.realNameRemark }}</span>
+              <span class="rn-value" :class="{ fail: row.realNameStatus === 3 }">{{ row.realNameRemark }}</span>
             </div>
           </div>
-          <div v-if="r.realNameStatus === 1" class="rn-actions">
-            <van-button size="small" type="danger" plain @click="openReject(r)">驳回</van-button>
-            <van-button size="small" type="success" @click="pass(r)">通过</van-button>
+          <div v-if="row.realNameStatus === 1" class="rn-actions">
+            <van-button size="small" type="danger" plain @click="openReject(row)">驳回</van-button>
+            <van-button size="small" type="success" @click="pass(row)">通过</van-button>
           </div>
         </div>
       </div>
@@ -78,7 +78,6 @@
 
     <van-empty v-if="!loading && !list.length" description="暂无实名认证" />
 
-    <!-- 驳回原因弹窗 -->
     <van-dialog
       v-model:show="showPrompt"
       title="驳回原因（会展示给用户）"
@@ -94,7 +93,6 @@
       />
     </van-dialog>
 
-    <!-- 底部 tabbar -->
     <van-tabbar v-model="active" route fixed safe-area-inset-bottom active-color="#ff4b3a">
       <van-tabbar-item to="/madmin" icon="home-o">首页</van-tabbar-item>
       <van-tabbar-item to="/madmin/orders" icon="orders-o">订单</van-tabbar-item>
@@ -117,7 +115,7 @@ function statusTagType(s) {
   return { 1: 'warning', 2: 'success', 3: 'danger' }[s] || 'default';
 }
 function maskId(id) {
-  if (!id) return '—';
+  if (!id) return '未填写';
   if (id.length < 8) return id;
   return id.slice(0, 3) + '***********' + id.slice(-4);
 }
@@ -159,11 +157,11 @@ async function onLoad() {
       page: page.value,
       pageSize,
     });
-    if (seq !== reqSeq) return;
-    const rows = r.list || [];
-    list.value = list.value.concat(rows);
-    page.value++;
-    if (rows.length < pageSize) finished.value = true;
+    if (seq === reqSeq) {
+      list.value = list.value.concat(r.list || []);
+      page.value++;
+      if ((r.list || []).length < pageSize) finished.value = true;
+    }
   } catch {
     finished.value = true;
   } finally {
@@ -171,22 +169,22 @@ async function onLoad() {
   }
 }
 
-async function pass(r) {
+async function pass(row) {
   try {
     await showConfirmDialog({
       title: '审核通过',
-      message: `确定通过 ${r.realName} 的实名认证？`,
+      message: `确定通过 ${row.realName} 的实名认证？`,
     });
-    await adminApi.auditRealname(r.id, true, '');
+    await adminApi.auditRealname(row.id, true, '');
     showSuccessToast('已通过');
-    r.realNameStatus = 2;
+    row.realNameStatus = 2;
   } catch (e) {
-    if (e === 'cancel') return;
+    if (e !== 'cancel') throw e;
   }
 }
 
-function openReject(r) {
-  current.value = r;
+function openReject(row) {
+  current.value = row;
   rejectReason.value = '';
   showPrompt.value = true;
 }
@@ -222,7 +220,7 @@ async function onPromptConfirm(action) {
   padding: 8px 12px;
   background: #fff;
 }
-.search-bar .van-field {
+.search-input {
   flex: 1;
   background: #f7f8fa;
   border-radius: 999px;

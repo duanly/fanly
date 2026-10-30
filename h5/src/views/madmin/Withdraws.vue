@@ -24,62 +24,60 @@
       @load="onLoad"
     >
       <div class="wd-list">
-        <div v-for="w in list" :key="w.id" class="wd-card">
+        <div v-for="row in list" :key="row.id" class="wd-card">
           <div class="wd-head">
             <div class="wd-head-left">
-              <span class="wd-amount">¥{{ w.amount || 0 }}</span>
-              <span v-if="+w.fee > 0" class="wd-fee">手续费 ¥{{ w.fee }}</span>
+              <span class="wd-amount">¥{{ row.amount || 0 }}</span>
+              <span v-if="+row.fee > 0" class="wd-fee">手续费 ¥{{ row.fee }}</span>
             </div>
-            <van-tag :type="statusTagType(w.status)" size="medium">
-              {{ statusName(w.status) }}
+            <van-tag :type="statusTagType(row.status)" size="medium">
+              {{ statusName(row.status) }}
             </van-tag>
           </div>
           <div class="wd-body">
             <div class="wd-row">
               <span class="wd-label">用户</span>
               <span class="wd-value">
-                ID {{ w.userId }}<template v-if="w.nickname"> · {{ w.nickname }}</template><template v-if="w.mobile"> · {{ w.mobile }}</template>
+                ID {{ row.userId }}<template v-if="row.nickname"> · {{ row.nickname }}</template><template v-if="row.mobile"> · {{ row.mobile }}</template>
               </span>
             </div>
             <div class="wd-row">
               <span class="wd-label">提现方式</span>
-              <span class="wd-value">{{ w.channel === 'ALIPAY' ? '支付宝' : '微信' }}</span>
+              <span class="wd-value">{{ row.channel === 'ALIPAY' ? '支付宝' : '微信' }}</span>
             </div>
-            <div v-if="w.payeeName" class="wd-row">
+            <div v-if="row.payeeName" class="wd-row">
               <span class="wd-label">收款人</span>
-              <span class="wd-value">{{ w.payeeName }}</span>
+              <span class="wd-value">{{ row.payeeName }}</span>
             </div>
-            <div v-if="w.accountInfo" class="wd-row">
+            <div v-if="row.accountInfo" class="wd-row">
               <span class="wd-label">账号信息</span>
-              <span class="wd-value">{{ w.accountInfo }}</span>
+              <span class="wd-value">{{ row.accountInfo }}</span>
             </div>
-            <div v-if="w.qrCodeUrl" class="wd-row">
+            <div v-if="row.qrCodeUrl" class="wd-row">
               <span class="wd-label">收款码</span>
-              <img :src="w.qrCodeUrl" class="wd-qr" @click="previewQr(w.qrCodeUrl)" />
+              <img :src="row.qrCodeUrl" class="wd-qr" @click="previewQr(row.qrCodeUrl)" />
             </div>
             <div class="wd-row">
               <span class="wd-label">申请时间</span>
-              <span class="wd-value">{{ formatTime(w.createdAt) }}</span>
+              <span class="wd-value">{{ formatTime(row.createdAt) }}</span>
             </div>
-            <div v-if="w.channelOrderNo" class="wd-row">
+            <div v-if="row.channelOrderNo" class="wd-row">
               <span class="wd-label">打款流水号</span>
-              <span class="wd-value">{{ w.channelOrderNo }}</span>
+              <span class="wd-value">{{ row.channelOrderNo }}</span>
             </div>
-            <div v-if="w.failReason" class="wd-row">
+            <div v-if="row.failReason" class="wd-row">
               <span class="wd-label">原因</span>
-              <span class="wd-value fail">{{ w.failReason }}</span>
+              <span class="wd-value fail">{{ row.failReason }}</span>
             </div>
           </div>
 
-          <!-- 待审核：通过 / 驳回 -->
-          <div v-if="w.status === 1" class="wd-actions">
-            <van-button size="small" type="danger" plain @click="openPrompt(w, 'reject')">驳回</van-button>
-            <van-button size="small" type="primary" @click="approve(w)">通过</van-button>
+          <div v-if="row.status === 1" class="wd-actions">
+            <van-button size="small" type="danger" plain @click="openPrompt(row, 'reject')">驳回</van-button>
+            <van-button size="small" type="primary" @click="approve(row)">通过</van-button>
           </div>
-          <!-- 待打款 / 打款中：登记打款结果 -->
-          <div v-else-if="w.status === 2 || w.status === 3" class="wd-actions">
-            <van-button size="small" plain @click="openPrompt(w, 'fail')">打款失败</van-button>
-            <van-button size="small" type="success" @click="openPrompt(w, 'paidno')">打款成功</van-button>
+          <div v-else-if="row.status === 2 || row.status === 3" class="wd-actions">
+            <van-button size="small" plain @click="openPrompt(row, 'fail')">打款失败</van-button>
+            <van-button size="small" type="success" @click="openPrompt(row, 'paidno')">打款成功</van-button>
           </div>
         </div>
       </div>
@@ -87,7 +85,6 @@
 
     <van-empty v-if="!loading && !list.length" description="暂无提现记录" />
 
-    <!-- 通用输入弹窗：驳回原因 / 失败原因 / 流水号 -->
     <van-dialog
       v-model:show="showPrompt"
       :title="promptTitle"
@@ -103,7 +100,6 @@
       />
     </van-dialog>
 
-    <!-- 底部 tabbar -->
     <van-tabbar v-model="active" route fixed safe-area-inset-bottom active-color="#ff4b3a">
       <van-tabbar-item to="/madmin" icon="home-o">首页</van-tabbar-item>
       <van-tabbar-item to="/madmin/orders" icon="orders-o">订单</van-tabbar-item>
@@ -142,7 +138,7 @@ const finished = ref(false);
 const active = ref('withdraws');
 
 const showPrompt = ref(false);
-const promptMode = ref('reject'); // reject | fail | paidno
+const promptMode = ref('reject');
 const promptText = ref('');
 const current = ref(null);
 let reqSeq = 0;
@@ -154,8 +150,7 @@ const promptPlaceholder = computed(
   () => ({ reject: '如：收款人信息有误', fail: '如：账户被限额', paidno: '微信/支付宝的转账单号' }[promptMode.value]),
 );
 
-function onStatusChange() { reset(); }
-function reset() {
+function onStatusChange() {
   list.value = [];
   page.value = 1;
   finished.value = false;
@@ -169,11 +164,11 @@ async function onLoad() {
       page: page.value,
       pageSize,
     });
-    if (seq !== reqSeq) return;
-    const rows = r.list || [];
-    list.value = list.value.concat(rows);
-    page.value++;
-    if (rows.length < pageSize) finished.value = true;
+    if (seq === reqSeq) {
+      list.value = list.value.concat(r.list || []);
+      page.value++;
+      if ((r.list || []).length < pageSize) finished.value = true;
+    }
   } catch {
     finished.value = true;
   } finally {
@@ -181,22 +176,22 @@ async function onLoad() {
   }
 }
 
-async function approve(w) {
+async function approve(row) {
   try {
     await showConfirmDialog({
       title: '审核通过',
-      message: `确定通过 ¥${w.amount} 的提现？通过后进入待打款。`,
+      message: `确定通过 ¥${row.amount} 的提现？通过后进入待打款。`,
     });
-    await adminApi.auditWithdraw(w.id, true, '');
+    await adminApi.auditWithdraw(row.id, true, '');
     showSuccessToast('已通过');
-    w.status = 2;
+    row.status = 2;
   } catch (e) {
-    if (e === 'cancel') return;
+    if (e !== 'cancel') throw e;
   }
 }
 
-function openPrompt(w, mode) {
-  current.value = w;
+function openPrompt(row, mode) {
+  current.value = row;
   promptMode.value = mode;
   promptText.value = '';
   showPrompt.value = true;
@@ -204,23 +199,23 @@ function openPrompt(w, mode) {
 
 async function onPromptConfirm(action) {
   if (action !== 'confirm') return true;
-  const w = current.value;
+  const row = current.value;
   const text = promptText.value.trim();
   try {
     if (promptMode.value === 'reject') {
       if (!text) { showToast('请输入驳回原因'); return false; }
-      await adminApi.auditWithdraw(w.id, false, text);
-      w.status = 6;
+      await adminApi.auditWithdraw(row.id, false, text);
+      row.status = 6;
     } else if (promptMode.value === 'fail') {
       if (!text) { showToast('请输入失败原因'); return false; }
-      await adminApi.finishWithdraw(w.id, false, '', text);
-      w.status = 5;
+      await adminApi.finishWithdraw(row.id, false, '', text);
+      row.status = 5;
     } else {
-      await adminApi.finishWithdraw(w.id, true, text, '');
-      w.status = 4;
+      await adminApi.finishWithdraw(row.id, true, text, '');
+      row.status = 4;
     }
-    w.failReason = (promptMode.value === 'reject' || promptMode.value === 'fail') ? text : w.failReason;
-    w.channelOrderNo = promptMode.value === 'paidno' ? text : w.channelOrderNo;
+    if (promptMode.value === 'reject' || promptMode.value === 'fail') row.failReason = text;
+    if (promptMode.value === 'paidno') row.channelOrderNo = text;
     showSuccessToast('已处理');
   } catch {
     return false;
