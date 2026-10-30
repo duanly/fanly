@@ -10,6 +10,7 @@
     />
 
     <van-tabs v-model:active="status" sticky offset-top="46px" @change="onStatusChange">
+      <van-tab title="全部" name="" />
       <van-tab title="待审核" name="1" />
       <van-tab title="待打款" name="2" />
       <van-tab title="已打款" name="4" />
@@ -160,7 +161,7 @@ async function onLoad() {
   const seq = ++reqSeq;
   try {
     const r = await adminApi.withdraws({
-      status: Number(status.value),
+      status: status.value === '' ? undefined : Number(status.value),
       page: page.value,
       pageSize,
     });

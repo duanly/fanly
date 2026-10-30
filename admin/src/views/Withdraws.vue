@@ -17,7 +17,12 @@
 
     <el-table :data="data.list" v-loading="loading">
       <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column prop="userId" label="用户" width="80" />
+      <el-table-column label="用户" width="180">
+        <template #default="{ row }">
+          <div style="font-size:13px">ID {{ row.userId }}<span v-if="row.nickname"> · {{ row.nickname }}</span></div>
+          <div style="font-size:12px;color:#999">{{ row.mobile || '未绑定手机' }}</div>
+        </template>
+      </el-table-column>
       <el-table-column label="金额" width="110">
         <template #default="{ row }">
           <b style="color:#ff4b3a">¥{{ money(row.amount) }}</b>
