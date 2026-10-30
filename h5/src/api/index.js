@@ -245,6 +245,11 @@ export const adminApi = {
   finishWithdraw: (id, success, channelOrderNo, failReason) =>
     adminHttp.post(`/api/admin/withdraws/${id}/finish`, { success, channelOrderNo, failReason }),
 
+  // 实名认证审核
+  realnames: (params) => adminHttp.get('/api/admin/realnames', { params }),
+  auditRealname: (id, pass, remark) =>
+    adminHttp.post(`/api/admin/realname/${id}/audit`, { pass, remark }),
+
   // 对账
   reconcile: () => adminHttp.get('/api/admin/reconcile'),
 

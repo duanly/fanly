@@ -1,0 +1,28 @@
+/**
+ * uni-app 全局 SCSS 变量（对齐 H5 品牌色）
+ * uni.scss 会被自动注入到每个组件，无需手动 import
+ */
+
+/* 品牌主色 */
+$brand: #ff4b3a;
+$brand-2: #ff7a45;
+$orange: #ff9500;
+$gold: #ffb020;
+$success: #07c160;
+$info: #1989fa;
+$danger: #ee0a24;
+
+/* 文字 */
+$text-main: #1a1a1a;
+$text-sub: #666666;
+$text-muted: #999999;
+
+/* 背景 */
+$bg-page: #f7f8fa;
+$bg-card: #ffffff;
+
+/* 圆角 */
+$radius-sm: 8rpx;
+$radius: 16rpx;
+$radius-lg: 24rpx;
+$radius-pill: 999rpx;

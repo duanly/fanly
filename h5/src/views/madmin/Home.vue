@@ -75,6 +75,12 @@
           </div>
           <div class="grid-name">提现审核</div>
         </div>
+        <div class="grid-item" @click="$router.push('/madmin/realnames')">
+          <div class="grid-ico" style="background: linear-gradient(135deg,#84fab0,#8fd3f4)">
+            <van-icon name="contact" />
+          </div>
+          <div class="grid-name">实名审核</div>
+        </div>
         <div class="grid-item" @click="$router.push('/madmin/support')">
           <div class="grid-ico support-ico-wrap" style="background: linear-gradient(135deg,#43cea2,#185a9d)">
             <van-icon name="service-o" />
@@ -238,7 +244,7 @@ async function loadOverview() {
       adminApi.orders({ pageSize: 50, status: 'paid' }),
       adminApi.users({ pageSize: 1 }),
       adminApi.agents({ pageSize: 1 }),
-      adminApi.withdraws({ status: 0, pageSize: 1 }),
+      adminApi.withdraws({ status: 1, pageSize: 1 }),
     ]).catch(() => [null, null, null, null]);
 
     overview.orderTotal = orders?.total || 0;

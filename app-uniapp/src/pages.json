@@ -1,0 +1,50 @@
+{
+  "pages": [
+    { "path": "pages/home/home", "style": { "navigationStyle": "custom", "enablePullDownRefresh": false } },
+    { "path": "pages/local-life/local-life", "style": { "navigationBarTitleText": "本地生活" } },
+    { "path": "pages/cart/cart", "style": { "navigationBarTitleText": "收藏夹" } },
+    { "path": "pages/mine/mine", "style": { "navigationStyle": "custom" } },
+
+    { "path": "pages/login/login", "style": { "navigationBarTitleText": "登录" } },
+    { "path": "pages/search/search", "style": { "navigationBarTitleText": "搜索" } },
+    { "path": "pages/parse/parse", "style": { "navigationBarTitleText": "转链" } },
+    { "path": "pages/goods/detail", "style": { "navigationBarTitleText": "商品详情" } },
+    { "path": "pages/orders/orders", "style": { "navigationBarTitleText": "我的订单" } },
+    { "path": "pages/support/support", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/checkin/checkin", "style": { "navigationBarTitleText": "每日签到" } },
+    { "path": "pages/fund/balance", "style": { "navigationBarTitleText": "资金明细" } },
+    { "path": "pages/fund/withdraw", "style": { "navigationBarTitleText": "提现" } },
+    { "path": "pages/fund/payment-method", "style": { "navigationBarTitleText": "收款方式" } },
+    { "path": "pages/realname/realname", "style": { "navigationBarTitleText": "实名认证" } },
+    { "path": "pages/agent/agent", "style": { "navigationBarTitleText": "推广中心" } },
+    { "path": "pages/agent/invite", "style": { "navigationBarTitleText": "邀请好友" } },
+    { "path": "pages/agent/team", "style": { "navigationBarTitleText": "我的团队" } },
+    { "path": "pages/agent/ledger", "style": { "navigationBarTitleText": "资金流水" } },
+    { "path": "pages/compare/compare", "style": { "navigationBarTitleText": "全网比价" } },
+    { "path": "pages/compare/detail", "style": { "navigationBarTitleText": "比价详情" } },
+    { "path": "pages/topic/topic", "style": { "navigationBarTitleText": "专题" } },
+    { "path": "pages/group/group", "style": { "navigationBarTitleText": "专区" } },
+    { "path": "pages/category/category", "style": { "navigationBarTitleText": "分类" } },
+    { "path": "pages/auth/auth", "style": { "navigationBarTitleText": "平台授权" } },
+    { "path": "pages/claim/claim", "style": { "navigationBarTitleText": "订单找回" } },
+    { "path": "pages/change-password/change-password", "style": { "navigationBarTitleText": "修改密码" } }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "省钱猫",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f7f8fa"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#ff4b3a",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/home/home", "text": "首页", "iconPath": "static/tabbar/home.png", "selectedIconPath": "static/tabbar/home-on.png" },
+      { "pagePath": "pages/local-life/local-life", "text": "本地生活", "iconPath": "static/tabbar/local.png", "selectedIconPath": "static/tabbar/local-on.png" },
+      { "pagePath": "pages/cart/cart", "text": "收藏夹", "iconPath": "static/tabbar/cart.png", "selectedIconPath": "static/tabbar/cart-on.png" },
+      { "pagePath": "pages/mine/mine", "text": "我的", "iconPath": "static/tabbar/mine.png", "selectedIconPath": "static/tabbar/mine-on.png" }
+    ]
+  }
+}

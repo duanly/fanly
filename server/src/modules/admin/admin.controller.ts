@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, UnauthorizedException } from
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { AdminUser, User, Withdraw, WithdrawStatus } from '@/entities';
 import { Public } from '@/common/jwt.guard';
@@ -91,14 +91,29 @@ export class AdminController {
   sync(@Body() body: { hours?: number }) { return this.order.syncAll(body?.hours ?? 24); }
 
   @Get('withdraws')
-  @ApiOperation({ summary: '提现列表' })
-  async withdraws(@Query('status') status?: string, @Query('page') page = '1') {
+  @ApiOperation({ summary: '提现列表（含用户昵称/手机号）' })
+  async withdraws(
+    @Query('status') status?: string,
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '20',
+  ) {
     const where: any = {};
-    if (status) where.status = +status;
+    if (status && status !== '') where.status = +status;
+    const size = Math.min(100, Math.max(1, +pageSize || 20));
     const [list, total] = await this.wdRepo.findAndCount({
-      where, order: { id: 'DESC' }, skip: (+page - 1) * 20, take: 20,
+      where, order: { id: 'DESC' }, skip: (+page - 1) * size, take: size,
     });
-    return { list, total };
+    // 批量补上用户昵称/手机号，审核打款时不用再跳用户页查人
+    const ids = [...new Set(list.map((w) => w.userId))];
+    const users = ids.length
+      ? await this.userRepo.find({ where: { id: In(ids) }, select: ['id', 'mobile', 'nickname'] })
+      : [];
+    const umap = new Map(users.map((u) => [u.id, u]));
+    const rows = list.map((w) => {
+      const u = umap.get(w.userId);
+      return { ...w, mobile: u?.mobile || '', nickname: u?.nickname || '' };
+    });
+    return { list: rows, total };
   }
 
   @Post('withdraws/:id/audit')

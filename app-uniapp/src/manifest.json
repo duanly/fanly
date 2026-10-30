@@ -1,0 +1,57 @@
+{
+  "name": "省钱猫",
+  "appid": "",
+  "description": "买啥都返现，隐藏优惠券 + 高额返利 + 本地生活",
+  "versionName": "1.0.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "app-plus": {
+    "usingComponents": true,
+    "nvueStyleCompiler": "uni-app",
+    "compilerVersion": 3,
+    "splashscreen": {
+      "alwaysShowBeforeRender": true,
+      "waiting": true,
+      "autoclose": true,
+      "delay": 0
+    },
+    "modules": {},
+    "distribute": {
+      "android": {
+        "permissions": [
+          "<uses-permission android:name=\"android.permission.CAMERA\"/>",
+          "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
+          "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
+          "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+          "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>"
+        ]
+      },
+      "ios": {},
+      "sdkConfigs": {}
+    }
+  },
+  "quickapp": {},
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "minified": true,
+      "postcss": true
+    },
+    "usingComponents": true,
+    "permission": {},
+    "requiredPrivateInfos": ["chooseImage"]
+  },
+  "h5": {
+    "title": "省钱猫",
+    "router": { "mode": "hash" },
+    "devServer": {
+      "proxy": {
+        "/api": { "target": "https://fanly.lyelse.com", "changeOrigin": true, "secure": true },
+        "/uploads": { "target": "https://fanly.lyelse.com", "changeOrigin": true, "secure": true }
+      }
+    }
+  },
+  "vueVersion": "3"
+}
