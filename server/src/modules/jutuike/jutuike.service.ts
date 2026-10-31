@@ -234,11 +234,62 @@ export class JutuikeService {
 
     this.logger.log(`聚推客拉单完成: ${fetched} 笔，落库 ${upserted} 笔`);
 
-    // 同步饿了么订单
+    // 同步饿了么 / 美团订单（各自独立接口，都不进通用订单）
     const eleResult = await this.syncEleOrdersRange(start, end);
-    fetched += eleResult.fetched;
-    upserted += eleResult.upserted;
+    const mtResult = await this.syncMtOrdersRange(start, end);
+    fetched += eleResult.fetched + mtResult.fetched;
+    upserted += eleResult.upserted + mtResult.upserted;
 
+    return { fetched, upserted };
+  }
+
+  /**
+   * 美团订单按小时拆段拉取（与饿了么一致），走品牌专属 /Meituan/orders。
+   */
+  private async syncMtOrdersRange(start: Date, end: Date): Promise<{ fetched: number; upserted: number }> {
+    const p = this.ensureProvider();
+    let fetched = 0;
+    let upserted = 0;
+
+    const HOUR = 3600_000;
+    let curStart = new Date(start.getTime());
+
+    while (curStart < end) {
+      const curEnd = new Date(Math.min(curStart.getTime() + HOUR, end.getTime()));
+
+      try {
+        let page = 1;
+        let lastPage = 1;
+        do {
+          const r = await p.fetchMtOrders({
+            start: curStart,
+            end: curEnd,
+            page,
+            pageSize: 100,
+            queryType: 4, // 按更新时间
+          });
+          for (const order of r.list) {
+            fetched++;
+            try {
+              await this.orderService.upsert(order);
+              upserted++;
+            } catch (e: any) {
+              this.logger.error(`美团订单落库失败 ${order.platformOrderNo}: ${e.message}`);
+            }
+          }
+          lastPage = r.lastPage;
+          page++;
+        } while (page <= lastPage);
+      } catch (e: any) {
+        this.logger.error(`美团拉单失败 ${curStart.toISOString()} ~ ${curEnd.toISOString()}: ${e.message}`);
+      }
+
+      curStart = curEnd;
+    }
+
+    if (fetched > 0) {
+      this.logger.log(`美团拉单完成: ${fetched} 笔，落库 ${upserted} 笔`);
+    }
     return { fetched, upserted };
   }
 

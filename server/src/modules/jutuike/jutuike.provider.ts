@@ -592,4 +592,86 @@ export class JutuikeProvider {
       raw: data,
     };
   }
+
+  // ─── 美团订单 ───
+
+  /**
+   * 美团订单查询（与饿了么 /Ele/orders 平行：/Meituan/orders）。
+   *
+   * 注意：美团订单不进通用 /union/orders，必须走这个品牌专属接口，
+   * 否则 T+2 后在后台也查不到。
+   *
+   * 状态（与饿了么同一标准集）：12订单付款 14订单成功 3订单结算 13订单失效
+   */
+  async fetchMtOrders(params: {
+    start?: Date;
+    end?: Date;
+    page?: number;
+    pageSize?: number;
+    queryType?: number;
+    sid?: string;
+    type?: number;
+    tkStatus?: number;
+  }): Promise<{ list: UnifiedOrder[]; total: number; page: number; pageSize: number; lastPage: number }> {
+    const fmt = (d?: Date) => {
+      if (!d) return undefined;
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    };
+
+    const query: Record<string, any> = {
+      page: params.page || 1,
+      pageSize: params.pageSize || 100,
+    };
+    if (params.start) query.start_time = fmt(params.start);
+    if (params.end) query.end_time = fmt(params.end);
+    if (params.queryType !== undefined) query.query_type = params.queryType;
+    if (params.sid) query.sid = params.sid;
+    if (params.type !== undefined) query.type = params.type;
+    if (params.tkStatus !== undefined) query.tk_status = params.tkStatus;
+
+    const data: any = await this.call('/Meituan/orders', query, 'GET');
+    const list: UnifiedOrder[] = (data.data || []).map((r: any) => this.mapMtOrder(r));
+    return {
+      list,
+      total: Number(data.total || 0),
+      page: Number(data.current_page || 1),
+      pageSize: Number(data.per_page || 100),
+      lastPage: Number(data.last_page || 1),
+    };
+  }
+
+  /** 美团订单 → 统一订单（字段与状态口径同饿了么） */
+  private mapMtOrder(r: any): UnifiedOrder {
+    const rawStatus = Number(r.tk_status);
+    let status = 1;
+    if (rawStatus === 3) status = 3;
+    else if (rawStatus === 14) status = 2;
+    else if (rawStatus === 12) status = 1;
+    else if (rawStatus === 13) status = 4;
+
+    const est = Number(r.jtk_share_fee || 0);
+    const settle = status === 3 ? est : 0;
+    const timeRaw = r.tk_create_time || r.create_time;
+
+    return {
+      platform: 'JTK',
+      platformOrderNo: String(r.order_sn || r.trade_id || ''),
+      subOrderNo: String(r.trade_parent_id || ''),
+      positionId: r.sid || '',
+      goodsId: String(r.act_id || ''),
+      goodsTitle: r.order_title || r.item_title || '',
+      goodsImg: r.item_img
+        ? (r.item_img.startsWith('http') ? r.item_img : `https:${r.item_img}`)
+        : (r.icon || ''),
+      payAmount: Number(r.pay_price || r.alipay_total_price || r.order_price || 0),
+      commissionRate: Number(r.jtk_share_rate || 0),
+      estCommission: est,
+      settleCommission: settle,
+      status,
+      orderTime: timeRaw ? new Date(timeRaw) : new Date(),
+      settleTime: status === 3 && r.tk_earning_time ? new Date(r.tk_earning_time) : undefined,
+      raw: { ...r, brand_id: 1, source: 'mt' },
+    };
+  }
 }

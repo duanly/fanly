@@ -1,3 +1,12 @@
+/**
+ * 本地生活渠道（聚推客）。
+ * 这类订单平台自留佣金：不给用户返利、不创建分佣明细、订单不对用户展示，
+ * 仅在后台「聚推客订单」里供运营查看。
+ */
+export const LOCAL_LIFE_PLATFORMS = ['JTK'];
+export const isLocalLifePlatform = (platform: string): boolean =>
+  LOCAL_LIFE_PLATFORMS.includes(platform);
+
 /** 各平台归一后的商品模型 */
 export interface UnifiedGoods {
   platform: string;
