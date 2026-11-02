@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<!-- 强制按 1080 视口渲染：Quick Look/WebKit 默认可能用 980px 窄视口，
+     不声明会把固定 1080 宽的海报从右边裁掉 -->
+<meta name="viewport" content="width=1080, initial-scale=1, minimum-scale=1" />
+<title>省钱猫 · 招商海报</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  /* width:1080 + min-width 双保险：无论渲染器视口多宽，页面都按 1080 排版，
+     body 不允许出现横向溢出而被裁切 */
+  html, body { width: 1080px; min-width: 1080px; overflow-x: hidden; }
+  body {
+    font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    background: #f4ece2;
+    color: #2b1d16;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* 正常流式列布局：高度固定 1920，内容用 flex 自然填充，
+     最后一块联系方式永远在底部、不会被挤出画布 */
+  .poster {
+    width: 1080px; height: 1920px;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+
+  /* ── 顶部品牌区 ── */
+  .hero {
+    flex: none;
+    background: linear-gradient(150deg, #ff8a3d 0%, #ff5630 55%, #f0332e 100%);
+    padding: 44px 64px 38px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    right: -170px; bottom: -230px;
+    width: 560px; height: 560px;
+    border: 26px solid rgba(255,255,255,.10);
+    border-radius: 50%;
+  }
+  /* 统一左右安全边距：顶部文字、Logo、所有卡片左缘对齐 */
+  .hero-top { display: flex; align-items: center; gap: 26px; position: relative; z-index: 2; }
+  .hero-logo { width: 100px; height: 100px; border-radius: 24px; box-shadow: 0 12px 28px rgba(150,20,10,.35); }
+  .hero-name { font-size:70px; font-weight: 900; letter-spacing: 3px; }
+  .hero-slogan { margin-top: 24px; font-size: 40px; font-weight: 800; position: relative; z-index: 2; }
+  .hero-sub { margin-top: 10px; font-size: 26px; opacity: .92; position: relative; z-index: 2; }
+
+  /* ── 卡片通用 ── */
+  .card {
+    flex: none;
+    background: #fff;
+    border-radius: 28px;
+    margin: 18px 64px 0;
+    padding: 22px 30px 24px;
+    box-shadow: 0 10px 28px rgba(120,60,20,.09);
+  }
+  .card-title { display: flex; align-items: center; gap: 14px; font-size: 35px; font-weight: 900; margin-bottom: 18px; }
+  .card-title .bar { width: 11px; height: 36px; border-radius: 6px; background: linear-gradient(#ff8a3d,#ff3b30); }
+  .card-title .mini { margin-left: auto; font-size: 22px; font-weight: 700; color: #ff5630; background: #fff0ec; padding: 6px 16px; border-radius: 999px; }
+
+  /* ── 四大平台 ── */
+  .plats { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .plat {
+    border-radius: 20px;
+    padding: 16px 24px;
+    color: #fff;
+    display: flex; align-items: center; gap: 18px;
+  }
+  .plat .p-ico {
+    width: 62px; height: 62px; border-radius: 16px;
+    background: rgba(255,255,255,.22);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 38px; font-weight: 900; flex: none;
+  }
+  .plat .p-name { font-size: 33px; font-weight: 800; }
+  .plat .p-desc { font-size: 21px; opacity: .9; margin-top: 3px; }
+
+  /* ── 本地生活 ── */
+  .chips { display: flex; flex-wrap: wrap; gap: 12px; }
+  .chip {
+    border-radius: 999px;
+    padding: 11px 28px;
+    color: #fff; font-size: 26px; font-weight: 700;
+  }
+  .chip.ghost { background: #fff; color: #7a4a30; border: 3px solid #ffd9c2; }
+
+  /* ── 代理招商 ── */
+  .agent-card { background: linear-gradient(135deg,#5a3bf0,#8a2fd0); color: #fff; box-shadow: 0 12px 30px rgba(70,30,160,.30); }
+  .agent-card .card-title { margin-bottom: 16px; }
+  .agent-card .bar { background: linear-gradient(#ffd34d,#ff9d2e); }
+  .agent-card .mini { background: rgba(255,255,255,.22); color: #fff; font-size: 22px; }
+  .perks { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .perk { display: flex; align-items: center; gap: 18px; font-size: 26px; font-weight: 700; background: rgba(255,255,255,.13); border-radius: 14px; padding: 11px 22px; }
+  .perk .pk { font-size: 32px; flex: none; width: 42px; text-align: center; }
+  .perk b { font-weight: 900; color: #ffe27a; }
+  .ladder { display: flex; margin-top: 12px; background: rgba(0,0,0,.18); border-radius: 14px; padding: 12px 8px; }
+  .ladder .lv { flex: 1; text-align: center; }
+  .ladder .lv .l-name { font-size: 24px; font-weight: 800; }
+  .ladder .lv .l-rate { font-size: 20px; opacity: .9; margin-top: 3px; }
+  .ladder .lv.hot .l-rate { color: #ffe27a; font-weight: 900; }
+
+  /* ── 二维码 + 联系（同卡左右排，省高度且联系信息必在） ── */
+  .bottom-card { display: flex; align-items: center; gap: 28px; }
+  .qr-img { width: 240px; height: 240px; border-radius: 18px; border: 5px solid #fff3ec; flex: none; }
+  .contact { flex: 1; }
+  .contact .ct-row { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+  .contact .ct-ico {
+    width: 60px; height: 60px; border-radius: 50%;
+    background: linear-gradient(#ff8a3d,#ff3b30); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; flex: none;
+  }
+  .contact .ct-tel { font-size: 42px; font-weight: 900; color: #ff3b30; letter-spacing: 1px; }
+  .contact .ct-lab { font-size: 22px; color: #a0765c; }
+  .contact .wx-row {
+    display: flex; align-items: center; gap: 14px;
+    background: #07c160; color: #fff;
+    border-radius: 14px; padding: 12px 20px;
+    font-size: 27px; font-weight: 800;
+  }
+  .contact .wx-row .wlab { font-size: 22px; font-weight: 600; opacity: .92; margin-left: auto; }
+  .scan-line { margin-top: 12px; font-size: 21px; color: #a0765c; }
+
+  /* ── 页脚 ── */
+  .footer {
+    margin-top: auto;
+    padding: 14px 0 18px;
+    text-align: center;
+    font-size: 20px;
+    color: #b79a86;
+  }
+</style>
+</head>
+<body>
+<div class="poster">
+
+  <!-- 品牌头 -->
+  <div class="hero">
+    <div class="hero-top">
+      <img class="hero-logo" src="../h5/public/icons/icon-square-256.png" alt="省钱猫" />
+      <div class="hero-name">省钱猫</div>
+    </div>
+    <div class="hero-slogan">四大平台购物返利 · 本地生活天天领券</div>
+    <div class="hero-sub">买啥都先领券，下单再返现 —— 省下的，就是赚到的</div>
+  </div>
+
+  <!-- 四大平台 -->
+  <div class="card">
+    <div class="card-title"><span class="bar"></span>四大平台购物返利<span class="mini">隐藏券 + 高额返利</span></div>
+    <div class="plats">
+      <div class="plat" style="background:linear-gradient(135deg,#ff8200,#ff5000)">
+        <span class="p-ico">淘</span>
+        <div><div class="p-name">淘宝</div><div class="p-desc">领券下单 · 收货返利</div></div>
+      </div>
+      <div class="plat" style="background:linear-gradient(135deg,#e23a44,#c81623)">
+        <span class="p-ico">京</span>
+        <div><div class="p-name">京东</div><div class="p-desc">全网好物 · 返利到账</div></div>
+      </div>
+      <div class="plat" style="background:linear-gradient(135deg,#f64036,#e02e24)">
+        <span class="p-ico">多</span>
+        <div><div class="p-name">拼多多</div><div class="p-desc">拼团低价 · 再省一笔</div></div>
+      </div>
+      <div class="plat" style="background:linear-gradient(135deg,#ff4d79,#ff2d52)">
+        <span class="p-ico">唯</span>
+        <div><div class="p-name">唯品会</div><div class="p-desc">品牌特卖 · 专属返利</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 本地生活 -->
+  <div class="card">
+    <div class="card-title"><span class="bar"></span>本地生活优惠券<span class="mini">券后立减</span></div>
+    <div class="chips">
+      <span class="chip" style="background:#ffb300">美团外卖</span>
+      <span class="chip" style="background:#1296db">饿了么</span>
+      <span class="chip" style="background:#ff6a00">淘宝闪购</span>
+      <span class="chip" style="background:#ff6034">美团到店</span>
+      <span class="chip ghost">酒店</span>
+      <span class="chip ghost">电影</span>
+      <span class="chip ghost">打车</span>
+      <span class="chip ghost">飞猪</span>
+    </div>
+  </div>
+
+  <!-- 代理招商 -->
+  <div class="card agent-card">
+    <div class="card-title"><span class="bar"></span>代理招商 · 0元加入<span class="mini">最高返佣 25%</span></div>
+    <div class="perks">
+      <div class="perk"><span class="pk">🎁</span><span><b>免费加入</b>，0 门槛 0 囤货，一部手机就能做</span></div>
+      <div class="perk"><span class="pk">💰</span><span>自买省钱 · 分享赚钱，团队订单<b>永久分成</b></span></div>
+      <div class="perk"><span class="pk">📈</span><span>等级晋升 + 专属培训 + <b>一对一辅导</b></span></div>
+    </div>
+    <div class="ladder">
+      <div class="lv"><div class="l-name">白银</div><div class="l-rate">起步分成</div></div>
+      <div class="lv"><div class="l-name">黄金</div><div class="l-rate">更高比例</div></div>
+      <div class="lv hot"><div class="l-name">钻石</div><div class="l-rate">最高 25%</div></div>
+    </div>
+  </div>
+
+  <!-- 二维码 + 联系方式 -->
+  <div class="card bottom-card">
+    <img class="qr-img" src="qrcode-fanly.png" alt="扫码进入省钱猫" />
+    <div class="contact">
+      <div class="ct-row">
+        <span class="ct-ico">📞</span>
+        <div>
+          <div class="ct-tel">15873416463</div>
+          <div class="ct-lab">咨询 / 合作 / 招商</div>
+        </div>
+      </div>
+      <div class="wx-row">💬 微信同号<span class="wlab">添加请备注来意</span></div>
+      <div class="scan-line">扫一扫二维码，立即进省钱猫领券 / 申请代理</div>
+    </div>
+  </div>
+
+  <div class="footer">耒阳市优辰网络科技有限公司 · https://fanly.lyelse.com</div>
+</div>
+</body>
+</html>

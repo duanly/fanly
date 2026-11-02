@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, initial-scale=1" />
+<title>省钱猫 · 宣传视频</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:1080px; min-width:1080px; background:#111; overflow:hidden; }
+  body { font-family:'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif; -webkit-font-smoothing:antialiased; }
+
+  /* 竖版视频画布 1080×1920 */
+  #stage { position:relative; width:1080px; height:1920px; background:#ff6a3d; overflow:hidden; }
+
+  .scene { position:absolute; inset:0; opacity:0; will-change:opacity; }
+  .layer { position:absolute; left:0; right:0; will-change:transform,opacity; }
+
+  /* 通用文字 */
+  .kicker { font-size:30px; font-weight:800; letter-spacing:6px; opacity:.95; }
+  .title { font-size:86px; font-weight:900; line-height:1.12; }
+  .sub { font-size:34px; font-weight:600; line-height:1.5; opacity:.95; }
+
+  /* 手机框（真实截图） */
+  .phone { position:absolute; border-radius:46px; overflow:hidden;
+    box-shadow:0 40px 90px rgba(120,20,0,.35); background:#fff; }
+  .phone img { display:block; width:100%; height:100%; object-fit:cover; object-position:top; }
+  .phone .notch { position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:300px; height:34px; background:rgba(0,0,0,.85); border-radius:0 0 22px 22px; z-index:3; }
+
+  /* 弹卡 / 数字块 */
+  .pop { position:absolute; border-radius:26px; background:#fff; color:#2b1d16;
+    box-shadow:0 20px 50px rgba(120,20,0,.25); padding:24px 30px; }
+  .pop .n { font-size:64px; font-weight:900; color:#ff3b30; line-height:1; }
+  .pop .l { font-size:24px; color:#8a5238; margin-top:8px; font-weight:700; }
+  .pill { display:inline-block; padding:10px 26px; border-radius:999px; background:rgba(255,255,255,.2); font-size:28px; font-weight:800; }
+
+  /* 流程圆点 */
+  .steps { display:flex; gap:18px; }
+  .stepc { flex:1; background:rgba(255,255,255,.16); border-radius:24px; padding:30px 18px; text-align:center; color:#fff; }
+  .stepc b { display:block; font-size:52px; margin-bottom:14px; }
+  .stepc span { font-size:25px; font-weight:800; line-height:1.35; }
+
+  /* 进度条 & 控制提示 */
+  #bar { position:absolute; left:0; bottom:0; height:10px; background:rgba(255,255,255,.85); width:0; z-index:50; }
+  #replay { position:absolute; right:30px; top:30px; z-index:60; font-size:22px; color:#fff;
+    background:rgba(0,0,0,.30); padding:12px 22px; border-radius:999px; }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- ───── S0 开场 ───── -->
+  <section class="scene" id="s0" style="background:linear-gradient(160deg,#ff9a3d,#ff5630 55%,#f0332e)">
+    <div class="layer" style="top:640px;text-align:center;color:#fff" data-anim="t">
+      <img src="../h5/public/icons/icon-square-256.png" style="width:200px;height:200px;border-radius:46px;box-shadow:0 20px 50px rgba(120,20,0,.35)" />
+      <div class="title" style="margin-top:40px;font-size:110px">省钱猫</div>
+      <div class="sub" style="margin-top:30px;font-size:40px">四大平台购物返利 · 本地生活天天领券</div>
+      <div class="pill" style="margin-top:50px">买啥都先领券，下单再返现</div>
+    </div>
+  </section>
+
+  <!-- ───── S1 领取隐藏券 ───── -->
+  <section class="scene" id="s1" style="background:linear-gradient(160deg,#ffb84d,#ff8a2e 60%,#ff6a2e)">
+    <div class="layer" style="top:120px;text-align:center;color:#fff" data-anim="t">
+      <div class="kicker">第一步</div>
+      <div class="title" style="margin-top:14px">领取隐藏优惠券</div>
+      <div class="sub" style="margin-top:20px">搜同款商品，先领券再下单，立减几十元</div>
+    </div>
+    <div class="layer phone" style="left:120px; top:520px; width:560px; height:1120px" data-anim="phone">
+      <span class="notch"></span><img src="shots/IMG_1488.PNG" alt="领券页" />
+    </div>
+    <div class="layer pop" style="right:70px; top:600px" data-anim="pop1">
+      <div class="n">99减50</div><div class="l">大额券一键领</div>
+    </div>
+    <div class="layer pop" style="left:70px; bottom:150px" data-anim="pop2">
+      <div class="n">立减 ¥60</div><div class="l">同款更便宜</div>
+    </div>
+  </section>
+
+  <!-- ───── S2 购物流程 ───── -->
+  <section class="scene" id="s2" style="background:linear-gradient(160deg,#5b9cf8,#3a6fe0 60%,#2e58d0)">
+    <div class="layer" style="top:130px;text-align:center;color:#fff" data-anim="t">
+      <div class="kicker">第二步</div>
+      <div class="title" style="margin-top:14px;font-size:80px">四步完成购物</div>
+      <div class="sub" style="margin-top:18px">操作和平时网购一模一样，只是多省一笔</div>
+    </div>
+    <div class="layer" style="left:70px;right:70px;top:560px" data-anim="list">
+      <div class="steps" style="flex-wrap:wrap;gap:24px">
+        <div class="stepc" style="flex:1 1 40%"><b>🎟️</b><span>搜索 / 领隐藏券</span></div>
+        <div class="stepc" style="flex:1 1 40%"><b>🛒</b><span>跳转平台下单</span></div>
+        <div class="stepc" style="flex:1 1 40%"><b>📦</b><span>确认收货</span></div>
+        <div class="stepc" style="flex:1 1 40%"><b>💰</b><span>返利自动到账</span></div>
+      </div>
+      <div style="text-align:center;color:#fff;font-size:32px;font-weight:800;margin-top:70px">
+        <div class="pill">全程平台官方交易，安全有保障</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───── S3 购物返佣 ───── -->
+  <section class="scene" id="s3" style="background:linear-gradient(160deg,#ff8a3d,#ff5630 60%,#e02a2a)">
+    <div class="layer" style="top:120px;text-align:center;color:#fff" data-anim="t">
+      <div class="kicker">第三步</div>
+      <div class="title" style="margin-top:14px">确认收货 · 返利到账</div>
+      <div class="sub" style="margin-top:18px">每单都返，一般 15~30 天自动入账，可提现</div>
+    </div>
+    <div class="layer phone" style="left:110px; top:540px; width:540px; height:1080px" data-anim="phone">
+      <span class="notch"></span><img src="shots/IMG_1486.PNG" alt="我的订单" />
+    </div>
+    <div class="layer pop" style="right:70px; top:720px" data-anim="pop1">
+      <div class="n" id="rateNum">54%</div><div class="l">自购返利比例</div>
+    </div>
+    <div class="layer pop" style="left:70px; bottom:170px" data-anim="pop2">
+      <div class="n">已到账</div><div class="l">余额可直接提现</div>
+    </div>
+  </section>
+
+  <!-- ───── S4 代理收益 ───── -->
+  <section class="scene" id="s4" style="background:linear-gradient(160deg,#6a4bf0,#5a2fd0 55%,#7a2fd0)">
+    <div class="layer" style="top:110px;text-align:center;color:#fff" data-anim="t">
+      <div class="kicker">分享赚钱</div>
+      <div class="title" style="margin-top:12px;font-size:78px">代理收益 · 团队分成</div>
+      <div class="sub" style="margin-top:16px">0 元加入，自买省钱，推广还能赚团队佣金</div>
+    </div>
+    <div class="layer phone" style="left:100px; top:470px; width:520px; height:1040px" data-anim="phone">
+      <span class="notch"></span><img src="shots/IMG_1487.PNG" alt="推广中心" />
+    </div>
+    <div class="layer pop" style="right:60px; top:500px" data-anim="pop1">
+      <div class="n" style="color:#5a2fd0">最高 25%</div><div class="l">团队返佣</div>
+    </div>
+    <div class="layer pop" style="right:60px; top:820px" data-anim="pop2">
+      <div class="n" style="font-size:52px">二级团队 4%</div><div class="l">好友做代理你也有分成</div>
+    </div>
+    <div class="layer pop" style="left:60px; bottom:150px" data-anim="pop3">
+      <div class="n" id="shareNum">15%</div><div class="l">推广分成比例</div>
+    </div>
+  </section>
+
+  <!-- ───── S5 行动召唤 ───── -->
+  <section class="scene" id="s5" style="background:linear-gradient(160deg,#ff8a3d,#ff5630 55%,#f0332e)">
+    <div class="layer" style="top:300px;text-align:center;color:#fff" data-anim="t">
+      <img src="../h5/public/icons/icon-square-256.png" style="width:170px;height:170px;border-radius:40px;box-shadow:0 16px 40px rgba(120,20,0,.35)" />
+      <div class="title" style="margin-top:36px;font-size:96px">立即进省钱猫</div>
+      <div class="sub" style="margin-top:24px">领券 · 返利 · 0元做代理</div>
+    </div>
+    <div class="layer pop" style="left:50%;transform:translateX(-50%);top:820px;text-align:center;padding:40px" data-anim="pop1">
+      <img src="qrcode-fanly.png" style="width:360px;height:360px;border-radius:24px" />
+      <div style="font-size:30px;font-weight:800;color:#ff3b30;margin-top:20px">扫一扫，马上领券</div>
+    </div>
+    <div class="layer" style="left:0;right:0;bottom:230px;text-align:center;color:#fff" data-anim="pop2">
+      <div style="font-size:56px;font-weight:900;letter-spacing:2px">📞 15873416463</div>
+      <div class="pill" style="margin-top:24px;font-size:30px">💬 微信同号 · 咨询 / 申请代理</div>
+    </div>
+  </section>
+
+  <div id="bar"></div>
+  <div id="replay">点击可暂停</div>
+</div>
+
+<script>
+/* ============================================================
+   时间轴驱动：renderAt(t) 依据绝对时间 t 摆放全部场景与元素。
+   既能 requestAnimationFrame 播放，也能被外部逐帧调用（导出 MP4）。
+   暴露 window.TOTAL / window.renderAt 供渲染器抓帧。
+   ============================================================ */
+const SCENES = [
+  { id:'s0', start:0,    end:3.6 },
+  { id:'s1', start:3.0,  end:9.2 },
+  { id:'s2', start:8.6,  end:14.6 },
+  { id:'s3', start:14.0, end:20.0 },
+  { id:'s4', start:19.4, end:26.6 },
+  { id:'s5', start:26.0, end:30.0 },
+];
+const TOTAL = 30.0;
+window.TOTAL = TOTAL;
+
+const clamp = (v,a=0,b=1) => Math.max(a,Math.min(b,v));
+const lerp = (a,b,t) => a+(b-a)*t;
+const easeOut = t => 1-Math.pow(1-t,3);
+const easeInOut = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+
+function setTransform(el, x,y,s,op) {
+  el.style.transform = `translate3d(${x}px,${y}px,0) scale(${s})`;
+  if (op!==undefined) el.style.opacity = op;
+}
+
+function renderAt(t) {
+  t = ((t % TOTAL) + TOTAL) % TOTAL;
+
+  for (const sc of SCENES) {
+    const node = document.getElementById(sc.id);
+    const FADE = 0.55;
+    let a, b;
+    if (t >= sc.start && t <= sc.end) {
+      a = easeOut(clamp((t-sc.start)/FADE));
+      b = easeInOut(clamp((sc.end-t)/FADE));
+    } else { a=0; b=0; }
+    const vis = clamp(Math.min(a,b));
+    node.style.opacity = vis;
+    if (vis<=0.001) continue;
+
+    const local = clamp((t-sc.start)/Math.max(0.001,(sc.end-sc.start)));
+
+    node.querySelectorAll('[data-anim]').forEach((el) => {
+      const kind = el.getAttribute('data-anim');
+      const e = easeOut(clamp((t-sc.start)/0.7));   // 进场
+      const delayIn = easeOut(clamp((local-0.12)/0.35));
+      if (kind==='t') {
+        setTransform(el, 0, (1-e)*70, 1, vis);
+      } else if (kind==='phone') {
+        setTransform(el, 0, (1-e)*120, 0.90+0.10*e, vis*e);
+      } else if (kind==='list') {
+        setTransform(el, 0, (1-delayIn)*80, 1, vis*delayIn);
+      } else {
+        // 弹卡依次弹出
+        const order = { pop1:0.25, pop2:0.42, pop3:0.58 }[kind] ?? 0.3;
+        const p = easeOut(clamp((local-order)/0.4));
+        setTransform(el, 0, (1-p)*50, 0.8+0.2*p, vis*p);
+      }
+    });
+  }
+
+  // 数字进度（54% / 15% 在对应场景里随时间计数）
+  const rateEl = document.getElementById('rateNum');
+  if (rateEl) rateEl.textContent = Math.round(54*clamp((t-14.6)/1.2)) + '%';
+  const shEl = document.getElementById('shareNum');
+  if (shEl) shEl.textContent = Math.round(15*clamp((t-20.2)/1.2)) + '%';
+
+  document.getElementById('bar').style.width = (t/TOTAL*100)+'%';
+}
+window.renderAt = renderAt;
+
+/* ── 播放循环（预览用） ── */
+let start = performance.now();
+let playing = true;
+function loop(now) {
+  if (playing) renderAt((now-start)/1000);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+document.getElementById('stage').addEventListener('click', () => {
+  playing = !playing;
+  if (playing) start = performance.now() - (parseFloat(document.getElementById('bar').style.width)/100*TOTAL)*1000;
+});
+</script>
+</body>
+</html>
