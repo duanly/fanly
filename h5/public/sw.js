@@ -1,10 +1,12 @@
 // Service Worker - 离线缓存（简易版）
 // 只做最基础的缓存，满足 PWA 安装提示的要求
-const CACHE_NAME = 'fanly-cache-v1';
+const CACHE_NAME = 'fanly-cache-v2';
 const CORE_ASSETS = [
   '/',
   '/index.html',
+  '/madmin.html',
   '/manifest.json',
+  '/admin-manifest.json',
   '/favicon.png',
 ];
 

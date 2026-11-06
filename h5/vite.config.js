@@ -51,6 +51,16 @@ function iconLibPlugin() {
 
 export default defineConfig({
   plugins: [vue(), iconLibPlugin()],
+  build: {
+    rollupOptions: {
+      // 多页入口：/ 是用户端，/madmin.html 是运营中心独立 PWA 入口
+      // 两份 HTML 各自静态声明 manifest，国产浏览器也能识别成两个桌面应用
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        madmin: fileURLToPath(new URL('./madmin.html', import.meta.url)),
+      },
+    },
+  },
   server: {
     host: true,
     proxy: {

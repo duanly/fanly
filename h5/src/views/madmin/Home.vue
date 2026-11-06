@@ -164,6 +164,13 @@
     <div class="section">
       <div class="sec-title">快捷操作</div>
       <div class="quick-list">
+        <div v-if="!isStandalone" class="quick-item" @click="onAddToDesktop">
+          <div class="q-left">
+            <van-icon name="desktop-o" color="#2f54eb" />
+            <span>添加运营中心到桌面</span>
+          </div>
+          <van-icon name="arrow" />
+        </div>
         <div class="quick-item" @click="$router.push('/madmin/pool?status=3')">
           <div class="q-left">
             <van-icon name="clock-o" color="#ff9800" />
@@ -195,6 +202,9 @@
       </div>
     </div>
 
+    <!-- 添加到桌面引导（独立 PWA 入口 /madmin.html） -->
+    <InstallGuide v-model:show="showGuide" app-name="运营中心" />
+
     <!-- 底部 tabbar -->
     <van-tabbar v-model="active" route fixed safe-area-inset-bottom active-color="#ff4b3a">
       <van-tabbar-item to="/madmin" icon="home-o">首页</van-tabbar-item>
@@ -212,9 +222,25 @@ import { useRouter } from 'vue-router';
 import { showConfirmDialog, showToast, showSuccessToast } from 'vant';
 import { io } from 'socket.io-client';
 import { adminApi } from '../../api';
+import InstallGuide from '../../components/InstallGuide.vue';
 
 const router = useRouter();
 const active = ref(0);
+
+// ─── 添加到桌面（运营中心独立 PWA） ───
+// 已作为桌面应用运行时不再显示入口
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+const showGuide = ref(false);
+
+function onAddToDesktop() {
+  // 浏览器只按当前文档静态声明的 manifest 安装（国产浏览器尤其如此），
+  // 所以先整页跳到 /madmin.html —— 那份 HTML 写死了运营中心自己的 manifest
+  if (!location.pathname.endsWith('/madmin.html')) {
+    location.href = '/madmin.html?guide=1';
+    return;
+  }
+  showGuide.value = true;
+}
 
 // 客服未读角标（用户消息即使已自动回复也计入）
 const staffUnread = ref(0);
@@ -378,6 +404,10 @@ onMounted(() => {
   loadStats();
   loadOverview();
   refreshStaffUnread();
+  // 从 /#/madmin 的「添加到桌面」跳转到独立入口后，自动弹出引导
+  if (new URLSearchParams(location.search).get('guide') === '1') {
+    showGuide.value = true;
+  }
   // 管理首页保持 socket 连接：新客服消息/已读变化实时更新角标
   supportSocket = io({
     auth: { token: localStorage.getItem('adminToken') },

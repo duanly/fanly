@@ -78,6 +78,13 @@ router.beforeEach((to) => {
   return true;
 });
 
+// /madmin.html 是运营中心独立 PWA 入口（真实路径，HTML 里静态写死 admin manifest），
+// 桌面图标点开它，先把 hash 路由切到 /madmin；未登录会被上面的守卫带去 /madmin/login。
+// 必须在 mount 前替换，避免首屏先按 '/' 解析一次。
+if (location.pathname.endsWith('/madmin.html') && !location.hash) {
+  router.replace('/madmin');
+}
+
 createApp(App).use(router).use(Vant).mount('#app');
 
 // ─── 注册 Service Worker（PWA 必需，Android 上才能触发安装提示） ───
@@ -112,14 +119,36 @@ if (typeof window !== 'undefined') {
   }
 }
 
-// ───────── PWA 动态切换：管理后台 vs 用户端 ─────────
-// 访问 /madmin/* 时切换成运营中心的 PWA 配置，这样可以单独添加到桌面
+// ───────── PWA 双入口：用户端 vs 运营中心 ─────────
 const USER_MANIFEST = '/manifest.json';
 const ADMIN_MANIFEST = '/admin-manifest.json';
 const USER_TITLE = '省钱猫 · 买啥都返现';
 const ADMIN_TITLE = '运营中心';
 const USER_THEME = '#ff3b30';
 const ADMIN_THEME = '#ff4b3a';
+
+const PWA_ASSETS = {
+  user: {
+    manifest: USER_MANIFEST,
+    title: USER_TITLE,
+    appTitle: '省钱猫',
+    theme: USER_THEME,
+    icon120: '/icons/icon-square-120.png',
+    icon180: '/icons/icon-square-180.png',
+    icon192: '/icons/icon-square-192.png',
+    icon256: '/icons/icon-square-256.png',
+  },
+  admin: {
+    manifest: ADMIN_MANIFEST,
+    title: ADMIN_TITLE,
+    appTitle: '运营中心',
+    theme: ADMIN_THEME,
+    icon120: '/icons/admin-icon-square-120.png',
+    icon180: '/icons/admin-icon-square-180.png',
+    icon192: '/icons/admin-icon-square-192.png',
+    icon256: '/icons/admin-icon-square-256.png',
+  },
+};
 
 function setMeta(name, content) {
   let el = document.querySelector(`meta[name="${name}"]`);
@@ -131,29 +160,40 @@ function setMeta(name, content) {
   el.setAttribute('content', content);
 }
 
-function setPwaMode(isAdmin) {
-  // manifest
-  let link = document.querySelector('link[rel="manifest"]');
-  if (!link) {
-    link = document.createElement('link');
-    link.setAttribute('rel', 'manifest');
-    document.head.appendChild(link);
-  }
-  link.setAttribute('href', isAdmin ? ADMIN_MANIFEST : USER_MANIFEST);
+function setAllLinkHref(selector, href) {
+  document.querySelectorAll(selector).forEach((el) => el.setAttribute('href', href));
+}
 
-  // iOS PWA 相关
-  setMeta('apple-mobile-web-app-title', isAdmin ? '运营中心' : '省钱猫');
-  setMeta('theme-color', isAdmin ? ADMIN_THEME : USER_THEME);
+function setPwaMode(isAdmin) {
+  const a = isAdmin ? PWA_ASSETS.admin : PWA_ASSETS.user;
+
+  // manifest：删旧节点再插新节点。直接改 href 在部分国产浏览器上不会被重新读取，
+  // 换成新节点能触发重新解析。
+  document.querySelectorAll('link[rel="manifest"]').forEach((el) => el.remove());
+  const link = document.createElement('link');
+  link.setAttribute('rel', 'manifest');
+  link.setAttribute('href', a.manifest);
+  document.head.appendChild(link);
+
+  // iOS 桌面图标 / 标题（Safari 分享时按当前 DOM 读取）
+  setAllLinkHref('link[rel="apple-touch-icon"]', a.icon180);
+  setAllLinkHref('link[rel="apple-touch-icon"][sizes="120x120"]', a.icon120);
+  setAllLinkHref('link[rel="apple-touch-icon"][sizes="180x180"]', a.icon180);
+  setAllLinkHref('link[rel="apple-touch-icon-precomposed"]', a.icon180);
+  setAllLinkHref('link[rel="icon"][sizes="192x192"]', a.icon192);
+  setAllLinkHref('meta[itemprop="image"]', a.icon256);
+
+  setMeta('apple-mobile-web-app-title', a.appTitle);
+  setMeta('application-name', a.appTitle);
+  setMeta('theme-color', a.theme);
   setMeta('apple-mobile-web-app-status-bar-style', 'default');
 
-  // 文档标题
-  document.title = isAdmin ? ADMIN_TITLE : USER_TITLE;
+  document.title = a.title;
 }
 
 router.afterEach((to) => {
-  const isAdmin = to.path.startsWith('/madmin');
-  setPwaMode(isAdmin);
+  setPwaMode(to.path.startsWith('/madmin'));
 });
 
-// 初始化时根据当前路径设置
-setPwaMode(location.hash.startsWith('#/madmin'));
+// 初始化：/madmin.html 入口或 #/madmin 哈希都算运营中心模式
+setPwaMode(location.pathname.endsWith('/madmin.html') || location.hash.startsWith('#/madmin'));

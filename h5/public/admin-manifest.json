@@ -1,35 +1,36 @@
 {
+  "id": "/madmin.html",
   "name": "运营中心",
   "short_name": "运营中心",
   "description": "商品选品与运营管理后台",
-  "start_url": "/#/madmin",
+  "start_url": "/madmin.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ff4b3a",
   "theme_color": "#ff4b3a",
   "lang": "zh-CN",
-  "scope": "/madmin",
+  "scope": "/",
   "icons": [
     {
-      "src": "/icons/icon-square-192.png",
+      "src": "/icons/admin-icon-square-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-square-512.png",
+      "src": "/icons/admin-icon-square-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-square-512.png",
+      "src": "/icons/admin-icon-square-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/icons/icon-square-192.png",
+      "src": "/icons/admin-icon-square-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"

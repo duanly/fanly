@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff8a3d"/>
+      <stop offset="100%" stop-color="#ff3b30"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 背景：与主站图标同色系，保证品牌一致 -->
+  <rect width="1024" height="1024" rx="256" fill="url(#bg)"/>
+  <rect width="1024" height="1024" rx="256" fill="url(#glow)"/>
+
+  <!-- 装饰圆环 -->
+  <circle cx="512" cy="512" r="420" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="8"/>
+  <circle cx="512" cy="512" r="320" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="8"/>
+  <circle cx="512" cy="512" r="220" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="8"/>
+
+  <!-- 白色卡片：运营数据看板 -->
+  <rect x="212" y="252" width="600" height="420" rx="52" fill="#fff8f0"/>
+
+  <!-- 三根上升柱：选品/运营/增长，与主站猫脸图标明显区分 -->
+  <rect x="300" y="490" width="88" height="110" rx="18" fill="#2f54eb"/>
+  <rect x="468" y="410" width="88" height="190" rx="18" fill="#2f54eb"/>
+  <rect x="636" y="330" width="88" height="270" rx="18" fill="#2f54eb"/>
+
+  <!-- 基线 -->
+  <rect x="280" y="612" width="464" height="10" rx="5" fill="#ffd9d4"/>
+
+  <!-- 右下角金币：与主站图标呼应，都是省钱猫体系 -->
+  <circle cx="800" cy="824" r="118" fill="#f5a623"/>
+  <circle cx="800" cy="824" r="93" fill="#ffd166" stroke="#f5a623" stroke-width="6"/>
+  <circle cx="800" cy="824" r="68" fill="none" stroke="#f5a623" stroke-width="5"/>
+  <text x="800" y="858" text-anchor="middle"
+        font-family="Arial, sans-serif"
+        font-size="78" font-weight="bold"
+        fill="#e8951e">¥</text>
+</svg>
