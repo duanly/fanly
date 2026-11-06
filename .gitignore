@@ -5,3 +5,7 @@ data
 *.log
 _to_delete
 Claude outputs/
+
+# 推广账号建号产物（含明文密码，勿入库）；海报为生成产物
+promo-accounts.json
+promo-posters/
