@@ -407,6 +407,9 @@ onMounted(() => {
   // 从 /#/madmin 的「添加到桌面」跳转到独立入口后，自动弹出引导
   if (new URLSearchParams(location.search).get('guide') === '1') {
     showGuide.value = true;
+    // 清掉 guide 参数：iOS 会把当前 URL 原样存进桌面图标，
+    // 不清的话每次点开都带 ?guide=1，引导弹窗会反复出现
+    history.replaceState(null, '', '/madmin.html#/madmin');
   }
   // 管理首页保持 socket 连接：新客服消息/已读变化实时更新角标
   supportSocket = io({

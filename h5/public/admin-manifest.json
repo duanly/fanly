@@ -3,7 +3,7 @@
   "name": "运营中心",
   "short_name": "运营中心",
   "description": "商品选品与运营管理后台",
-  "start_url": "/madmin.html",
+  "start_url": "/madmin.html#/madmin",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ff4b3a",
