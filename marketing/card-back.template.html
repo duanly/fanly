@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<!-- 名片背面竖版（54×90mm，设计稿 540×900px，10px/mm），沿长边上下分栏，竖版三段式 2:6:2：
+     上 180px 品牌标题（原 270 的 2/3，让出空间给标签）· 中 540px 本地生活 10 项 +
+     全网品类 7 项共 17 枚实色标签（带 ICON、绝对定位如繁星散落）· 下 180px 热线微信 + 链接 + 二维码。
+     占位符：__HERO_LOGO__ 品牌 Logo（base64）/ __QR_SRC__ 老板专属二维码 /
+     __BOSS_URL__ 推广链接 / __BOSS_CODE__ 推广码。
+     电话 15873416463 与「微信同号」为固定信息，不做占位符。 -->
+<meta name="viewport" content="width=540, initial-scale=1, minimum-scale=1" />
+<title>省钱猫 · 名片背面</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 540px; height: 900px; overflow: hidden; }
+  body {
+    font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .face {
+    width: 540px; height: 900px;
+    background: #f4ece2;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ══ 第一段（180px，原 270 的 2/3）：品牌标题 ══ */
+  .hero {
+    flex: none;
+    height: 180px;
+    background: linear-gradient(150deg, #ff8a3d 0%, #ff5630 55%, #f0332e 100%);
+    border-radius: 0 0 28px 28px;
+    padding: 0 34px;
+    color: #fff;
+    display: flex; align-items: center; gap: 16px;
+    position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ''; position: absolute;
+    right: -100px; top: -120px;
+    width: 300px; height: 300px;
+    border: 16px solid rgba(255,255,255,.10);
+    border-radius: 50%;
+  }
+  .hero-logo { width: 72px; height: 72px; border-radius: 18px; box-shadow: 0 10px 22px rgba(150,20,10,.32); position: relative; z-index: 1; }
+  .hero-name { font-size: 40px; font-weight: 900; letter-spacing: 3px; position: relative; z-index: 1; }
+  .hero-sub { margin-top: 7px; font-size: 18px; font-weight: 700; opacity: .95; position: relative; z-index: 1; }
+
+  /* ══ 第二段（540px）：繁星区，标签绝对定位散落 ══ */
+  .sky { flex: none; height: 540px; position: relative; }
+  .chip {
+    position: absolute;
+    display: inline-flex; align-items: center; gap: 7px;
+    border-radius: 999px;
+    padding: 11px 22px;
+    color: #fff; font-size: 17px; font-weight: 800;
+    white-space: nowrap;
+    box-shadow: 0 8px 16px rgba(120,60,20,.17);
+  }
+  .chip.sm { font-size: 16px; padding: 10px 18px; }
+  .chip .ci { font-size: 1.12em; line-height: 1; }
+  .star { position: absolute; color: #ff8a3d; font-weight: 900; pointer-events: none; z-index: 0; }
+  .star.dim { color: #e8b48f; }
+
+  /* ══ 第三段（180px）：联系 + 链接 + 二维码 ══ */
+  .foot { flex: none; height: 180px; padding: 12px 24px 20px; }
+  .contact-card {
+    height: 100%;
+    background: #fff; border-radius: 22px;
+    box-shadow: 0 10px 24px rgba(120,60,20,.10);
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 18px;
+  }
+  .info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 9px; }
+  .tel-row { font-size: 19px; font-weight: 800; color: #2b1d16; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .tel-row .ico {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: linear-gradient(#ff8a3d,#ff3b30); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; flex: none;
+  }
+  .tel-row b { color: #ff3b30; font-size: 23px; letter-spacing: 1px; }
+  .meta-row { font-size: 14px; color: #7a4a30; font-weight: 700; display: flex; align-items: center; gap: 14px; }
+  .meta-row .wx { color: #07c160; font-weight: 800; }
+  .link-row { font-size: 12px; font-weight: 700; color: #2b1d16; display: flex; align-items: center; gap: 7px; min-width: 0; }
+  .link-row .url { color: #5a3a28; white-space: nowrap; }
+  .code-tag {
+    background: linear-gradient(#ff8a3d,#ff3b30); color: #fff;
+    font-size: 12px; font-weight: 800;
+    border-radius: 999px; padding: 3px 11px; white-space: nowrap; flex: none;
+  }
+  .qr-img { width: 94px; height: 94px; border-radius: 12px; border: 3px solid #fff3ec; flex: none; }
+</style>
+</head>
+<body>
+<div class="face">
+
+  <!-- ① 标题 180px -->
+  <div class="hero">
+    <img class="hero-logo" src="__HERO_LOGO__" alt="省钱猫" />
+    <div>
+      <div class="hero-name">省钱猫</div>
+      <div class="hero-sub">买啥都先领券，下单再返现</div>
+    </div>
+  </div>
+
+  <!-- ② 繁星 540px：17 枚标签七条松散带，位置/角度/高低错落，不做规整网格 -->
+  <div class="sky">
+    <!-- 带 1 -->
+    <span class="chip" style="left:20px; top:14px; transform:rotate(-5deg); background:#ffb300"><span class="ci">🍔</span>美团外卖</span>
+    <span class="chip" style="left:208px; top:24px; transform:rotate(4deg); background:#1296db"><span class="ci">🛵</span>饿了么</span>
+    <span class="chip" style="left:378px; top:12px; transform:rotate(-3deg); background:#ff6a00"><span class="ci">⚡</span>淘宝闪购</span>
+
+    <!-- 带 2 -->
+    <span class="chip" style="left:96px; top:86px; transform:rotate(3deg); background:#ff6034"><span class="ci">🏪</span>美团到店</span>
+    <span class="chip" style="left:300px; top:96px; transform:rotate(-4deg); background:#14b8a6"><span class="ci">🚕</span>打车出行</span>
+
+    <!-- 带 3 -->
+    <span class="chip" style="left:18px; top:162px; transform:rotate(4deg); background:#6366f1"><span class="ci">✈️</span>旅游机票</span>
+    <span class="chip" style="left:200px; top:152px; transform:rotate(-5deg); background:#8b5cf6"><span class="ci">🏨</span>酒店民宿</span>
+    <span class="chip" style="left:382px; top:166px; transform:rotate(3deg); background:#f43f5e"><span class="ci">🎬</span>电影门票</span>
+
+    <!-- 带 4 -->
+    <span class="chip" style="left:70px; top:236px; transform:rotate(-3deg); background:#b45309"><span class="ci">☕</span>咖啡奶茶</span>
+    <span class="chip" style="left:308px; top:226px; transform:rotate(5deg); background:#db2777"><span class="ci">👑</span>会员权益</span>
+
+    <!-- 带 5（品类，小一号，蓝绿深色系） -->
+    <span class="chip sm" style="left:16px; top:308px; transform:rotate(3deg); background:#0d9488"><span class="ci">📱</span>数码家电</span>
+    <span class="chip sm" style="left:206px; top:298px; transform:rotate(-4deg); background:#0891b2"><span class="ci">👗</span>服饰鞋包</span>
+    <span class="chip sm" style="left:392px; top:310px; transform:rotate(4deg); background:#0e7490"><span class="ci">💄</span>美妆护肤</span>
+
+    <!-- 带 6 -->
+    <span class="chip sm" style="left:48px; top:380px; transform:rotate(-3deg); background:#0f766e"><span class="ci">🛋️</span>家具日用</span>
+    <span class="chip sm" style="left:214px; top:370px; transform:rotate(4deg); background:#0284c7"><span class="ci">🧸</span>母婴玩具</span>
+    <span class="chip sm" style="left:380px; top:382px; transform:rotate(-4deg); background:#155e75"><span class="ci">🎁</span>年货婚庆</span>
+
+    <!-- 带 7：大促单独居中 -->
+    <span class="chip" style="left:180px; top:474px; transform:rotate(-2deg); background:linear-gradient(135deg,#ff4d4f,#e02e24)"><span class="ci">🎉</span>双十一·618</span>
+
+    <!-- 星光点缀：填在标签之间的空隙 -->
+    <span class="star" style="left:262px; top:60px; font-size:15px">✦</span>
+    <span class="star dim" style="left:92px; top:138px; font-size:11px">✦</span>
+    <span class="star" style="left:470px; top:136px; font-size:14px">✦</span>
+    <span class="star dim" style="left:430px; top:214px; font-size:11px">✦</span>
+    <span class="star" style="left:250px; top:282px; font-size:15px">✦</span>
+    <span class="star dim" style="left:56px; top:348px; font-size:12px">✦</span>
+    <span class="star" style="left:478px; top:350px; font-size:13px">✦</span>
+    <span class="star dim" style="left:178px; top:438px; font-size:11px">✦</span>
+    <span class="star" style="left:420px; top:440px; font-size:12px">✦</span>
+    <span class="star dim" style="left:86px; top:486px; font-size:11px">✦</span>
+    <span class="star" style="left:446px; top:492px; font-size:10px">·</span>
+  </div>
+
+  <!-- ③ 底部 180px：热线 / 微信 / 链接 / 二维码 -->
+  <div class="foot">
+    <div class="contact-card">
+      <div class="info">
+        <div class="tel-row">
+          <span class="ico">📞</span>
+          <span>客服热线 <b>158 7341 6463</b></span>
+        </div>
+        <div class="meta-row">
+          <span class="wx">💬 微信同号</span>
+          <span>添加请备注来意</span>
+        </div>
+        <div class="link-row">
+          <span>🔗</span>
+          <span class="url">__BOSS_URL__</span>
+          <span class="code-tag">推广码 __BOSS_CODE__</span>
+        </div>
+      </div>
+      <img class="qr-img" src="__QR_SRC__" alt="扫码进入省钱猫" />
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

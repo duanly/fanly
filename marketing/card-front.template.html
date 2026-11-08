@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<!-- 名片正面（90×54mm，设计稿 900×540px，10px/mm）：
+     圆外空间四等份，四个平台渐变色块铺满整版（外边贴卡片边界），
+     中央蓝绿色大圆（414px）压住象限内角，色块内边即圆的弧线；
+     平台只放官方 ICON（白芯片）+ 两行短语（平台特色 + 统一口号领隐藏券·享高返利），不重复平台名。
+     占位符：__QR_SRC__ 二维码 / __HERO_LOGO__ 品牌 Logo（base64）/
+     __ICO_TB__ __ICO_JD__ __ICO_PDD__ __ICO_VIP__ 四平台官方图标（base64）。 -->
+<meta name="viewport" content="width=900, initial-scale=1, minimum-scale=1" />
+<title>省钱猫 · 名片正面</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 900px; height: 540px; overflow: hidden; }
+  body {
+    font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .face { position: relative; width: 900px; height: 540px; overflow: hidden; }
+
+  /* ── 四象限色块：各占 450×270，外边贴卡片边界，1.3px 白色细缝（原 4px 的 1/3） ── */
+  .quad {
+    position: absolute;
+    width: 450px; height: 270px;
+    color: #fff;
+    display: flex; align-items: center;
+  }
+  .quad.tl { left: 0; top: 0; background: linear-gradient(135deg,#ff8200,#ff5000); border-right: 1.3px solid rgba(255,255,255,.9); border-bottom: 1.3px solid rgba(255,255,255,.9); }
+  .quad.tr { right: 0; top: 0; background: linear-gradient(225deg,#e23a44,#c81623); border-left: 1.3px solid rgba(255,255,255,.9); border-bottom: 1.3px solid rgba(255,255,255,.9); justify-content: flex-end; }
+  .quad.bl { left: 0; bottom: 0; background: linear-gradient(45deg,#f64036,#e02e24); border-right: 1.3px solid rgba(255,255,255,.9); border-top: 1.3px solid rgba(255,255,255,.9); }
+  .quad.br { right: 0; bottom: 0; background: linear-gradient(315deg,#ff4d79,#ff2d52); border-left: 1.3px solid rgba(255,255,255,.9); border-top: 1.3px solid rgba(255,255,255,.9); justify-content: flex-end; }
+
+  /* 平台块：白色芯片装官方 ICON，下方一句短语，整体靠卡片外侧 */
+  .q-info { display: flex; flex-direction: column; align-items: center; gap: 9px; margin: 0 42px; }
+  .q-chip {
+    width: 88px; height: 88px; border-radius: 22px;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 10px 22px rgba(90, 20, 10, .22);
+  }
+  .q-chip img { width: 74px; height: 74px; border-radius: 17px; object-fit: cover; display: block; }
+  /* 两行短语：上行平台特色，下行统一宣传口号（领隐藏券·享高返利） */
+  .q-desc { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .q-desc .d1 { font-size: 16px; font-weight: 800; letter-spacing: .5px; white-space: nowrap; text-shadow: 0 2px 6px rgba(120,20,10,.25); }
+  .q-desc .d2 { font-size: 13.5px; font-weight: 700; opacity: .94; letter-spacing: .5px; white-space: nowrap; text-shadow: 0 2px 6px rgba(120,20,10,.25); }
+
+  /* ── 中央大圆（414px）：蓝绿渐变 + 白色环，压住四个象限的内角 ──
+     圆内顺序：顶部省钱猫标题 → 居中二维码 → 底部扫码提示（上下占位等高，二维码几何居中） */
+  .circle {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 414px; height: 414px;
+    border-radius: 50%;
+    background: linear-gradient(155deg, #2dd4bf 0%, #0d9488 58%, #0e7490 100%);
+    border: 6px solid rgba(255,255,255,.92);
+    box-shadow: 0 18px 42px rgba(8, 60, 70, .38);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 2;
+  }
+  .circle-cap { height: 34px; display: flex; align-items: center; }
+  .brand-row { display: flex; align-items: center; gap: 9px; }
+  .brand-logo { width: 27px; height: 27px; border-radius: 8px; }
+  .brand-name { font-size: 28px; font-weight: 900; color: #fff; letter-spacing: 2px; }
+  .qr-img {
+    width: 202px; height: 202px;
+    border-radius: 14px;
+    border: 4px solid #fff;
+    display: block;
+    background: #fff;
+    margin: 10px 0 8px;
+  }
+  .brand-tip { font-size: 15px; font-weight: 700; color: rgba(255,255,255,.92); letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<div class="face">
+
+  <!-- 四等份平台色块：外边接卡片边界，内边被中央圆裁成弧线；只放官方 ICON + 短语 -->
+  <div class="quad tl">
+    <div class="q-info">
+      <span class="q-chip"><img src="__ICO_TB__" alt="淘宝" /></span>
+      <span class="q-desc"><span class="d1">品种齐全 · 买啥都有</span><span class="d2">领隐藏券 · 享高返利</span></span>
+    </div>
+  </div>
+  <div class="quad tr">
+    <div class="q-info">
+      <span class="q-chip"><img src="__ICO_JD__" alt="京东" /></span>
+      <span class="q-desc"><span class="d1">品质好物 · 售后省心</span><span class="d2">领隐藏券 · 享高返利</span></span>
+    </div>
+  </div>
+  <div class="quad bl">
+    <div class="q-info">
+      <span class="q-chip"><img src="__ICO_PDD__" alt="拼多多" /></span>
+      <span class="q-desc"><span class="d1">种类超多 · 拼团低价</span><span class="d2">领隐藏券 · 享高返利</span></span>
+    </div>
+  </div>
+  <div class="quad br">
+    <div class="q-info">
+      <span class="q-chip"><img src="__ICO_VIP__" alt="唯品会" /></span>
+      <span class="q-desc"><span class="d1">品牌正品 · 特卖低价</span><span class="d2">领隐藏券 · 享高返利</span></span>
+    </div>
+  </div>
+
+  <!-- 中央蓝绿大圆：标题在上、二维码居中、提示在下 -->
+  <div class="circle">
+    <div class="circle-cap">
+      <div class="brand-row">
+        <img class="brand-logo" src="__HERO_LOGO__" alt="省钱猫" />
+        <span class="brand-name">省钱猫</span>
+      </div>
+    </div>
+    <img class="qr-img" src="__QR_SRC__" alt="扫码进入省钱猫" />
+    <div class="circle-cap">
+      <span class="brand-tip">扫码进入 · 领券返现</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -72,6 +72,9 @@
             </div>
           </div>
           <div class="agent-actions">
+            <van-button size="small" color="#ff4b3a" @click="openPoster(a)">
+              专属海报
+            </van-button>
             <van-button size="small" type="primary" plain @click="openSetLevel(a)">
               设置等级
             </van-button>
@@ -154,6 +157,29 @@
       >确认设置</van-button>
     </van-popup>
 
+    <!-- 专属海报弹层：浏览器端实时渲染，长按图片即可保存/转发 -->
+    <van-popup
+      v-model:show="posterVisible"
+      round
+      closeable
+      close-icon-position="top-left"
+      :style="{ width: '88%', maxHeight: '90vh', overflow: 'auto', padding: '18px 16px 20px' }"
+    >
+      <div class="poster-pop">
+        <div class="poster-title">专属招商海报</div>
+        <div v-if="posterLoading" class="poster-loading">
+          <van-loading size="28px" color="#ff4b3a">海报生成中…</van-loading>
+        </div>
+        <template v-else>
+          <img :src="posterDataUrl" class="poster-img" alt="专属招商海报" />
+          <div class="poster-tip">长按图片保存到相册，或直接转发给意向客户</div>
+          <a :href="posterDataUrl" :download="posterFileName" class="poster-download">
+            <van-button block round type="primary" color="#ff4b3a">下载海报</van-button>
+          </a>
+        </template>
+      </div>
+    </van-popup>
+
     <!-- 底部 tabbar -->
     <van-tabbar v-model="active" route fixed safe-area-inset-bottom active-color="#ff4b3a">
       <van-tabbar-item to="/madmin" icon="home-o">首页</van-tabbar-item>
@@ -169,6 +195,7 @@
 import { ref } from 'vue';
 import { showToast, showConfirmDialog, showSuccessToast } from 'vant';
 import { adminApi } from '../../api';
+import { renderPoster } from '../../utils/poster';
 
 function statusName(s) {
   const m = { 0: '待审核', 1: '正常', 2: '已禁用' };
@@ -317,6 +344,32 @@ function copyCode(code) {
   }).catch(() => {
     showToast('复制失败');
   });
+}
+
+// ───────── 专属海报（浏览器端实时渲染，无需服务端出图） ─────────
+const posterVisible = ref(false);
+const posterLoading = ref(false);
+const posterDataUrl = ref('');
+const posterFileName = ref('fanly-poster.png');
+
+async function openPoster(a) {
+  if (!a.inviteCode || !a.mobile) {
+    showToast('该账号缺少邀请码或手机号，无法生成');
+    return;
+  }
+  posterVisible.value = true;
+  posterLoading.value = true;
+  posterDataUrl.value = '';
+  try {
+    const { dataUrl } = await renderPoster({ mobile: a.mobile, inviteCode: a.inviteCode });
+    posterDataUrl.value = dataUrl;
+    posterFileName.value = `省钱猫海报-${a.mobile}-${a.inviteCode}.png`;
+  } catch (e) {
+    posterVisible.value = false;
+    showToast(e?.message || '海报生成失败');
+  } finally {
+    posterLoading.value = false;
+  }
 }
 </script>
 
@@ -476,4 +529,16 @@ function copyCode(code) {
   margin-top: 2px;
 }
 .muted { color: #999; }
+
+/* 专属海报弹层 */
+.poster-pop { text-align: center; }
+.poster-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+.poster-loading { padding: 80px 0; display: flex; justify-content: center; }
+.poster-img {
+  width: 100%;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.12);
+}
+.poster-tip { font-size: 12px; color: #999; margin: 12px 0; }
+.poster-download { display: block; text-decoration: none; }
 </style>

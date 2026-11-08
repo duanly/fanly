@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { CuratedGoods, CuratedStatus, GoodsTopic } from '@/entities';
@@ -53,8 +53,16 @@ function dedupTokens(title: string): string[] {
   return [...new Set(tokens.filter((t) => t.length >= 2))];
 }
 
-/** 去重：判断两个商品是不是同一件（标题相似 + 价格相近） */
-function isSameProduct(a: { title: string; price: number | string }, b: { title: string; price: number | string }): boolean {
+/**
+ * 去重：判断两个商品是不是同一件（标题相似 + 价格相近）。
+ * tokenCache 可选：大批量去重时传入按标题缓存分词结果的 Map，
+ * 否则同一标题在 O(n²) 比较里会被重复分词上百次（正则 + 二元/三元词组，CPU 大头）。
+ */
+function isSameProduct(
+  a: { title: string; price: number | string },
+  b: { title: string; price: number | string },
+  tokenCache?: Map<string, string[]>,
+): boolean {
   const pa = Number(a.price), pb = Number(b.price);
   if (!pa || !pb) return false;
 
@@ -63,8 +71,17 @@ function isSameProduct(a: { title: string; price: number | string }, b: { title:
   const priceRatio = priceDiff / Math.max(pa, pb);
   if (priceRatio > 0.08 && priceDiff > 10) return false; // 价格差超过 8% 且绝对差超 10 元，不算同款
 
-  const t1 = dedupTokens(a.title);
-  const t2 = dedupTokens(b.title);
+  const tokensOf = (title: string) => {
+    if (!tokenCache) return dedupTokens(title);
+    let t = tokenCache.get(title);
+    if (!t) {
+      t = dedupTokens(title);
+      tokenCache.set(title, t);
+    }
+    return t;
+  };
+  const t1 = tokensOf(a.title);
+  const t2 = tokensOf(b.title);
   if (t1.length < 3 || t2.length < 3) return false; // 关键词太少不可靠
 
   const s1 = new Set(t1);
@@ -83,6 +100,9 @@ function statusName(s: number) {
 @Injectable()
 export class CurationService {
   private readonly logger = new Logger(CurationService.name);
+
+  /** 一键去重运行锁：重活进行中拒绝并发，避免多个全量扫描占满 DB 连接池拖死全站 */
+  private dedupRunning = false;
 
   constructor(
     @InjectRepository(CuratedGoods) private readonly repo: Repository<CuratedGoods>,
@@ -952,6 +972,21 @@ export class CurationService {
    * 不能因为去重就把正在卖的商品搞没了。
    */
   async dedup(): Promise<{ totalGroups: number; removed: number; fuzzyGroups: number; fuzzyRemoved: number }> {
+    // 运行锁：去重是全表 O(n²) 重活，并发请求会各自全量扫描并占满 DB 连接池，拖死全站
+    if (this.dedupRunning) {
+      throw new ConflictException('商品去重正在执行中，请稍后再试');
+    }
+    this.dedupRunning = true;
+    const startedAt = Date.now();
+    try {
+      return await this.doDedup();
+    } finally {
+      this.dedupRunning = false;
+      this.logger.log(`去重锁释放，总耗时 ${Date.now() - startedAt}ms`);
+    }
+  }
+
+  private async doDedup(): Promise<{ totalGroups: number; removed: number; fuzzyGroups: number; fuzzyRemoved: number }> {
     let totalGroups = 0;
     let removed = 0;
     let fuzzyGroups = 0;
@@ -965,24 +1000,34 @@ export class CurationService {
     };
 
     const mergeAndRemove = async (groups: number[][]) => {
+      const multiGroups = groups.filter((ids) => ids.length >= 2);
+      if (!multiGroups.length) return 0;
+
+      // 所有分组涉及的行一次性查出（原来是每组一条 find，组多时是典型 N+1）
+      const allIds = multiGroups.flat();
+      const allRows = await this.repo.find({
+        where: { id: In(allIds) },
+        select: ['id', 'status', 'sortWeight', 'recommendScore', 'compareGroupId'],
+      });
+      const rowMap = new Map(allRows.map((r) => [r.id, r]));
+
       const toRemove: number[] = [];
       const toPromote: Array<{ id: number; status: number; sortWeight: number }> = [];
+      const compareGroupUpdates = new Map<number, number>(); // keepId → compareGroupId
 
-      for (const ids of groups) {
-        if (ids.length < 2) continue;
-        // 降序：id 大的在前（新的在前）
-        const sorted = ids.sort((a, b) => b - a);
+      for (const ids of multiGroups) {
+        // 降序：id 大的在前（新的在前）；不改动入参数组本身
+        const sorted = [...ids].sort((a, b) => b - a);
         const keepId = sorted[0];
         const restIds = sorted.slice(1);
 
-        const allRows = await this.repo.find({
-          where: sorted.map((id) => ({ id })),
-          select: ['id', 'status', 'sortWeight', 'recommendScore', 'compareGroupId'],
-        });
-        const keepRow = allRows.find((r) => r.id === keepId);
+        const keepRow = rowMap.get(keepId);
         if (!keepRow) continue;
 
-        const bestRow = allRows.reduce((best, r) =>
+        const groupRows = sorted.map((id) => rowMap.get(id)).filter(Boolean) as NonNullable<
+          ReturnType<typeof rowMap.get>
+        >[];
+        const bestRow = groupRows.reduce((best, r) =>
           statusRank(r.status) > statusRank(best.status) ? r : best,
         );
 
@@ -994,11 +1039,10 @@ export class CurationService {
           });
         }
 
-        // 如果有商品在比价组里，把比价组 id 移到保留的那条上
-        const compareMember = allRows.find((r) => r.compareGroupId && r.id !== keepId);
+        // 如果有商品在比价组里，把比价组 id 移到保留的那条上（收集后统一写）
+        const compareMember = groupRows.find((r) => r.compareGroupId && r.id !== keepId);
         if (compareMember?.compareGroupId && !keepRow.compareGroupId) {
-          await this.repo.update(keepId, { compareGroupId: compareMember.compareGroupId })
-            .catch(() => {}); // 失败就算了，不是关键路径
+          compareGroupUpdates.set(keepId, compareMember.compareGroupId);
         }
 
         toRemove.push(...restIds);
@@ -1010,6 +1054,9 @@ export class CurationService {
       }
       for (const p of toPromote) {
         await this.repo.update(p.id, { status: p.status, sortWeight: p.sortWeight });
+      }
+      for (const [id, compareGroupId] of compareGroupUpdates) {
+        await this.repo.update(id, { compareGroupId }).catch(() => {}); // 失败就算了，不是关键路径
       }
 
       return toRemove.length;
@@ -1045,6 +1092,12 @@ export class CurationService {
       .addSelect('COUNT(*)', 'cnt')
       .groupBy('c.platform')
       .getRawMany();
+
+    // 分词结果按标题缓存：同一标题在 O(n²) 比较里会被碰上很多次，只分词一遍
+    const tokenCache = new Map<string, string[]>();
+    // 模糊去重的写操作全部记账、整轮结束后批量执行（原来每发现一个重复就发 3~5 条串行 SQL）
+    const fuzzyRemoveIds: number[] = [];
+    const fuzzyPromote = new Map<number, { status?: number; sortWeight?: number; compareGroupId?: number }>();
 
     for (const pf of platforms) {
       const platform = pf.platform;
@@ -1085,6 +1138,7 @@ export class CurationService {
           if (isSameProduct(
             { title: items[i].title!, price: items[i].couponPrice },
             { title: items[j].title!, price: items[j].couponPrice },
+            tokenCache,
           )) {
             // 保留状态更好的，状态一样保留 id 小的（前面那条）
             const keepRank = statusRank(items[i].status);
@@ -1101,29 +1155,27 @@ export class CurationService {
             const keepRow = items[keep];
             const removeRow = items[remove];
 
-            // 合并比价组关联
+            const patchKeep = (patch: { status?: number; sortWeight?: number; compareGroupId?: number }) => {
+              fuzzyPromote.set(keepRow.id, { ...fuzzyPromote.get(keepRow.id), ...patch });
+            };
+            // 合并比价组关联（只改内存对象驱动后续比较，写库统一延后）
             if (removeRow.compareGroupId && !keepRow.compareGroupId) {
-              await this.repo.update(keepRow.id, { compareGroupId: removeRow.compareGroupId })
-                .catch(() => {});
+              patchKeep({ compareGroupId: removeRow.compareGroupId });
               keepRow.compareGroupId = removeRow.compareGroupId;
             }
             // 合并权重（取大的）
             if (removeRow.sortWeight > keepRow.sortWeight) {
-              await this.repo.update(keepRow.id, { sortWeight: removeRow.sortWeight })
-                .catch(() => {});
+              patchKeep({ sortWeight: removeRow.sortWeight });
               keepRow.sortWeight = removeRow.sortWeight;
             }
             // 如果保留的那条状态不如被删的，把状态升上去
             if (statusRank(removeRow.status) > statusRank(keepRow.status)) {
-              await this.repo.update(keepRow.id, { status: removeRow.status })
-                .catch(() => {});
+              patchKeep({ status: removeRow.status });
               keepRow.status = removeRow.status;
             }
 
-            // 删标签关联 + 删商品（找到一个去一个）
-            await this.relRepo.delete({ curatedId: removeRow.id }).catch(() => {});
-            await this.repo.delete({ id: removeRow.id }).catch(() => {});
-
+            // 标签关联和商品本体先记账，整轮结束后批量删
+            fuzzyRemoveIds.push(removeRow.id);
             removedIds.add(removeRow.id);
             fuzzyRemoved++;
 
@@ -1144,6 +1196,17 @@ export class CurationService {
       }
 
       fuzzyGroups += groupMap.size;
+    }
+
+    // ── 模糊去重写库：整轮只有两批删除，加上每个被合并保留行至多一条 update ──
+    if (fuzzyRemoveIds.length) {
+      await this.relRepo.delete({ curatedId: In(fuzzyRemoveIds) });
+      await this.repo.delete({ id: In(fuzzyRemoveIds) });
+    }
+    const fuzzyRemovedSet = new Set(fuzzyRemoveIds);
+    for (const [id, patch] of fuzzyPromote) {
+      if (fuzzyRemovedSet.has(id)) continue; // 保留行后来也被判重删掉，更新已无意义
+      await this.repo.update(id, patch).catch(() => {});
     }
 
     this.logger.log(

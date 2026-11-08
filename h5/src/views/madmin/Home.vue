@@ -185,12 +185,13 @@
           </div>
           <van-icon name="arrow" />
         </div>
-        <div class="quick-item" @click="onDedup">
+        <div class="quick-item" :class="{ 'item-disabled': dedupLoading }" @click="onDedup">
           <div class="q-left">
-            <van-icon name="orders-o" color="#2196f3" />
-            <span>商品去重</span>
+            <van-loading v-if="dedupLoading" size="16" color="#2196f3" />
+            <van-icon v-else name="orders-o" color="#2196f3" />
+            <span>{{ dedupLoading ? '去重执行中，请勿离开…' : '商品去重' }}</span>
           </div>
-          <van-icon name="arrow" />
+          <van-icon v-if="!dedupLoading" name="arrow" />
         </div>
         <div class="quick-item" @click="onCleanOff">
           <div class="q-left">
@@ -359,17 +360,30 @@ async function onReconcile() {
   }
 }
 
+// 去重是服务端全表重活：按钮防重入 + 服务端运行锁双保险，避免并发请求堆死连接池
+const dedupLoading = ref(false);
+
 async function onDedup() {
+  if (dedupLoading.value) return;
   try {
     await showConfirmDialog({
       title: '商品去重',
-      message: '将按平台+商品ID 去重，保留最新的一条。确认继续？',
+      message: '将按平台+商品ID 去重，保留最新的一条。数据量大时可能需要几分钟，确认继续？',
     });
-    await adminApi.curationDedup();
-    showToast('去重完成');
+  } catch (e) {
+    return; // 用户取消
+  }
+  dedupLoading.value = true;
+  try {
+    const r = await adminApi.curationDedup();
+    showSuccessToast(
+      `去重完成：精确移除 ${r?.removed ?? 0} 件，模糊移除 ${r?.fuzzyRemoved ?? 0} 件`,
+    );
     loadStats();
   } catch (e) {
-    if (e !== 'cancel') showToast(e.message || '操作失败');
+    showToast(e.message || '操作失败');
+  } finally {
+    dedupLoading.value = false;
   }
 }
 
@@ -544,6 +558,8 @@ onUnmounted(() => {
 }
 .quick-item:last-child { border-bottom: none; }
 .quick-item:active { background: #f9f9f9; }
+.quick-item.item-disabled { opacity: .55; }
+.quick-item.item-disabled:active { background: transparent; }
 .q-left {
   display: flex;
   align-items: center;

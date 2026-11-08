@@ -208,7 +208,8 @@ export const adminApi = {
   curationBatchOnShelf: (ids) => adminHttp.post('/api/admin/curation/batch-on-shelf', { ids }),
   curationBatchRemove: (ids) => adminHttp.post('/api/admin/curation/batch-remove', { ids }),
   curationRemove: (id) => adminHttp.delete(`/api/admin/curation/${id}`),
-  curationDedup: () => adminHttp.post('/api/admin/curation/dedup'),
+  // 去重是全表重活，可能跑几分钟：该接口单独放宽到 2 分钟（adminHttp 默认只有 15s）
+  curationDedup: () => adminHttp.post('/api/admin/curation/dedup', null, { timeout: 120000 }),
   curationRemoveOffShelf: () => adminHttp.post('/api/admin/curation/remove-off-shelf'),
   curationAutoTagAll: () => adminHttp.post('/api/admin/curation/auto-tag/all'),
 

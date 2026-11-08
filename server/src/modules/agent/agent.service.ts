@@ -514,6 +514,8 @@ export class AgentService implements OnModuleInit {
         ...a,
         mobile: u?.mobile || '',
         nickname: u?.nickname || '',
+        // 后台「专属海报」要用用户邀请码拼 /i/inviteCode 二维码（与 agentCode 是两个码）
+        inviteCode: u?.inviteCode || '',
         teamSize: await this.userRepo.countBy({ agentId: a.id }),
         teamSizeL2: await this.commission.countTeamSizeL2(a.id),
         stats: await this.commission.agentStats(a.id),
