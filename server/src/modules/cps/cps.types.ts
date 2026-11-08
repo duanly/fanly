@@ -1,11 +1,8 @@
 /**
- * 本地生活渠道（聚推客）。
- * 这类订单平台自留佣金：不给用户返利、不创建分佣明细、订单不对用户展示，
- * 仅在后台「聚推客订单」里供运营查看。
+ * 聚推客（JTK）本地生活渠道（美团/饿了么/淘宝闪购等）。
+ * 2026-11 起与四大电商渠道同规则：按子渠道参数归属用户，
+ * 走统一的预估返利 → 结算分佣（用户 + 一级/二级代理）管线，不再平台自留。
  */
-export const LOCAL_LIFE_PLATFORMS = ['JTK'];
-export const isLocalLifePlatform = (platform: string): boolean =>
-  LOCAL_LIFE_PLATFORMS.includes(platform);
 
 /** 各平台归一后的商品模型 */
 export interface UnifiedGoods {

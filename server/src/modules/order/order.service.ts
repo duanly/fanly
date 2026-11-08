@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { CommissionDetail, CpsOrder, OrderStatus, PromotionPosition, User } from '@/entities';
-import { UnifiedOrder, isLocalLifePlatform } from '../cps/cps.types';
+import { UnifiedOrder } from '../cps/cps.types';
 import { CpsService, PLATFORMS } from '../cps/cps.service';
 import { CommissionService } from '../commission/commission.service';
 import { SysConfigService } from '../admin/sys-config.service';
@@ -72,12 +72,9 @@ export class OrderService {
     }
 
     const isNew = !order;
-    // 本地生活订单平台自留佣金：不归属任何用户
-    const localLife = isLocalLifePlatform(u.platform);
     if (!order) {
-      const user = localLife
-        ? null
-        : await this.resolveUserWithFallback(u.platform, u.positionId, u.goodsId);
+      // 全部渠道（含聚推客本地生活）统一按子渠道参数 + 转链记录兜底归属用户
+      const user = await this.resolveUserWithFallback(u.platform, u.positionId, u.goodsId);
       order = this.orderRepo.create({
         platform: u.platform,
         platformOrderNo: u.platformOrderNo,
@@ -101,23 +98,8 @@ export class OrderService {
     order.settleTime = u.settleTime ?? order.settleTime;
     order.rawJson = u.raw ?? null;
 
-    // 本地生活订单：历史误归属的，撤回预估分佣与预估返利、清归属，对用户彻底隐藏
-    if (localLife && order.userId) {
-      // PENDING 明细改为 REVERSED（未入账，不动余额）
-      await this.commission.reverseOrder(order);
-      const userRate = this.cfg.num('rebate.user_rate', 0.5);
-      const prevUser = await this.userRepo.findOneBy({ id: order.userId });
-      if (prevUser) {
-        prevUser.pending = sub(prevUser.pending, mul(order.estCommission, userRate));
-        if (toNum(prevUser.pending) < 0) prevUser.pending = '0.0000';
-        await this.userRepo.save(prevUser);
-      }
-      order.userId = null;
-      order.agentId = null;
-    }
-
     // 老订单首次归属：之前 userId 为 null，这次解析用户（含转链记录兜底）
-    if (!localLife && !isNew && !prevUserId) {
+    if (!isNew && !prevUserId) {
       const user = await this.resolveUserWithFallback(u.platform, u.positionId, u.goodsId);
       if (user) {
         order.userId = user.id;
@@ -132,9 +114,6 @@ export class OrderService {
     }
     order.orderStatus = u.status;
     await this.orderRepo.save(order);
-
-    // 本地生活订单：状态照常更新供后台查看，但不产生任何用户/代理返利
-    if (localLife) return order;
 
     // 新订单：把预估返利挂到用户 pending，前端显示"预估返 ¥X"
     if (isNew && order.userId) {
