@@ -1,7 +1,7 @@
 /**
  * 平台标识（移植自 H5 utils/platform.js）
  */
-const PLATFORMS = [
+export const PLATFORMS = [
   { key: 'TB', name: '淘宝', short: '淘', bg: '#ff5000' },
   { key: 'JD', name: '京东', short: '京', bg: '#c81623' },
   { key: 'VIP', name: '唯品会', short: '唯', bg: '#ff2d52' },

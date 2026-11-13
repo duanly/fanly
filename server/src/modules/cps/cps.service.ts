@@ -127,6 +127,8 @@ export class CpsService implements OnModuleInit {
           pid: this.config.get<string>('TB_PID', ''),
           relationId: this.config.get<string>('TB_RELATION_ID', ''),
           baseUrl: this.config.get<string>('DDX_BASE_URL', ''),
+          // 大促期间订单侠把窗口收紧到 20 分钟：在 .env 设 TB_ORDER_WINDOW_MIN=20
+          orderWindowMs: Number(this.config.get('TB_ORDER_WINDOW_MIN', '180') || 180) * 60 * 1000,
         }));
         used.push('TB=dingdanxia');
         if (!this.config.get('TB_PID')) this.logger.warn('TB_PID 为空，淘宝转链会失败——去订单侠或淘宝联盟后台拿 PID');

@@ -10,6 +10,12 @@ export interface DingdanxiaOptions {
   /** 渠道管理ID（relation_id），订单侠转链必填 */
   relationId?: string;
   baseUrl?: string;
+  /**
+   * 订单查询单次时间窗（毫秒），默认 3 小时。
+   * 订单侠 /tbk/order_details 日常要求窗口 ≤3 小时，618/双11/年货节等
+   * 大促期间收紧到 20 分钟；超窗接口直接报错，由 fetchOrders 切段处理。
+   */
+  orderWindowMs?: number;
 }
 
 const DEFAULT_BASE = 'http://api.tbk.dingdanxia.com';
@@ -445,12 +451,40 @@ export class DingdanxiaProvider implements CpsProvider {
   }
 
   /**
-   * 订单查询。
+   * 订单查询（自动按时间窗切段）。
    * 时间格式：yyyy-MM-dd HH:mm:ss
    * 分页：第一页不用 position_index，后面翻页用上一页返回的 position_index
    * query_type：1=创建时间 2=付款时间 3=结算时间 4=更新时间
+   *
+   * 订单侠限制单次查询窗口日常 ≤3 小时、大促 ≤20 分钟，超窗整段报错。
+   * syncAll 的手动拉单（24h）和每日对账（30 天）都会超窗，
+   * 这里按 orderWindowMs 拆段逐段查，合并后按订单号+子订单去重
+   * （按更新时间拉取，落在切段边界上的单可能被相邻两段各拉一次）。
    */
   async fetchOrders(start: Date, end: Date, page = 1): Promise<UnifiedOrder[]> {
+    const windowMs = this.opt.orderWindowMs || 3 * 60 * 60 * 1000;
+    if (end.getTime() - start.getTime() > windowMs) {
+      const all: UnifiedOrder[] = [];
+      let cursor = new Date(start.getTime());
+      while (cursor < end) {
+        const segEnd = new Date(Math.min(cursor.getTime() + windowMs, end.getTime()));
+        const seg = await this.fetchOrdersOneWindow(cursor, segEnd, page);
+        all.push(...seg);
+        cursor = segEnd;
+      }
+      // 去重（订单号 + 子订单）
+      const seen = new Set<string>();
+      return all.filter((o) => {
+        const k = `${o.platformOrderNo}_${o.subOrderNo}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    }
+    return this.fetchOrdersOneWindow(start, end, page);
+  }
+
+  private async fetchOrdersOneWindow(start: Date, end: Date, page = 1): Promise<UnifiedOrder[]> {
     const fmt = (d: Date) => d.toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
       .replace('T', ' ').slice(0, 19);
 

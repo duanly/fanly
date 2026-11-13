@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe6d2"/>
+      <stop offset="1" stop-color="#ffd2b0"/>
+    </linearGradient>
+    <linearGradient id="s1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb27d"/>
+      <stop offset="1" stop-color="#ff8a4c"/>
+    </linearGradient>
+    <linearGradient id="s2" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffc79a"/>
+      <stop offset="1" stop-color="#ffa066"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 最浅底色（整卡） -->
+  <rect width="100" height="100" fill="url(#base)"/>
+
+  <!--
+    两条 S 曲线用「粗描边」实现分区，避免手拼闭合区产生裂缝。
+    主S：左上→右下；细分：右上→左下。
+    描边在 viewBox(100 单位) 下设 90，约等于把卡片沿曲线分成两大片，
+    交叉后视觉上即四个深浅区，且边界连续。
+  -->
+  <path d="M -10 5 C 40 10, 60 40, 105 95"
+        fill="none" stroke="url(#s2)" stroke-width="95"
+        stroke-linecap="butt"/>
+  <path d="M 110 5 C 60 10, 40 40, -10 95"
+        fill="none" stroke="url(#s1)" stroke-width="95"
+        stroke-linecap="butt"/>
+</svg>
