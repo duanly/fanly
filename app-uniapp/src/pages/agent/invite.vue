@@ -7,7 +7,7 @@
         <view class="lc-name">{{ p?.nickname }}</view>
         <view class="lc-code">邀请码：<text class="code">{{ p?.inviteCode }}</text></view>
       </view>
-      <view v-if="qr" class="lc-qr"><image :src="qr.qrcode" mode="aspectFit" /></view>
+      <view v-if="qr" class="lc-qr"><image :src="resolveImg(qr.qrcode)" mode="aspectFit" /></view>
     </view>
 
     <!-- 操作 -->
@@ -83,6 +83,7 @@ import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { api } from '../../api/index.js';
 import { money } from '../../utils/format.js';
+import { resolveImg } from '../../utils/url.js';
 
 const LEVELS = ['预备', '白银', '黄金', '钻石'];
 const p = ref(null);

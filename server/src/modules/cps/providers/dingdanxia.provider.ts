@@ -872,16 +872,20 @@ export class DingdanxiaJdProvider implements CpsProvider {
 
   async getGoodsDetail(skuId: string): Promise<UnifiedGoods | null> {
     if (!skuId) return null;
+    // 契约：null 只表示「接口成功但确认查无此商品」；接口故障必须抛异常，
+    // 上层刷新流程会保留商品，绝不能把配额/超时问题伪装成下架。
+    let primaryErr: any = null;
     try {
       const data = await this.call<any>('/jd/item_detail', { skuIds: skuId });
       const list = this.extractList(data);
-      if (!list.length) return null;
-      return this.mapGoods(list[0]);
+      if (list.length) return this.mapGoods(list[0]);
+      // 主接口成功但空：先不下结论，走搜索接口交叉验证
     } catch (e: any) {
-      this.logger.debug(`京东详情(item_detail)失败: ${e.message}`);
+      primaryErr = e;
+      this.logger.warn(`京东详情(item_detail)失败: ${e.message}`);
     }
 
-    // 兜底：搜索接口按 skuId 搜
+    // 兜底：搜索接口按 skuId 搜，必须 ID 精确匹配，不能拿 list[0] 的别的商品冒充
     try {
       const data = await this.call<any>('/jd/query_jingfen_goods', {
         keyword: skuId,
@@ -889,13 +893,17 @@ export class DingdanxiaJdProvider implements CpsProvider {
         pageSize: 5,
       });
       const list = this.extractList(data);
-      const hit = list.find((r: any) => {
-        const rid = String(r.skuId ?? r.itemId ?? r.id ?? '');
-        return rid === skuId;
-      }) ?? list[0];
-      return hit ? this.mapGoods(hit) : null;
-    } catch {
+      const hit = list.find((r: any) => String(r.skuId ?? r.itemId ?? r.id ?? '') === skuId);
+      if (hit) return this.mapGoods(hit);
+      // 两个接口都成功返回但都查不到 → 确认下架/退出推广，null 是安全结论
       return null;
+    } catch (e: any) {
+      // 兜底也挂了 = 无法确认商品状态，抛出让上层保留商品
+      throw new Error(
+        primaryErr
+          ? `京东详情双接口均失败: item_detail=${primaryErr.message}; jingfen=${e.message}`
+          : `京东详情交叉验证失败: ${e.message}`,
+      );
     }
   }
 

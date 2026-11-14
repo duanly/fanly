@@ -25,7 +25,7 @@
         <view class="field column">
           <text class="label">收款码</text>
           <view class="upload" @click="pickImage('wechat')">
-            <image v-if="wechatForm.qrCode" :src="wechatForm.qrCode" class="up-img" mode="aspectFill" />
+            <image v-if="wechatForm.qrCode" :src="resolveImg(wechatForm.qrCode)" class="up-img" mode="aspectFill" />
             <view v-else class="ph"><text class="ph-ico">🖼️</text><text>点击上传收款码</text></view>
           </view>
         </view>
@@ -44,7 +44,7 @@
         <view class="field column">
           <text class="label">收款码</text>
           <view class="upload" @click="pickImage('alipay')">
-            <image v-if="alipayForm.qrCode" :src="alipayForm.qrCode" class="up-img" mode="aspectFill" />
+            <image v-if="alipayForm.qrCode" :src="resolveImg(alipayForm.qrCode)" class="up-img" mode="aspectFill" />
             <view v-else class="ph"><text class="ph-ico">🖼️</text><text>点击上传收款码</text></view>
           </view>
         </view>
@@ -59,6 +59,7 @@
 import { ref, reactive } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { api } from '../../api/index.js';
+import { resolveImg } from '../../utils/url.js';
 
 const tab = ref('wechat');
 const saving = ref(false);

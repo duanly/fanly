@@ -9,7 +9,7 @@
           <view class="w-code">推广码 {{ p?.inviteCode }}</view>
         </view>
         <view v-if="qr" class="w-qr" @click="goInvite">
-          <image :src="qr.qrcode" mode="aspectFit" />
+          <image :src="resolveImg(qr.qrcode)" mode="aspectFit" />
           <view class="w-qr-tip">点击查看</view>
         </view>
       </view>
@@ -88,7 +88,7 @@
 
     <!-- 二维码 -->
     <view class="qr-card">
-      <image v-if="qr" :src="qr.qrcode" class="qr-img" mode="aspectFit" />
+      <image v-if="qr" :src="resolveImg(qr.qrcode)" class="qr-img" mode="aspectFit" />
       <view v-else class="qr-loading">加载中…</view>
       <view class="qr-url muted">{{ qr?.url }}</view>
       <view class="qr-actions">
@@ -119,6 +119,7 @@ import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { api } from '../../api/index.js';
 import { money, displayRatePct } from '../../utils/format.js';
+import { resolveImg } from '../../utils/url.js';
 
 const p = ref(null);
 const s = ref(null);

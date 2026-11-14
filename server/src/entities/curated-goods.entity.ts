@@ -62,6 +62,14 @@ export class CuratedGoods {
   /** 自动下架时记下原因，后台一眼能看出为什么没了 */
   @Column({ length: 128, default: '' }) offReason: string;
 
+  /**
+   * 详情接口「成功返回但查不到/佣金归零」的连续次数。
+   * 接口抛错不计入（那是明确的接口故障，刷新流程直接保留商品）；
+   * 累计到 MAX_DETAIL_FAILS 才真正自动下架，任何一轮正常返回即归零，
+   * 防止配额耗尽/限流时的空响应把整池商品误伤。
+   */
+  @Column({ type: 'int', default: 0 }) failCount: number;
+
   /** 属于哪个比价组，null 表示不参与比价 */
   @Index()
   @Column({ type: 'int', nullable: true }) compareGroupId: number | null;

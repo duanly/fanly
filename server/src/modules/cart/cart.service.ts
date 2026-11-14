@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CartItem } from '@/entities';
 import { CpsService } from '../cps/cps.service';
+import { UnifiedGoods } from '../cps/cps.types';
 
 /** 一次最多刷这么多件，别为了一个购物车把平台接口打满 */
 const REFRESH_LIMIT = 20;
@@ -43,7 +44,13 @@ export class CartService {
     const exist = await this.repo.findOneBy({ userId, platform: p, goodsId });
     if (exist) return { ...this.toItem(exist), already: true };
 
-    const g = await this.cps.getGoodsDetail(p, goodsId);
+    let g: UnifiedGoods | null;
+    try {
+      g = await this.cps.getGoodsDetail(p, goodsId);
+    } catch (e: any) {
+      // 接口故障时不能告诉用户「商品已下架」
+      throw new BadRequestException(`商品详情暂时拉取失败，请稍后再试：${e.message}`);
+    }
     if (!g) throw new BadRequestException('没查到这个商品，可能已下架');
 
     const row = this.repo.create({

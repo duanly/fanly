@@ -20,7 +20,7 @@
           <view class="bubble" :class="{ image: m.type === 2 }">
             <image
               v-if="m.type === 2"
-              :src="m.content"
+              :src="resolveImg(m.content)"
               class="msg-img"
               mode="widthFix"
               @click="preview(m.content)"
@@ -28,7 +28,7 @@
             <text v-else>{{ m.content }}</text>
           </view>
           <view v-if="isMine(m)" class="avatar my-avatar">
-            <image v-if="myAvatar" :src="myAvatar" mode="aspectFill" />
+            <image v-if="myAvatar" :src="resolveImg(myAvatar)" mode="aspectFill" />
             <text v-else>🙂</text>
           </view>
         </view>
@@ -54,6 +54,7 @@ import { ref, computed } from 'vue';
 import { onLoad, onShow, onHide, onUnload } from '@dcloudio/uni-app';
 import { api } from '../../api/index.js';
 import { fmtTime as fullFmtTime } from '../../utils/format.js';
+import { resolveImg } from '../../utils/url.js';
 
 const messages = ref([]);
 const draft = ref('');

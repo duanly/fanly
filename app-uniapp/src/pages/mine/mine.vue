@@ -13,7 +13,7 @@
       <view class="hero">
         <view class="hero-row" @click="openEditProfile">
           <view class="avatar">
-            <image v-if="profile?.avatar" :src="profile.avatar" mode="aspectFill" />
+            <image v-if="profile?.avatar" :src="resolveImg(profile.avatar)" mode="aspectFill" />
             <text v-else>{{ avatarText }}</text>
           </view>
           <view class="hero-info">
@@ -193,7 +193,7 @@
 
           <view class="edit-avatar-wrap">
             <view class="edit-avatar" @click="chooseAvatar">
-              <image v-if="editAvatar" :src="editAvatar" mode="aspectFill" />
+              <image v-if="editAvatar" :src="resolveImg(editAvatar)" mode="aspectFill" />
               <text v-else>{{ (editNickname || '昵称').slice(0, 1) }}</text>
               <view class="edit-avatar-cam">
                 <text v-if="!uploadingAvatar">📷</text>
@@ -239,6 +239,7 @@ import { onShow } from '@dcloudio/uni-app';
 import { useUserStore } from '../../store/user.js';
 import { api } from '../../api/index.js';
 import { money, displayRatePct } from '../../utils/format.js';
+import { resolveImg } from '../../utils/url.js';
 
 const userStore = useUserStore();
 const logged = computed(() => userStore.isLoggedIn);
@@ -570,8 +571,12 @@ onShow(() => { if (logged.value) load(); });
 .cell-name { font-size: 28rpx; color: #1a1a1a; }
 .cell-val { font-size: 26rpx; color: #999; margin-left: auto; margin-right: 12rpx; }
 .cell-arrow { color: #ccc; font-size: 36rpx; margin-left: auto; }
-/* 有值时箭头让位 */
-.cell-val + .cell-arrow { margin-left: 0; }
+/* 有右侧元素时，auto 只留给该元素，箭头固定间距跟在后面
+   （否则两个 margin-left:auto 会平分剩余空间，徽章被挤到中间） */
+.cell-val + .cell-arrow,
+.tag + .cell-arrow,
+.agent-badge + .cell-arrow,
+.unread-dot + .cell-arrow { margin-left: 0; }
 .muted { color: #999; }
 .coin-val { color: $brand; font-weight: 600; }
 .unread-dot {

@@ -77,7 +77,10 @@ export class JobService {
     if (!r.total) return;
     this.logger.log(`选品池刷新: ${JSON.stringify(r)}`);
     if (r.expired) {
-      this.logger.warn(`选品池有 ${r.expired} 件自动下架（佣金归零或已退出推广），去后台看看`);
+      this.logger.warn(`选品池有 ${r.expired} 件自动下架（连续两轮佣金归零或查无此商品），去后台看看`);
+    }
+    if (r.retry) {
+      this.logger.warn(`选品池有 ${r.retry} 件首轮空结果已暂保（需连续两轮才下架），留意平台接口/配额状态`);
     }
   }
 

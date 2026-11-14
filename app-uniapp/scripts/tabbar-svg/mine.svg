@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 人像：我的（对齐 vant user-o） -->
+  <circle cx="12" cy="8" r="3.6" />
+  <path d="M4.6 20 C4.6 16.4 7.9 14.4 12 14.4 C16.1 14.4 19.4 16.4 19.4 20" />
+</svg>

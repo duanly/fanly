@@ -1,12 +1,9 @@
 # tabBar 图标
 
-微信小程序 / App 的原生 tabBar 只支持本地 PNG 图标，不支持 emoji、字体或 base64。
+微信小程序 / App 的原生 tabBar 只支持本地 PNG 图标，不支持 emoji、字体或 SVG。
 
-需要补 8 张 PNG（建议 81×81px，透明底）：
+2026-11-14 起改为 sharp 自动生成，不再手写补图：
 
-- home.png / home-on.png      首页（灰 / 红）
-- local.png / local-on.png    本地生活
-- cart.png / cart-on.png      收藏夹
-- mine.png / mine-on.png      我的
-
-补齐前可临时在 pages.json 删掉每项的 iconPath/selectedIconPath（只剩文字 tab 也能运行）。
+- 源文件：scripts/tabbar-svg/{home,local,cart,mine}.svg（24×24 viewBox，stroke=currentColor 的线性图标）
+- 生成：`node scripts/gen-tabbar-icons.mjs`
+- 输出：本目录 81×81 全套 PNG（灰 #999999 未选中 / 品牌红 #ff4b3a 选中），pages.json 直接引用

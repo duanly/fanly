@@ -22,7 +22,7 @@
 
     <view v-if="paymentInfo" class="pay-info">
       <view class="pi-row"><text class="pi-l">收款人</text><text class="pi-v">{{ paymentInfo.realName }}</text></view>
-      <image class="pi-qr" :src="paymentInfo.qrCode" mode="aspectFill" @click="previewQr" />
+      <image class="pi-qr" :src="resolveImg(paymentInfo.qrCode)" mode="aspectFill" @click="previewQr" />
       <view v-if="channel === 'ALIPAY' && paymentInfo.alipayAccount" class="pi-row">
         <text class="pi-l">支付宝</text><text class="pi-v">{{ paymentInfo.alipayAccount }}</text>
       </view>
@@ -47,6 +47,7 @@
 import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { api } from '../../api/index.js';
+import { resolveImg } from '../../utils/url.js';
 
 const bal = ref(null);
 const amount = ref('');
@@ -77,7 +78,7 @@ async function load() {
 }
 function previewQr() {
   if (!paymentInfo.value?.qrCode) return;
-  uni.previewImage({ urls: [paymentInfo.value.qrCode] });
+  uni.previewImage({ urls: [resolveImg(paymentInfo.value.qrCode)] });
 }
 async function submit() {
   if (!Number(amount.value)) return uni.showToast({ title: '请输入金额', icon: 'none' });

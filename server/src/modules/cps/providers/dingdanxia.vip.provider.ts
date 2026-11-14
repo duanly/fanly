@@ -299,6 +299,9 @@ export class DingdanxiaVipProvider implements CpsProvider {
 
   async getGoodsDetail(goodsId: string): Promise<UnifiedGoods | null> {
     if (!goodsId) return null;
+    // 契约：null 只表示「接口成功但确认查无此商品」；接口故障必须抛异常，
+    // 上层刷新流程会保留商品，绝不能把配额/超时问题伪装成下架。
+    let primaryErr: any = null;
     try {
       const data = await this.call<any>('/vip/item_info', {
         goodsId,
@@ -306,13 +309,14 @@ export class DingdanxiaVipProvider implements CpsProvider {
       // 详情接口可能直接返回对象，也可能返回数组里的第一条
       const list = this.extractList(data);
       const raw = (Array.isArray(data) ? data[0] : (list[0] ?? data));
-      if (!raw || !raw.goodsId) return null;
-      return this.mapGoods(raw);
+      if (raw?.goodsId) return this.mapGoods(raw);
+      // 主接口成功但空：先不下结论，走搜索接口交叉验证
     } catch (e: any) {
-      this.logger.debug(`唯品会详情(item_info)失败: ${e.message}`);
+      primaryErr = e;
+      this.logger.warn(`唯品会详情(item_info)失败: ${e.message}`);
     }
 
-    // 兜底：搜索接口按 goodsId 搜
+    // 兜底：搜索接口按 goodsId 搜，必须 ID 精确匹配，不能拿 list[0] 的别的商品冒充
     try {
       const data = await this.call<any>('/vip/goodsList', {
         keyword: goodsId,
@@ -320,10 +324,17 @@ export class DingdanxiaVipProvider implements CpsProvider {
         pageSize: 5,
       });
       const list = this.extractList(data);
-      const hit = list.find((r: any) => String(r.goodsId ?? r.id ?? '') === goodsId) ?? list[0];
-      return hit ? this.mapGoods(hit) : null;
-    } catch {
+      const hit = list.find((r: any) => String(r.goodsId ?? r.id ?? '') === goodsId);
+      if (hit) return this.mapGoods(hit);
+      // 两个接口都成功返回但都查不到 → 确认下架/退出推广，null 是安全结论
       return null;
+    } catch (e: any) {
+      // 兜底也挂了 = 无法确认商品状态，抛出让上层保留商品
+      throw new Error(
+        primaryErr
+          ? `唯品会详情双接口均失败: item_info=${primaryErr.message}; goodsList=${e.message}`
+          : `唯品会详情交叉验证失败: ${e.message}`,
+      );
     }
   }
 

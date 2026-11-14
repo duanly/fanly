@@ -9,6 +9,13 @@ import { AutoTagService } from './auto-tag.service';
 /** 刷新时每件商品之间的间隔，别把平台接口打限流了 */
 const REFRESH_GAP_MS = 120;
 
+/**
+ * 详情接口连续多少轮「成功返回但查不到/佣金归零」才自动下架。
+ * 平台接口偶发空响应（配额临界、索引延迟）和真下架难以区分，
+ * 要求连续 2 轮（默认间隔 6 小时，即观察 6 小时）才动手，期间任一轮正常即归零。
+ */
+const MAX_DETAIL_FAILS = 2;
+
 /** 去重/相似度：噪音词，提取关键词时去掉 */
 const DEDUP_NOISE = [
   '官方旗舰', '旗舰店', '官方', '正品', '包邮', '新款', '爆款', '热销',
@@ -154,7 +161,13 @@ export class CurationService {
    * 加入待上架队列。已经在池里的就刷新快照并重新上架（不会降级）。
    */
   async add(platform: string, goodsId: string, groupKey = 'default', sortWeight = 0) {
-    const g = await this.cps.getGoodsDetail(platform, goodsId);
+    let g: UnifiedGoods | null;
+    try {
+      g = await this.cps.getGoodsDetail(platform, goodsId);
+    } catch (e: any) {
+      // 接口故障不能骗运营说商品下架了
+      throw new BadRequestException(`商品详情接口暂时不可用，请稍后重试：${e.message}`);
+    }
     if (!g) throw new BadRequestException('没查到这个商品，可能已下架或退出推广了');
     if (!(g.commission > 0)) {
       throw new BadRequestException('这个商品没有佣金，加进来用户点了也没返利');
@@ -254,6 +267,8 @@ export class CurationService {
       sortWeight,
       status: finalStatus,
       offReason: finalStatus === CuratedStatus.ON ? '' : (exist?.offReason ?? ''),
+      // 能走到 upsert 的都是带佣金的健康数据，历史失败计数清零
+      failCount: 0,
       lastSyncAt: new Date(),
     });
     const saved = await this.repo.save(row);
@@ -914,8 +929,11 @@ export class CurationService {
     if (patch.sortWeight !== undefined) row.sortWeight = patch.sortWeight;
     if (patch.status !== undefined) {
       row.status = patch.status;
-      // 人工重新上架就把自动下架的原因清掉，免得界面上一直挂着旧提示
-      if (patch.status === CuratedStatus.ON) row.offReason = '';
+      // 人工重新上架就把自动下架的原因和失败计数清掉，免得下轮又被自动下架
+      if (patch.status === CuratedStatus.ON) {
+        row.offReason = '';
+        row.failCount = 0;
+      }
     }
     return this.toGoods(await this.repo.save(row));
   }
@@ -1216,30 +1234,54 @@ export class CurationService {
     return { totalGroups, removed, fuzzyGroups, fuzzyRemoved };
   }
 
-  /** 刷单件：查不到或佣金归零就自动下架 */
-  async refreshOne(row: CuratedGoods): Promise<'ok' | 'expired' | 'error'> {
+  /**
+   * 刷单件。四种结局：
+   * - ok：详情正常且有佣金，刷新快照（EXPIRED 的自动救回）
+   * - retry：详情「成功但空/佣金归零」，但连续次数还没到阈值，先保留，下轮再确认
+   * - expired：连续 MAX_DETAIL_FAILS 轮异常空结果，才真正自动下架
+   * - error：接口直接报错（配额/超时/限流），不计失败次数，状态原封不动
+   */
+  async refreshOne(row: CuratedGoods): Promise<'ok' | 'expired' | 'error' | 'retry'> {
     try {
       const g = await this.cps.getGoodsDetail(row.platform, row.goodsId);
-      if (!g) {
-        row.status = CuratedStatus.EXPIRED;
-        row.offReason = '商品已下架或退出推广';
-      } else if (!(g.commission > 0)) {
+      if (g && g.commission > 0) {
         Object.assign(row, this.snapshot(g));
-        row.status = CuratedStatus.EXPIRED;
-        row.offReason = '佣金归零';
-      } else {
-        Object.assign(row, this.snapshot(g));
+        row.failCount = 0;
         // 之前是自动下架的，现在又有佣金了就自动救回来；人工下架的不动
         if (row.status === CuratedStatus.EXPIRED) {
           row.status = CuratedStatus.ON;
           row.offReason = '';
         }
+        row.lastSyncAt = new Date();
+        await this.repo.save(row);
+        return 'ok';
+      }
+
+      // 接口成功但说「没了」或「没佣金」：先记一笔，不立刻下架
+      row.failCount += 1;
+      if (row.failCount < MAX_DETAIL_FAILS) {
+        this.logger.warn(
+          `刷新 ${row.platform}/${row.goodsId} 第 ${row.failCount}/${MAX_DETAIL_FAILS} 次异常空结果` +
+          `（${g ? '佣金归零' : '查无此商品'}），暂不下架，下轮复核`,
+        );
+        row.lastSyncAt = new Date();
+        await this.repo.save(row);
+        return 'retry';
+      }
+
+      if (!g) {
+        row.status = CuratedStatus.EXPIRED;
+        row.offReason = '商品已下架或退出推广';
+      } else {
+        Object.assign(row, this.snapshot(g));
+        row.status = CuratedStatus.EXPIRED;
+        row.offReason = '佣金归零';
       }
       row.lastSyncAt = new Date();
       await this.repo.save(row);
-      return row.status === CuratedStatus.EXPIRED ? 'expired' : 'ok';
+      return 'expired';
     } catch (e: any) {
-      // 接口抽风不该把商品下架，下次再刷
+      // 接口抽风不该把商品下架，下次再刷；也不计入 failCount
       this.logger.warn(`刷新 ${row.platform}/${row.goodsId} 失败: ${e.message}`);
       return 'error';
     }
@@ -1249,11 +1291,11 @@ export class CurationService {
    * 全池刷新。串行 + 间隔，宁可慢也别把平台接口打限流——
    * 限流了连用户的实时搜索一起挂，得不偿失。
    */
-  async refreshAll(): Promise<{ total: number; ok: number; expired: number; error: number }> {
+  async refreshAll(): Promise<{ total: number; ok: number; expired: number; error: number; retry: number }> {
     const rows = await this.repo.find({
       where: [{ status: CuratedStatus.ON }, { status: CuratedStatus.EXPIRED }],
     });
-    const stat = { total: rows.length, ok: 0, expired: 0, error: 0 };
+    const stat = { total: rows.length, ok: 0, expired: 0, error: 0, retry: 0 };
     for (const row of rows) {
       stat[await this.refreshOne(row)] += 1;
       if (REFRESH_GAP_MS) await new Promise((r) => setTimeout(r, REFRESH_GAP_MS));
@@ -1266,7 +1308,7 @@ export class CurationService {
    * 比价页上价格过期是最伤信任的事，这批值得比普通选品刷得勤。
    */
   async refreshCompareMembers(rows: CuratedGoods[]) {
-    const stat = { total: rows.length, ok: 0, expired: 0, error: 0 };
+    const stat = { total: rows.length, ok: 0, expired: 0, error: 0, retry: 0 };
     for (const row of rows) {
       stat[await this.refreshOne(row)] += 1;
       if (REFRESH_GAP_MS) await new Promise((r) => setTimeout(r, REFRESH_GAP_MS));
