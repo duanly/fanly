@@ -224,7 +224,16 @@ export class OrderService {
   }
 
   /** 后台用：全量列表，带用户昵称/手机和代理信息 */
-  async listAll(q: { platform?: string; status?: number; agentId?: number; page?: number; size?: number; agentKeyword?: string; keyword?: string; userId?: number; brandId?: number; unassigned?: boolean }) {
+  /** 后台订单排序白名单：key 是前端传参，value 是真实列，杜绝排序参数注入 */
+  private static readonly ADMIN_SORT_COLUMNS: Record<string, string> = {
+    orderTime: 'o.orderTime',
+    payAmount: 'o.payAmount',
+    estCommission: 'o.estCommission',
+    settleCommission: 'o.settleCommission',
+    id: 'o.id',
+  };
+
+  async listAll(q: { platform?: string; status?: number; agentId?: number; page?: number; size?: number; agentKeyword?: string; keyword?: string; userId?: number; brandId?: number; unassigned?: boolean; sortBy?: string; sortOrder?: 'asc' | 'desc' }) {
     const { page = 1, size = 20 } = q;
     const qb = this.orderRepo.createQueryBuilder('o')
       .leftJoin('user', 'u', 'u.id = o.userId')
@@ -253,7 +262,9 @@ export class OrderService {
     if (q.agentKeyword) {
       qb.andWhere('(a.agentCode LIKE :kw OR a.realName LIKE :kw OR au.nickname LIKE :kw)', { kw: `%${q.agentKeyword}%` });
     }
-    qb.orderBy('o.orderTime', 'DESC')
+    const sortColumn = OrderService.ADMIN_SORT_COLUMNS[q.sortBy || ''] || 'o.orderTime';
+    const sortDir = q.sortOrder === 'asc' ? 'ASC' : 'DESC';
+    qb.orderBy(sortColumn, sortDir)
       .skip((page - 1) * size)
       .take(size);
 

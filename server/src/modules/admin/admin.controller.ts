@@ -57,12 +57,16 @@ export class AdminController {
     @Query('keyword') keyword?: string,
     @Query('minLevel') minLevel?: string,
     @Query('page') page = '1',
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
     return this.agent.adminList({
       status: status !== undefined && status !== '' ? +status : undefined,
       keyword: keyword || undefined,
       minLevel: minLevel ? +minLevel : undefined,
       page: +page,
+      sortBy: sortBy || undefined,
+      sortOrder,
     });
   }
 
@@ -83,6 +87,8 @@ export class AdminController {
       agentKeyword: q.agentKeyword || undefined,
       unassigned: q.unassigned === '1' || q.unassigned === 'true',
       page: q.page ? +q.page : 1, size: q.pageSize ? +q.pageSize : 20,
+      sortBy: q.sortBy || undefined,
+      sortOrder: q.sortOrder === 'asc' ? 'asc' : q.sortOrder === 'desc' ? 'desc' : undefined,
     });
   }
 
@@ -178,6 +184,8 @@ export class AdminController {
     @Query('minLevel') minLevel?: string,
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '20',
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
     return this.agent.adminUserList({
       keyword: keyword || undefined,
@@ -185,6 +193,8 @@ export class AdminController {
       minLevel: minLevel ? +minLevel : undefined,
       page: +page,
       size: +pageSize,
+      sortBy: sortBy || undefined,
+      sortOrder,
     });
   }
 

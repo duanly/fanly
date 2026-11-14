@@ -29,6 +29,13 @@
       <span class="filter-label">显示预备代理</span>
     </div>
 
+    <AdminSortBar
+      :options="sortOptions"
+      :sort-by="sortBy"
+      :sort-order="sortOrder"
+      @change="onSortChange"
+    />
+
     <van-list
       v-model:loading="loading"
       :finished="finished"
@@ -36,7 +43,28 @@
       @load="onLoad"
     >
       <div class="agent-list">
-        <div v-for="a in list" :key="a.id" class="agent-card">
+        <div
+          v-for="a in list"
+          :key="a.id"
+          class="agent-card"
+          :class="{ open: expandedId === a.id }"
+          @click="toggleExpand(a.id)"
+        >
+          <!-- 折叠态：单行摘要 -->
+          <div class="card-summary">
+            <span class="as-name">{{ a.nickname || a.mobile || a.realName || '未知' }}</span>
+            <span class="level-badge" :class="'lv-' + (a.level || 0)">
+              {{ levelIcon(a.level) }}{{ levelName(a.level) }}
+            </span>
+            <span class="as-stat">{{ a.teamSize || 0 }}人</span>
+            <span class="as-stat">{{ a.stats?.orderCount || 0 }}单</span>
+            <span class="as-amount">¥{{ (+(a.stats?.gmv || 0)).toFixed(0) }}</span>
+            <van-tag :type="statusTagType(a.status)" size="medium">{{ statusName(a.status) }}</van-tag>
+            <van-icon :name="expandedId === a.id ? 'arrow-up' : 'arrow-down'" size="14" color="#999" />
+          </div>
+
+          <!-- 展开态：完整详情 -->
+          <div v-if="expandedId === a.id" class="card-detail" @click.stop>
           <div class="agent-head">
             <div class="a-info">
               <div class="a-mobile">{{ a.nickname || a.mobile || a.realName || '未知' }}</div>
@@ -104,6 +132,7 @@
               type="primary"
               @click="auditAgent(a, 1)"
             >恢复</van-button>
+          </div>
           </div>
         </div>
       </div>
@@ -196,6 +225,31 @@ import { ref } from 'vue';
 import { showToast, showConfirmDialog, showSuccessToast } from 'vant';
 import { adminApi } from '../../api';
 import { renderPoster } from '../../utils/poster';
+import AdminSortBar from '../../components/AdminSortBar.vue';
+
+// 排序字段须与后端 AgentService.ADMIN_SORT_COLUMNS 白名单一致
+const sortOptions = [
+  { text: '最新代理', value: 'id' },
+  { text: '注册时间', value: 'createdAt' },
+  { text: '团队人数', value: 'teamTotal' },
+  { text: '有效订单', value: 'orderCnt' },
+  { text: '团队 GMV', value: 'orderGmv' },
+  { text: '已入账分成', value: 'creditedBonus' },
+];
+const sortBy = ref('id');
+const sortOrder = ref('desc');
+// 手风琴式展开
+const expandedId = ref(null);
+
+function toggleExpand(id) {
+  expandedId.value = expandedId.value === id ? null : id;
+}
+
+function onSortChange(v) {
+  sortBy.value = v.sortBy;
+  sortOrder.value = v.sortOrder;
+  reset();
+}
 
 function statusName(s) {
   const m = { 0: '待审核', 1: '正常', 2: '已禁用' };
@@ -294,6 +348,7 @@ function reset() {
   list.value = [];
   page.value = 1;
   finished.value = false;
+  expandedId.value = null;
 }
 
 async function onLoad() {
@@ -306,6 +361,8 @@ async function onLoad() {
     if (status.value !== '') params.status = Number(status.value);
     if (keyword.value.trim()) params.keyword = keyword.value.trim();
     if (!showPrep.value) params.minLevel = 1; // 默认过滤预备代理（level 0）
+    params.sortBy = sortBy.value;
+    params.sortOrder = sortOrder.value;
 
     const r = await adminApi.agents(params);
     if (seq !== reqSeq) return;
@@ -407,6 +464,40 @@ async function openPoster(a) {
   border-radius: 12px;
   margin-bottom: 8px;
   padding: 14px;
+}
+.agent-card.open {
+  box-shadow: 0 0 0 1px #ffd6cf;
+}
+.card-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.as-name {
+  font-weight: 600;
+  color: #1a1a1a;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.as-stat {
+  font-size: 12px;
+  color: #666;
+  flex: none;
+}
+.as-amount {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ff4b3a;
+  flex: none;
+}
+.card-detail {
+  border-top: 1px solid #f5f5f5;
+  margin-top: 12px;
+  padding-top: 12px;
 }
 .agent-head {
   display: flex;

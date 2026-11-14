@@ -28,6 +28,13 @@
       />
     </div>
 
+    <AdminSortBar
+      :options="sortOptions"
+      :sort-by="sortBy"
+      :sort-order="sortOrder"
+      @change="onSortChange"
+    />
+
     <van-list
       v-model:loading="loading"
       :finished="finished"
@@ -35,56 +42,76 @@
       @load="onLoad"
     >
       <div class="order-list">
-        <div v-for="o in list" :key="o.id" class="order-card">
-          <div class="order-head">
-            <span class="order-platform">{{ platName(o.platform) }}</span>
+        <div
+          v-for="o in list"
+          :key="o.id"
+          class="order-card"
+          :class="{ open: expandedId === o.id }"
+          @click="toggleExpand(o.id)"
+        >
+          <!-- 折叠态：单行摘要 -->
+          <div class="card-summary">
+            <span class="os-platform">{{ platName(o.platform) }}</span>
+            <span class="os-no">{{ o.platformOrderNo || o.id }}</span>
+            <span class="os-amount">¥{{ (+o.payAmount).toFixed(2) }}</span>
             <span class="order-status" :class="'s-' + statusKey(o.orderStatus)">
               {{ statusName(o.orderStatus) }}
             </span>
+            <van-icon :name="expandedId === o.id ? 'arrow-up' : 'arrow-down'" size="14" color="#999" />
           </div>
-          <div class="order-body">
-            <img v-if="o.goodsImg" :src="o.goodsImg" class="o-img" />
-            <div class="o-info">
-              <div class="o-title">{{ o.goodsTitle || o.title || '商品' }}</div>
-              <div class="o-meta">
-                <span>订单号: {{ o.platformOrderNo || o.id }}</span>
-              </div>
-              <div class="o-price-row">
-                <div class="o-price">
-                  <span class="label">金额</span>
-                  <span class="num">¥{{ (+o.payAmount).toFixed(2) }}</span>
-                </div>
-                <div class="o-comm">
-                  <span class="label">预估佣金</span>
-                  <span class="num">¥{{ (+o.estCommission).toFixed(2) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="order-user">
-            <div v-if="o.userId" class="ou-row">
-              <van-icon name="user-o" size="12" color="#999" />
-              <span class="ou-name">{{ o.userNickname || '—' }}</span>
-              <span class="ou-phone">{{ o.userMobile || '' }}</span>
-            </div>
-            <span v-else style="color:#f56c6c;font-size:12px">未归属</span>
-            <div v-if="o.agentId" class="ou-row ou-agent">
-              <van-icon name="friends-o" size="12" color="#ff9800" />
-              <span class="ou-agent-code">{{ o.agentCode }}</span>
-              <span v-if="o.agentRealName || o.agentNickname" class="ou-agent-name">
-                {{ o.agentRealName || o.agentNickname }}
+
+          <!-- 展开态：完整详情 -->
+          <div v-if="expandedId === o.id" class="card-detail" @click.stop>
+            <div class="order-head">
+              <span class="order-platform">{{ platName(o.platform) }}</span>
+              <span class="order-status" :class="'s-' + statusKey(o.orderStatus)">
+                {{ statusName(o.orderStatus) }}
               </span>
             </div>
-          </div>
-          <div class="order-foot">
-            <span class="o-time">{{ formatTime(o.orderTime) }}</span>
-            <van-button
-              size="mini"
-              type="primary"
-              plain
-              round
-              @click.stop="openAssign(o)"
-            >指派归属</van-button>
+            <div class="order-body">
+              <img v-if="o.goodsImg" :src="o.goodsImg" class="o-img" />
+              <div class="o-info">
+                <div class="o-title">{{ o.goodsTitle || o.title || '商品' }}</div>
+                <div class="o-meta">
+                  <span>订单号: {{ o.platformOrderNo || o.id }}</span>
+                </div>
+                <div class="o-price-row">
+                  <div class="o-price">
+                    <span class="label">金额</span>
+                    <span class="num">¥{{ (+o.payAmount).toFixed(2) }}</span>
+                  </div>
+                  <div class="o-comm">
+                    <span class="label">预估佣金</span>
+                    <span class="num">¥{{ (+o.estCommission).toFixed(2) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="order-user">
+              <div v-if="o.userId" class="ou-row">
+                <van-icon name="user-o" size="12" color="#999" />
+                <span class="ou-name">{{ o.userNickname || '—' }}</span>
+                <span class="ou-phone">{{ o.userMobile || '' }}</span>
+              </div>
+              <span v-else style="color:#f56c6c;font-size:12px">未归属</span>
+              <div v-if="o.agentId" class="ou-row ou-agent">
+                <van-icon name="friends-o" size="12" color="#ff9800" />
+                <span class="ou-agent-code">{{ o.agentCode }}</span>
+                <span v-if="o.agentRealName || o.agentNickname" class="ou-agent-name">
+                  {{ o.agentRealName || o.agentNickname }}
+                </span>
+              </div>
+            </div>
+            <div class="order-foot">
+              <span class="o-time">{{ formatTime(o.orderTime) }}</span>
+              <van-button
+                size="mini"
+                type="primary"
+                plain
+                round
+                @click.stop="openAssign(o)"
+              >指派归属</van-button>
+            </div>
           </div>
         </div>
       </div>
@@ -150,6 +177,29 @@
 import { ref } from 'vue';
 import { showToast, showConfirmDialog } from 'vant';
 import { adminApi } from '../../api';
+import AdminSortBar from '../../components/AdminSortBar.vue';
+
+// 排序字段须与后端 OrderService.ADMIN_SORT_COLUMNS 白名单一致
+const sortOptions = [
+  { text: '下单时间', value: 'orderTime' },
+  { text: '订单额', value: 'payAmount' },
+  { text: '预估佣金', value: 'estCommission' },
+  { text: '实结佣金', value: 'settleCommission' },
+];
+const sortBy = ref('orderTime');
+const sortOrder = ref('desc');
+// 手风琴式展开：同时只展开一张卡片
+const expandedId = ref(null);
+
+function toggleExpand(id) {
+  expandedId.value = expandedId.value === id ? null : id;
+}
+
+function onSortChange(v) {
+  sortBy.value = v.sortBy;
+  sortOrder.value = v.sortOrder;
+  reset();
+}
 
 function platName(p) {
   const m = { PDD: '拼多多', TB: '淘宝', JD: '京东', VIP: '唯品会' };
@@ -203,6 +253,7 @@ function reset() {
   list.value = [];
   page.value = 1;
   finished.value = false;
+  expandedId.value = null;
 }
 
 async function onLoad() {
@@ -215,6 +266,8 @@ async function onLoad() {
     if (status.value === 'unassigned') params.unassigned = true;
     else if (status.value) params.status = status.value;
     if (keyword.value.trim()) params.keyword = keyword.value.trim();
+    params.sortBy = sortBy.value;
+    params.sortOrder = sortOrder.value;
 
     const r = await adminApi.orders(params);
     if (seq !== reqSeq) return;
@@ -312,6 +365,41 @@ async function doAssign(u) {
   border-radius: 12px;
   margin-bottom: 8px;
   overflow: hidden;
+}
+.order-card.open {
+  box-shadow: 0 0 0 1px #ffd6cf;
+}
+.card-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  font-size: 13px;
+}
+.os-platform {
+  font-weight: 600;
+  color: #333;
+  flex: none;
+}
+.os-no {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #666;
+  font-size: 12px;
+}
+.os-amount {
+  font-weight: 600;
+  color: #333;
+  flex: none;
+}
+.card-summary .order-status {
+  flex: none;
+}
+.card-detail .order-head {
+  border-top: 1px solid #f5f5f5;
 }
 .order-head {
   display: flex;

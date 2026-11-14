@@ -18,6 +18,13 @@
       />
     </div>
 
+    <AdminSortBar
+      :options="sortOptions"
+      :sort-by="sortBy"
+      :sort-order="sortOrder"
+      @change="onSortChange"
+    />
+
     <van-list
       v-model:loading="loading"
       :finished="finished"
@@ -25,10 +32,17 @@
       @load="onLoad"
     >
       <div class="user-list">
-        <div v-for="u in list" :key="u.id" class="user-card" @click="openUser(u)">
-          <div class="user-head">
-            <div class="u-avatar">{{ avatarText(u) }}</div>
-            <div class="u-info">
+        <div
+          v-for="u in list"
+          :key="u.id"
+          class="user-card"
+          :class="{ open: expandedId === u.id }"
+          @click="toggleExpand(u.id)"
+        >
+          <!-- 折叠态：单行摘要 -->
+          <div class="card-summary">
+            <div class="u-avatar sm">{{ avatarText(u) }}</div>
+            <div class="cs-info">
               <div class="u-name">
                 {{ u.nickname || '—' }}
                 <van-tag
@@ -42,28 +56,43 @@
               </div>
               <div class="u-mobile">{{ u.mobile || '未绑定手机' }}</div>
             </div>
-            <van-icon name="arrow" size="14" color="#ccc" />
+            <span class="cs-stat">{{ u.orderCount || 0 }}单</span>
+            <span class="cs-amount">¥{{ u.totalSpend || '0.00' }}</span>
+            <van-icon :name="expandedId === u.id ? 'arrow-up' : 'arrow-down'" size="14" color="#999" />
           </div>
 
-          <div class="u-stats">
-            <div class="u-stat">
-              <div class="u-stat-num">¥{{ u.totalSpend }}</div>
-              <div class="u-stat-label">消费总额</div>
+          <!-- 展开态：完整统计 + 详情入口 -->
+          <div v-if="expandedId === u.id" class="card-detail" @click.stop>
+            <div class="u-stats">
+              <div class="u-stat">
+                <div class="u-stat-num">¥{{ u.totalSpend }}</div>
+                <div class="u-stat-label">消费总额</div>
+              </div>
+              <div class="u-stat">
+                <div class="u-stat-num">{{ u.orderCount }}</div>
+                <div class="u-stat-label">订单数</div>
+              </div>
+              <div class="u-stat">
+                <div class="u-stat-num">¥{{ u.totalCommission }}</div>
+                <div class="u-stat-label">返利总额</div>
+              </div>
             </div>
-            <div class="u-stat">
-              <div class="u-stat-num">{{ u.orderCount }}</div>
-              <div class="u-stat-label">订单数</div>
-            </div>
-            <div class="u-stat">
-              <div class="u-stat-num">¥{{ u.totalCommission }}</div>
-              <div class="u-stat-label">返利总额</div>
-            </div>
-          </div>
 
-          <div v-if="u.parentAgentCode" class="u-parent">
-            <van-icon name="friends-o" size="12" color="#999" />
-            <span>上级: {{ u.parentNickname || u.parentAgentCode }}</span>
-            <span v-if="u.parentMobile" class="u-parent-phone">{{ u.parentMobile }}</span>
+            <div v-if="u.parentAgentCode" class="u-parent">
+              <van-icon name="friends-o" size="12" color="#999" />
+              <span>上级: {{ u.parentNickname || u.parentAgentCode }}</span>
+              <span v-if="u.parentMobile" class="u-parent-phone">{{ u.parentMobile }}</span>
+            </div>
+
+            <van-button
+              block
+              size="small"
+              type="primary"
+              color="#ff4b3a"
+              round
+              style="margin-top:10px"
+              @click="openUser(u)"
+            >查看详情 / 操作</van-button>
           </div>
         </div>
       </div>
@@ -210,8 +239,33 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showToast, showDialog, showConfirmDialog, showSuccessToast } from 'vant';
 import { adminApi } from '../../api';
+import AdminSortBar from '../../components/AdminSortBar.vue';
 
 const router = useRouter();
+
+// 排序字段须与后端 AgentService.ADMIN_USER_SORT_COLUMNS 白名单一致
+const sortOptions = [
+  { text: '最新用户', value: 'id' },
+  { text: '注册时间', value: 'createdAt' },
+  { text: '订单数', value: 'orderCount' },
+  { text: '订单额', value: 'totalSpend' },
+  { text: '累计返利', value: 'totalRebate' },
+  { text: '余额', value: 'balance' },
+];
+const sortBy = ref('id');
+const sortOrder = ref('desc');
+// 手风琴式展开
+const expandedId = ref(null);
+
+function toggleExpand(id) {
+  expandedId.value = expandedId.value === id ? null : id;
+}
+
+function onSortChange(v) {
+  sortBy.value = v.sortBy;
+  sortOrder.value = v.sortOrder;
+  reset();
+}
 const keyword = ref('');
 const list = ref([]);
 const page = ref(1);
@@ -256,6 +310,7 @@ function reset() {
   list.value = [];
   page.value = 1;
   finished.value = false;
+  expandedId.value = null;
 }
 
 async function onLoad() {
@@ -266,6 +321,8 @@ async function onLoad() {
       pageSize,
     };
     if (keyword.value.trim()) params.keyword = keyword.value.trim();
+    params.sortBy = sortBy.value;
+    params.sortOrder = sortOrder.value;
 
     const r = await adminApi.users(params);
     if (seq !== reqSeq) return;
@@ -448,6 +505,39 @@ async function onResetPassword(u) {
   border-radius: 12px;
   margin-bottom: 8px;
   overflow: hidden;
+}
+.user-card.open {
+  box-shadow: 0 0 0 1px #ffd6cf;
+}
+.card-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+}
+.u-avatar.sm {
+  width: 38px;
+  height: 38px;
+  font-size: 16px;
+}
+.cs-info {
+  flex: 1;
+  min-width: 0;
+}
+.cs-stat {
+  font-size: 12px;
+  color: #666;
+  flex: none;
+}
+.cs-amount {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a1a;
+  flex: none;
+}
+.card-detail {
+  border-top: 1px solid #f5f5f5;
+  padding-bottom: 12px;
 }
 .user-head {
   display: flex;

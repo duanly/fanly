@@ -492,10 +492,48 @@ export class AgentService implements OnModuleInit {
   }
 
   // ---- 后台 ----
-  async adminList(q: { status?: number; keyword?: string; minLevel?: number; page?: number; size?: number }) {
+  /**
+   * 代理后台排序白名单。
+   * 业绩类字段不在主表里，用关联子查询 select 出别名再 ORDER BY 别名
+   * （MySQL / sqlite 都支持按 SELECT 别名排序），口径与 commission.agentStats 保持一致：
+   * 有效订单 = orderStatus <> 4，GMV = 这些订单 payAmount 之和。
+   */
+  private static readonly ADMIN_SORT_COLUMNS: Record<string, string> = {
+    id: 'a.id',
+    // 必须用下方 addSelect 的别名：分页 DISTINCT 包装后裸列 u.createdAt 不在 distinctAlias 里
+    createdAt: 'sortUserCreatedAt',
+    teamTotal: 'sortTeamTotal',
+    orderCnt: 'sortOrderCnt',
+    orderGmv: 'sortOrderGmv',
+    creditedBonus: 'sortCreditedBonus',
+    pendingBonus: 'sortPendingBonus',
+  };
+
+  async adminList(q: { status?: number; keyword?: string; minLevel?: number; page?: number; size?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }) {
     const { page = 1, size = 20 } = q;
     const qb = this.agentRepo.createQueryBuilder('a')
-      .leftJoin('user', 'u', 'u.id = a.userId');
+      .leftJoin('user', 'u', 'u.id = a.userId')
+      .addSelect('u.createdAt', 'sortUserCreatedAt')
+      // 排序用统计子查询（只在 ORDER BY 时参与，响应体仍由 agentStats 逐行给出）
+      .addSelect('(SELECT COUNT(*) FROM user u2 WHERE u2.agentId = a.id)', 'sortTeamTotal')
+      .addSelect(
+        '(SELECT COUNT(*) FROM cps_order o2 WHERE o2.agentId = a.id AND o2.orderStatus <> 4)',
+        'sortOrderCnt',
+      )
+      .addSelect(
+        '(SELECT COALESCE(SUM(o2.payAmount), 0) FROM cps_order o2 WHERE o2.agentId = a.id AND o2.orderStatus <> 4)',
+        'sortOrderGmv',
+      )
+      .addSelect(
+        '(SELECT COALESCE(SUM(cd.amount), 0) FROM commission_detail cd ' +
+        'WHERE cd.beneficiaryType = 2 AND cd.beneficiaryId = a.id AND cd.status = 2)',
+        'sortCreditedBonus',
+      )
+      .addSelect(
+        '(SELECT COALESCE(SUM(cd.amount), 0) FROM commission_detail cd ' +
+        'WHERE cd.beneficiaryType = 2 AND cd.beneficiaryId = a.id AND cd.status = 1)',
+        'sortPendingBonus',
+      );
     if (q.status !== undefined) qb.andWhere('a.status = :status', { status: q.status });
     if (q.minLevel) qb.andWhere('a.level >= :minLevel', { minLevel: q.minLevel });
     if (q.keyword) {
@@ -503,7 +541,9 @@ export class AgentService implements OnModuleInit {
         kw: `%${q.keyword}%`,
       });
     }
-    qb.orderBy('a.id', 'DESC')
+    const sortColumn = AgentService.ADMIN_SORT_COLUMNS[q.sortBy || ''] || 'a.id';
+    const sortDir = q.sortOrder === 'asc' ? 'ASC' : 'DESC';
+    qb.orderBy(sortColumn, sortDir)
       .skip((page - 1) * size)
       .take(size);
 
@@ -514,6 +554,8 @@ export class AgentService implements OnModuleInit {
         ...a,
         mobile: u?.mobile || '',
         nickname: u?.nickname || '',
+        // 用户注册时间，区别于 agent.createdAt（申请代理时间）
+        userCreatedAt: u?.createdAt ?? null,
         // 后台「专属海报」要用用户邀请码拼 /i/inviteCode 二维码（与 agentCode 是两个码）
         inviteCode: u?.inviteCode || '',
         teamSize: await this.userRepo.countBy({ agentId: a.id }),
@@ -545,12 +587,25 @@ export class AgentService implements OnModuleInit {
   /**
    * 用户列表（后台用）：基本信息 + 代理等级 + 上级 + 消费/返利统计
    */
+  /** 用户后台排序白名单：统计列走关联子查询别名，口径与下方批量统计一致（排除已失效订单） */
+  private static readonly ADMIN_USER_SORT_COLUMNS: Record<string, string> = {
+    id: 'u.id',
+    createdAt: 'u.createdAt',
+    balance: 'u.balance',
+    totalRebate: 'u.totalRebate',
+    orderCount: 'sortOrderCount',
+    totalSpend: 'sortTotalSpend',
+    totalCommission: 'sortTotalCommission',
+  };
+
   async adminUserList(q: {
     keyword?: string;
     agentId?: number;
     minLevel?: number;
     page?: number;
     size?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
   }) {
     const { page = 1, size = 20 } = q;
     const qb = this.userRepo.createQueryBuilder('u')
@@ -562,7 +617,20 @@ export class AgentService implements OnModuleInit {
       .addSelect('a.manualLevel', 'agentManualLevel')
       .addSelect('pa.agentCode', 'parentAgentCode')
       .addSelect('pu.nickname', 'parentNickname')
-      .addSelect('pu.mobile', 'parentMobile');
+      .addSelect('pu.mobile', 'parentMobile')
+      // 排序用统计子查询；响应里的 totalSpend/orderCount/totalCommission 仍由下方批量查询给出
+      .addSelect(
+        '(SELECT COUNT(*) FROM cps_order o2 WHERE o2.userId = u.id AND o2.orderStatus <> 4)',
+        'sortOrderCount',
+      )
+      .addSelect(
+        '(SELECT COALESCE(SUM(o2.payAmount), 0) FROM cps_order o2 WHERE o2.userId = u.id AND o2.orderStatus <> 4)',
+        'sortTotalSpend',
+      )
+      .addSelect(
+        '(SELECT COALESCE(SUM(o2.settleCommission), 0) FROM cps_order o2 WHERE o2.userId = u.id AND o2.orderStatus <> 4)',
+        'sortTotalCommission',
+      );
 
     if (q.keyword) {
       qb.andWhere('(u.mobile LIKE :kw OR u.nickname LIKE :kw OR u.inviteCode LIKE :kw)', {
@@ -572,7 +640,9 @@ export class AgentService implements OnModuleInit {
     if (q.agentId) qb.andWhere('u.agentId = :agentId', { agentId: q.agentId });
     if (q.minLevel) qb.andWhere('a.level >= :minLevel', { minLevel: q.minLevel });
 
-    qb.orderBy('u.id', 'DESC')
+    const sortColumn = AgentService.ADMIN_USER_SORT_COLUMNS[q.sortBy || ''] || 'u.id';
+    const sortDir = q.sortOrder === 'asc' ? 'ASC' : 'DESC';
+    qb.orderBy(sortColumn, sortDir)
       .skip((page - 1) * size)
       .take(size);
 

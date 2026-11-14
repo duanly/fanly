@@ -42,55 +42,55 @@
       </div>
     </template>
 
-    <el-table :data="data.list" v-loading="loading">
+    <el-table
+      :data="data.list"
+      v-loading="loading"
+      row-key="id"
+      :default-sort="{ prop: 'orderTime', order: 'descending' }"
+      @sort-change="onSortChange"
+    >
+      <!-- 折叠行：归属明细 + 操作，默认收起，点左侧箭头展开 -->
+      <el-table-column type="expand">
+        <template #default="{ row }">
+          <div class="expand-box">
+            <div class="expand-block">
+              <div class="expand-title">归属信息</div>
+              <div v-if="row.userId" class="expand-line">
+                用户：<b>{{ row.userNickname || '—' }}</b>
+                <span class="muted">{{ row.userMobile || '' }}</span>
+              </div>
+              <div v-else class="expand-line" style="color:#f56c6c">未归属用户</div>
+              <div v-if="row.agentId" class="expand-line">
+                代理：
+                <el-tag size="small" :type="agentLevelTag(row.agentLevel)" effect="light">
+                  {{ agentLevelName(row.agentLevel) }}
+                </el-tag>
+                <b>{{ row.agentCode }}</b>
+                <span class="muted">{{ row.agentRealName || row.agentNickname || '—' }}</span>
+              </div>
+              <div v-else-if="row.userId" class="expand-line muted">无代理</div>
+            </div>
+            <div class="expand-block">
+              <div class="expand-title">佣金明细</div>
+              <div class="expand-line">预估佣金：¥{{ money(row.estCommission) }}</div>
+              <div class="expand-line">
+                实结佣金：
+                <span :style="{ color: +row.settleCommission > 0 ? '#ff4b3a' : '#999' }">
+                  ¥{{ money(row.settleCommission) }}
+                </span>
+              </div>
+            </div>
+            <div class="expand-block">
+              <el-button type="primary" size="small" @click="openAssign(row)">指派归属</el-button>
+            </div>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column prop="platformOrderNo" label="订单号" width="190" />
       <el-table-column label="平台" width="80">
         <template #default="{ row }">{{ names[row.platform] || row.platform }}</template>
       </el-table-column>
       <el-table-column prop="goodsTitle" label="商品" min-width="200" show-overflow-tooltip />
-      <el-table-column label="归属" width="200">
-        <template #default="{ row }">
-          <div style="line-height:1.4">
-            <!-- 用户 -->
-            <div v-if="row.userId" style="margin-bottom:4px">
-              <div style="font-size:13px;font-weight:500">
-                {{ row.userNickname || '—' }}
-              </div>
-              <div style="font-size:11px;color:#999">{{ row.userMobile || '' }}</div>
-            </div>
-            <span v-else style="color:#f56c6c;font-size:12px">未归属用户</span>
-
-            <!-- 代理 -->
-            <div v-if="row.agentId" style="border-top:1px dashed #eee;padding-top:4px;margin-top:4px">
-              <div style="font-size:12px;color:#606266;display:flex;align-items:center;gap:4px">
-                <el-tag size="small" :type="agentLevelTag(row.agentLevel)" effect="light">
-                  {{ agentLevelName(row.agentLevel) }}
-                </el-tag>
-                <span style="font-weight:500">{{ row.agentCode }}</span>
-              </div>
-              <div style="font-size:11px;color:#999;margin-top:2px">
-                {{ row.agentRealName || row.agentNickname || '—' }}
-              </div>
-            </div>
-            <div v-else-if="row.userId" style="font-size:11px;color:#c0c4cc;margin-top:2px">
-              无代理
-            </div>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column label="实付" width="100">
-        <template #default="{ row }">¥{{ money(row.payAmount) }}</template>
-      </el-table-column>
-      <el-table-column label="预估佣金" width="100">
-        <template #default="{ row }">¥{{ money(row.estCommission) }}</template>
-      </el-table-column>
-      <el-table-column label="实结佣金" width="100">
-        <template #default="{ row }">
-          <span :style="{ color: +row.settleCommission > 0 ? '#ff4b3a' : '#999' }">
-            ¥{{ money(row.settleCommission) }}
-          </span>
-        </template>
-      </el-table-column>
       <el-table-column label="状态" width="90">
         <template #default="{ row }">
           <el-tag :type="tagType(row.orderStatus)" size="small">
@@ -98,15 +98,21 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="下单时间" width="160">
-        <template #default="{ row }">{{ fmt(row.orderTime) }}</template>
+      <el-table-column label="实付" width="110" prop="payAmount" sortable="custom">
+        <template #default="{ row }">¥{{ money(row.payAmount) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="100" fixed="right">
+      <el-table-column label="预估佣金" width="110" prop="estCommission" sortable="custom">
+        <template #default="{ row }">¥{{ money(row.estCommission) }}</template>
+      </el-table-column>
+      <el-table-column label="实结佣金" width="110" prop="settleCommission" sortable="custom">
         <template #default="{ row }">
-          <el-button type="primary" size="small" link @click="openAssign(row)">
-            指派归属
-          </el-button>
+          <span :style="{ color: +row.settleCommission > 0 ? '#ff4b3a' : '#999' }">
+            ¥{{ money(row.settleCommission) }}
+          </span>
         </template>
+      </el-table-column>
+      <el-table-column label="下单时间" width="170" prop="orderTime" sortable="custom">
+        <template #default="{ row }">{{ fmt(row.orderTime) }}</template>
       </el-table-column>
     </el-table>
 
@@ -198,6 +204,17 @@ const agentKeyword = ref('');
 const unassignedOnly = ref(false);
 const page = ref(1);
 const loading = ref(false);
+// 服务端排序（分页数据不能前端排），字段在后端白名单内，默认按下单时间倒序
+const sortBy = ref('orderTime');
+const sortOrder = ref('desc');
+
+function onSortChange({ prop, order }) {
+  // 第三次点击表头取消排序时 order 为 null，回退默认
+  sortBy.value = prop || 'orderTime';
+  sortOrder.value = order === 'ascending' ? 'asc' : 'desc';
+  page.value = 1;
+  load();
+}
 const syncing = ref(false);
 const recalcing = ref(false);
 const rebuilding = ref(false);
@@ -227,6 +244,8 @@ async function load() {
       status: status.value || undefined,
       agentKeyword: agentKeyword.value.trim() || undefined,
       unassigned: unassignedOnly.value || undefined,
+      sortBy: sortBy.value,
+      sortOrder: sortOrder.value,
       page: page.value,
       pageSize: 20,
     });
@@ -331,6 +350,27 @@ onMounted(load);
 </script>
 
 <style scoped>
+.expand-box {
+  display: flex;
+  gap: 48px;
+  padding: 8px 24px 16px 48px;
+  background: #fafafa;
+}
+.expand-block { min-width: 200px; }
+.expand-title {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 8px;
+}
+.expand-line {
+  font-size: 13px;
+  color: #303133;
+  line-height: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.expand-line .muted, .expand-line.muted { color: #909399; font-weight: normal; }
 .user-item {
   padding: 10px 12px;
   cursor: pointer;
