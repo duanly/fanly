@@ -48,8 +48,11 @@ export class CpsService implements OnModuleInit {
    *
    * 不信任前端传过来的商品数据，因为佣金率直接决定给用户看的返利金额，
    * 那是钱，只能以平台返回的为准。
+   *
+   * 容量 1w：选品池已 5w+ 行，5000 格 FIFO 在全量刷新途中就会自挤失效；
+   * 定时刷新的主节流在 curation 的 lastSyncAt（落库），这里只管跨路径去重。
    */
-  private readonly seenGoods = new TtlCache<UnifiedGoods>(6 * 60 * 60 * 1000, 5000);
+  private readonly seenGoods = new TtlCache<UnifiedGoods>(6 * 60 * 60 * 1000, 10000);
 
   constructor(private readonly config: ConfigService) {}
 

@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, LessThan, Repository } from 'typeorm';
 import { CuratedGoods, CuratedStatus, GoodsTopic } from '@/entities';
 import { CpsService } from '../cps/cps.service';
 import { UnifiedGoods } from '../cps/cps.types';
@@ -8,6 +8,21 @@ import { AutoTagService } from './auto-tag.service';
 
 /** 刷新时每件商品之间的间隔，别把平台接口打限流了 */
 const REFRESH_GAP_MS = 120;
+
+/**
+ * 详情刷新节流（按库里的 lastSyncAt 判断，不依赖进程内缓存——容器重启/多实例都不丢）。
+ * 背景：淘宝物料搜索接口每天仅 5000 次配额，而选品池 TB 行有 8k+、全池 5.7w 行，
+ * 旧逻辑每 6h 全量逐行打接口，单日需求 3w+，配额早早打满后用户真实搜索一起挂。
+ * 三个阈值都支持 env 覆盖，配额变化时不用改代码。
+ */
+/** ON 商品：距上次同步超过该间隔才重新调详情接口（默认 24h 一轮） */
+const ON_REFRESH_TTL_MS = Number(process.env.CURATE_ON_TTL_HOURS || 24) * 3600 * 1000;
+/** EXPIRED 商品：复活探测降频，默认 4 天才查一次 */
+const EXPIRED_REFRESH_TTL_MS = Number(process.env.CURATE_EXPIRED_TTL_HOURS || 96) * 3600 * 1000;
+/** 每轮复活探测的 EXPIRED 行数上限，最久没查的优先，保证每条最终都轮得到 */
+const MAX_EXPIRED_PER_RUN = Number(process.env.CURATE_EXPIRED_PER_RUN || 1000);
+/** 比价组最小刷新间隔，防 2h 定时与全量刷新/手动触发对同一商品重复打接口 */
+const COMPARE_MIN_GAP_MS = Number(process.env.CURATE_COMPARE_MIN_GAP_MIN || 90) * 60 * 1000;
 
 /**
  * 详情接口连续多少轮「成功返回但查不到/佣金归零」才自动下架。
@@ -1290,12 +1305,36 @@ export class CurationService {
   /**
    * 全池刷新。串行 + 间隔，宁可慢也别把平台接口打限流——
    * 限流了连用户的实时搜索一起挂，得不偿失。
+   *
+   * 节流：不再每轮全量打接口，按 lastSyncAt 只捞到期的行——
+   * ON 商品默认 24h 一轮；EXPIRED 复活探测默认 96h 一轮且每轮封顶
+   * MAX_EXPIRED_PER_RUN 条（最久没查的优先）。状态在库里，
+   * 容器重启、定时任务与手动触发重叠都不会重复消耗配额。
    */
-  async refreshAll(): Promise<{ total: number; ok: number; expired: number; error: number; retry: number }> {
-    const rows = await this.repo.find({
-      where: [{ status: CuratedStatus.ON }, { status: CuratedStatus.EXPIRED }],
+  async refreshAll(): Promise<{ total: number; ok: number; expired: number; error: number; retry: number; skip: number }> {
+    const onCutoff = new Date(Date.now() - ON_REFRESH_TTL_MS);
+    const expiredCutoff = new Date(Date.now() - EXPIRED_REFRESH_TTL_MS);
+
+    // lastSyncAt 为 NULL 的老数据也要能被刷到（NULL 不满足 LessThan）
+    const onRows = await this.repo.find({
+      where: [
+        { status: CuratedStatus.ON, lastSyncAt: LessThan(onCutoff) },
+        { status: CuratedStatus.ON, lastSyncAt: IsNull() },
+      ],
+      order: { lastSyncAt: 'ASC' },
     });
-    const stat = { total: rows.length, ok: 0, expired: 0, error: 0, retry: 0 };
+    const expiredRows = await this.repo.find({
+      where: [
+        { status: CuratedStatus.EXPIRED, lastSyncAt: LessThan(expiredCutoff) },
+        { status: CuratedStatus.EXPIRED, lastSyncAt: IsNull() },
+      ],
+      order: { lastSyncAt: 'ASC' },
+      take: MAX_EXPIRED_PER_RUN,
+    });
+
+    // 先刷在售的（前台数据新鲜度优先），再轮换上架探测
+    const rows = [...onRows, ...expiredRows];
+    const stat = { total: rows.length, ok: 0, expired: 0, error: 0, retry: 0, skip: 0 };
     for (const row of rows) {
       stat[await this.refreshOne(row)] += 1;
       if (REFRESH_GAP_MS) await new Promise((r) => setTimeout(r, REFRESH_GAP_MS));
@@ -1308,8 +1347,14 @@ export class CurationService {
    * 比价页上价格过期是最伤信任的事，这批值得比普通选品刷得勤。
    */
   async refreshCompareMembers(rows: CuratedGoods[]) {
-    const stat = { total: rows.length, ok: 0, expired: 0, error: 0, retry: 0 };
-    for (const row of rows) {
+    // 90 分钟内刚同步过的跳过：全量刷新/手动单刷可能已经打过接口，别重复消耗
+    const cutoff = Date.now() - COMPARE_MIN_GAP_MS;
+    const due = rows.filter((r) => !r.lastSyncAt || r.lastSyncAt.getTime() < cutoff);
+    const stat = {
+      total: rows.length, ok: 0, expired: 0, error: 0, retry: 0,
+      skip: rows.length - due.length,
+    };
+    for (const row of due) {
       stat[await this.refreshOne(row)] += 1;
       if (REFRESH_GAP_MS) await new Promise((r) => setTimeout(r, REFRESH_GAP_MS));
     }
@@ -1339,7 +1384,8 @@ export class CurationService {
   }): Promise<Record<string, { fetched: number; added: number; skipped: number; errors: number; alreadyInPool: number }>> {
     const platforms = opts.platforms?.length ? opts.platforms : ['PDD', 'JD', 'TB', 'DY'];
     const target = Math.min(Math.max(opts.targetPerPlatform ?? 1000, 100), 5000);
-    const keywords = opts.keywords?.length ? opts.keywords : ['日用', '食品', '美妆', '数码', '服饰'];
+    // 默认词收敛到 3 个：5 词 × 10 页曾把淘宝物料搜索配额打出明显一块，榜单已覆盖大部分品类
+    const keywords = opts.keywords?.length ? opts.keywords : ['日用', '食品', '美妆'];
 
     const result: Record<string, { fetched: number; added: number; skipped: number; errors: number; alreadyInPool: number }> = {};
 
@@ -1408,7 +1454,8 @@ export class CurationService {
         if (candidates.length >= target) break;
         const beforeCount = candidates.length;
         try {
-          for (let page = 1; page <= 10; page++) {
+          // 每词最多 5 页（=250 条候选），配合 3 个默认词，单平台关键词搜索封顶 15 次
+          for (let page = 1; page <= 5; page++) {
             const r = await this.cps.searchGoodsPage(platform, { keyword: kw, page, pageSize: 50, sort: 'sales' });
             if (!r.list.length || !r.hasMore) break;
             if (await collect(r.list)) break;
