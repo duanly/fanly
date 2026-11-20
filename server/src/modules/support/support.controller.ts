@@ -1,12 +1,14 @@
 import {
-  Body, Controller, Get, Post, UploadedFile, UseInterceptors,
+  Body, Controller, Get, Headers, Post, Req, UploadedFile, UseInterceptors,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { existsSync, mkdirSync } from 'fs';
 import { extname, resolve } from 'path';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@/common/decorators';
+import { Public } from '@/common/jwt.guard';
 import { UPLOAD_DIR } from '../admin/upload.controller';
 import { SupportService } from './support.service';
 
@@ -43,6 +45,37 @@ export class SupportController {
   @ApiOperation({ summary: '用户侧会话标记已读' })
   read(@CurrentUser('sub') userId: number) {
     return this.support.markUserRead(userId);
+  }
+
+  // ---- 未登录访客（忘记密码入口）：凭 x-guest-key 认会话，只能发文本 ----
+
+  @Public()
+  @Post('guest/start')
+  @ApiOperation({ summary: '访客发起/续接客服会话 {mobile, guestKey?}，返回 guestKey' })
+  guestStart(@Req() req: Request, @Body() body: { mobile?: string; guestKey?: string }) {
+    const xff = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    return this.support.guestStart(xff || req.ip || 'unknown', body.mobile, body.guestKey);
+  }
+
+  @Public()
+  @Get('guest/conversation')
+  @ApiOperation({ summary: '访客会话消息' })
+  guestConversation(@Headers('x-guest-key') key: string) {
+    return this.support.guestConversation(key);
+  }
+
+  @Public()
+  @Post('guest/messages')
+  @ApiOperation({ summary: '访客发送文本消息 {content}' })
+  guestSend(@Headers('x-guest-key') key: string, @Body() body: { content?: string }) {
+    return this.support.guestSend(key, body.content);
+  }
+
+  @Public()
+  @Post('guest/read')
+  @ApiOperation({ summary: '访客会话标记已读' })
+  guestRead(@Headers('x-guest-key') key: string) {
+    return this.support.guestRead(key);
   }
 
   @Post('upload')

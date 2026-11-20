@@ -107,7 +107,7 @@
             type="info"
             :closable="false"
             style="margin-left:14px;flex:1"
-            title="欢迎语 / 未命中兜底语 / 自动回复总开关，请在「系统参数」页配置：support.welcome、support.fallback、support.auto_reply"
+            title="欢迎语 / 未命中兜底语 / 自动回复总开关 / 默认回复及超时秒数，请在「系统参数」页配置：support.welcome、support.fallback、support.auto_reply、support.default_reply、support.default_reply_delay"
           />
         </div>
 

@@ -162,7 +162,18 @@ export const api = {
     form.append('file', file);
     return http.post('/api/support/upload', form);
   },
+  // 未登录访客客服（忘记密码入口）：凭本机存的 supportGuestKey 认会话
+  guestSupportStart: (mobile) =>
+    http.post('/api/support/guest/start', { mobile, guestKey: localStorage.getItem(GUEST_KEY) || undefined }),
+  guestSupportConversation: () => http.get('/api/support/guest/conversation', guestCfg()),
+  guestSupportSend: (content) => http.post('/api/support/guest/messages', { content }, guestCfg()),
+  guestSupportRead: () => http.post('/api/support/guest/read', {}, guestCfg()),
 };
+
+export const GUEST_KEY = 'supportGuestKey';
+function guestCfg() {
+  return { headers: { 'x-guest-key': localStorage.getItem(GUEST_KEY) || '' } };
+}
 
 // ───────── 管理后台（手机端） ─────────
 // 独立的 axios 实例，用 adminToken，和用户端 token 互不干扰

@@ -29,6 +29,7 @@
     <div class="input-bar">
       <input ref="fileRef" type="file" accept="image/*" hidden @change="onPickImage" />
       <van-icon
+        v-if="!isGuest"
         name="photograph"
         size="26"
         color="#666"
@@ -52,9 +53,26 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { showImagePreview, showToast } from 'vant';
 import { io } from 'socket.io-client';
-import { api } from '../api';
+import { api, GUEST_KEY } from '../api';
+
+const route = useRoute();
+const router = useRouter();
+// 访客模式：未登录用户从「忘记密码」进来，凭本机 guestKey 聊天，只能发文字
+const isGuest = route.meta.guest === true;
+const chat = isGuest
+  ? {
+      load: () => api.guestSupportConversation(),
+      read: () => api.guestSupportRead(),
+      sendText: (content) => api.guestSupportSend(content),
+    }
+  : {
+      load: () => api.supportConversation(),
+      read: () => api.readSupport(),
+      sendText: (content) => api.sendSupportMessage(1, content),
+    };
 
 const listRef = ref(null);
 const fileRef = ref(null);
@@ -69,6 +87,8 @@ const defaultAvatar = 'data:image/svg+xml,' + encodeURIComponent(
 );
 
 let socket = null;
+let pollTimer = null;
+let alive = true;
 
 const canSend = computed(() => draft.value.trim().length > 0 && !sending.value && !uploading.value);
 
@@ -95,22 +115,43 @@ function scrollToBottom(smooth = false) {
   });
 }
 
-function appendMessage(m) {
-  if (messages.value.some((x) => x.id === m.id)) return;
-  messages.value.push(m);
+// 合并新消息并按 id 排序：自动回复的推送可能比「我刚发的那条」的接口响应先到，不排序会错位
+function mergeMessages(rows) {
+  const fresh = (rows || []).filter((m) => m && !messages.value.some((x) => x.id === m.id));
+  if (!fresh.length) return false;
+  messages.value = [...messages.value, ...fresh].sort((a, b) => a.id - b.id);
   scrollToBottom(true);
+  return true;
+}
+
+function appendMessage(m) {
+  mergeMessages([m]);
 }
 
 async function loadConversation() {
   loading.value = true;
   try {
-    const r = await api.supportConversation();
+    const r = await chat.load();
     messages.value = r.messages || [];
-    await api.readSupport();
+    await chat.read();
     scrollToBottom();
+  } catch (e) {
+    // 访客凭证失效（会话被清理等）：清掉本机凭证，回登录页重新发起
+    if (isGuest && e?.response?.status === 404) {
+      localStorage.removeItem(GUEST_KEY);
+      router.replace('/login');
+    }
   } finally {
     loading.value = false;
   }
+}
+
+// 补拉：实时通道断线/重连后把漏掉的消息补上
+async function syncMessages() {
+  try {
+    const r = await chat.load();
+    if (mergeMessages(r.messages)) chat.read().catch(() => {});
+  } catch { /* 下一轮再试 */ }
 }
 
 async function sendText() {
@@ -118,7 +159,7 @@ async function sendText() {
   if (!content || sending.value) return;
   sending.value = true;
   try {
-    const r = await api.sendSupportMessage(1, content);
+    const r = await chat.sendText(content);
     appendMessage(r.message);
     draft.value = '';
   } catch {
@@ -151,26 +192,48 @@ async function onPickImage(e) {
 }
 
 function connectSocket() {
-  const token = localStorage.getItem('token');
-  socket = io({ auth: { token }, transports: ['websocket', 'polling'] });
+  const auth = isGuest
+    ? { guestKey: localStorage.getItem(GUEST_KEY) }
+    : { token: localStorage.getItem('token') };
+  socket = io({ auth, transports: ['websocket', 'polling'] });
+  let connectedOnce = false;
+  socket.on('connect', () => {
+    // 重连成功：断线期间的推送收不到，主动补拉一次
+    if (connectedOnce) syncMessages();
+    connectedOnce = true;
+  });
   socket.on('support:message', (data) => {
     if (!data?.message) return;
     appendMessage(data.message);
     // 在会话页里收到任何推送都立即已读
-    api.readSupport().catch(() => {});
+    chat.read().catch(() => {});
   });
+  // 兜底：实时通道没连上时（网络抖动、反代没转发 /socket.io 等）退化为 5 秒轮询，
+  // 不至于要退出重进才看得到回复
+  pollTimer = setInterval(() => {
+    if (!socket?.connected && !loading.value) syncMessages();
+  }, 5000);
 }
 
 onMounted(async () => {
+  if (isGuest && !localStorage.getItem(GUEST_KEY)) {
+    router.replace('/login');
+    return;
+  }
   loadConversation();
-  try {
-    const p = await api.profile();
-    myAvatar.value = p?.avatar || '';
-  } catch { /* 头像用默认值即可 */ }
   connectSocket();
+  if (!isGuest) {
+    try {
+      const p = await api.profile();
+      if (alive) myAvatar.value = p?.avatar || '';
+    } catch { /* 头像用默认值即可 */ }
+  }
 });
 
 onUnmounted(() => {
+  alive = false;
+  clearInterval(pollTimer);
+  pollTimer = null;
   socket?.disconnect();
   socket = null;
 });

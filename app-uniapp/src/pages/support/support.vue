@@ -38,7 +38,7 @@
     </scroll-view>
 
     <view class="input-bar" :style="{ paddingBottom: 'calc(16rpx + env(safe-area-inset-bottom))' }">
-      <view class="ib-icon" :class="{ disabled: uploading }" @click="pickImage">
+      <view v-if="!isGuest" class="ib-icon" :class="{ disabled: uploading }" @click="pickImage">
         <text>🖼️</text>
       </view>
       <input v-model="draft" class="ib-input" placeholder="请输入消息" :disabled="uploading" confirm-type="send" @confirm="sendText" />
@@ -52,7 +52,8 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { onLoad, onShow, onHide, onUnload } from '@dcloudio/uni-app';
-import { api } from '../../api/index.js';
+import { api, GUEST_KEY } from '../../api/index.js';
+import { storage } from '../../utils/storage.js';
 import { fmtTime as fullFmtTime } from '../../utils/format.js';
 import { resolveImg } from '../../utils/url.js';
 
@@ -66,6 +67,14 @@ const anchor = ref('');
 const statusBarHeight = ref(20);
 
 let pollTimer = null;
+
+// 访客模式（?guest=1）：未登录用户从「忘记密码」进来，凭本机 guestKey 聊天，只能发文字
+const isGuest = ref(false);
+const chat = {
+  load: () => (isGuest.value ? api.guestSupportConversation() : api.supportConversation()),
+  read: () => (isGuest.value ? api.guestSupportRead() : api.readSupport()),
+  sendText: (c) => (isGuest.value ? api.guestSupportSend(c) : api.sendSupportMessage(1, c)),
+};
 
 const canSend = computed(() => draft.value.trim().length > 0 && !sending.value && !uploading.value);
 
@@ -84,19 +93,27 @@ function scrollBottom() {
   setTimeout(() => { anchor.value = 'msgBottom'; }, 30);
 }
 function merge(rows) {
-  for (const m of rows) {
-    if (!messages.value.some((x) => x.id === m.id)) messages.value.push(m);
-  }
+  const fresh = rows.filter((m) => m && !messages.value.some((x) => x.id === m.id));
+  if (!fresh.length) return;
+  // 按 id 排序：轮询先拿到自动回复、发送接口后返回时不至于错位
+  messages.value = [...messages.value, ...fresh].sort((a, b) => a.id - b.id);
 }
 
 async function loadConversation() {
   loading.value = true;
   try {
-    const r = await api.supportConversation();
+    const r = await chat.load();
     messages.value = r.messages || [];
-    await api.readSupport().catch(() => {});
+    await chat.read().catch(() => {});
     scrollBottom();
-  } catch {} finally {
+  } catch (e) {
+    // 访客凭证失效：清掉本机凭证，回登录页重新发起
+    if (isGuest.value && e?.message?.includes('失效')) {
+      storage.remove(GUEST_KEY);
+      uni.showToast({ title: '会话已失效，请重新发起', icon: 'none' });
+      setTimeout(back, 800);
+    }
+  } finally {
     loading.value = false;
   }
 }
@@ -106,11 +123,11 @@ async function loadConversation() {
 async function poll() {
   try {
     const before = messages.value.length;
-    const r = await api.supportConversation();
+    const r = await chat.load();
     merge(r.messages || []);
     if (messages.value.length > before) {
       scrollBottom();
-      api.readSupport().catch(() => {});
+      chat.read().catch(() => {});
     }
   } catch {}
 }
@@ -127,12 +144,14 @@ async function sendText() {
   if (!content || sending.value) return;
   sending.value = true;
   try {
-    const r = await api.sendSupportMessage(1, content);
+    const r = await chat.sendText(content);
     merge([r.message]);
     draft.value = '';
     scrollBottom();
-  } catch {
-    uni.showToast({ title: '发送失败，请重试', icon: 'none' });
+    // 关键词/首次咨询的自动回复是随这次发送一起落库的，马上补拉一次，不用等下一轮 4 秒轮询
+    poll();
+  } catch (e) {
+    uni.showToast({ title: (isGuest.value && e?.message) || '发送失败，请重试', icon: 'none' });
   } finally {
     sending.value = false;
   }
@@ -161,9 +180,13 @@ function pickImage() {
 function preview(url) {
   uni.previewImage({ urls: [url], current: url });
 }
-function back() { uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/mine/mine' }) }); }
+function back() {
+  const home = isGuest.value ? '/pages/login/login' : '/pages/mine/mine';
+  uni.navigateBack({ fail: () => uni.reLaunch({ url: home }) });
+}
 
-onLoad(() => {
+onLoad((query) => {
+  isGuest.value = query?.guest === '1' && !!storage.get(GUEST_KEY);
   try {
     const info = uni.getSystemInfoSync();
     statusBarHeight.value = info.statusBarHeight || 20;
@@ -172,10 +195,12 @@ onLoad(() => {
 onShow(async () => {
   if (!messages.value.length) await loadConversation();
   else poll();
-  try {
-    const p = await api.profile();
-    myAvatar.value = p?.avatar || '';
-  } catch {}
+  if (!isGuest.value) {
+    try {
+      const p = await api.profile();
+      myAvatar.value = p?.avatar || '';
+    } catch {}
+  }
   startPoll();
 });
 onHide(stopPoll);

@@ -11,7 +11,7 @@
 
     <div class="tip-bar">
       欢迎语 / 兜底语 / 总开关在 PC 后台「系统参数」配置
-      （support.welcome、support.fallback、support.auto_reply）
+      （support.welcome、support.fallback、support.auto_reply、support.default_reply、support.default_reply_delay）
     </div>
 
     <div class="add-bar">

@@ -5,6 +5,10 @@
     handle /api/* {
         reverse_proxy server:3000
     }
+    # 客服 IM 的 Socket.IO，漏了实时推送就全失效
+    handle /socket.io/* {
+        reverse_proxy server:3000
+    }
     handle /uploads/* {
         reverse_proxy server:3000
     }

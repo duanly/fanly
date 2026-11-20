@@ -19,6 +19,9 @@
 
     <view class="btn-wrap">
       <button class="submit" :loading="loading" @click="submit">确认修改</button>
+      <view class="forgot-tip">
+        忘记原密码？<text class="link" @click="goSupport">联系客服重置 ›</text>
+      </view>
     </view>
   </view>
 </template>
@@ -34,6 +37,10 @@ const confirmPassword = ref('');
 const oldVisible = ref(false);
 const newVisible = ref(false);
 const loading = ref(false);
+
+function goSupport() {
+  uni.navigateTo({ url: '/pages/support/support' });
+}
 
 async function submit() {
   if (!oldPassword.value) return uni.showToast({ title: '请输入原密码', icon: 'none' });
@@ -74,4 +81,6 @@ async function submit() {
   background: $brand; color: #fff; font-size: 30rpx;
 }
 .submit::after { border: none; }
+.forgot-tip { margin-top: 32rpx; text-align: center; font-size: 26rpx; color: #969799; }
+.forgot-tip .link { color: $brand; }
 </style>

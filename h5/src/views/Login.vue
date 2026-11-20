@@ -35,7 +35,7 @@
           登录
         </van-button>
         <div class="login-foot">
-          <span class="link" @click="showForgot = true">忘记密码？</span>
+          <span class="link" @click="openForgot">忘记密码？</span>
           <span class="link" @click="tab = 'register'">去注册 ›</span>
         </div>
       </div>
@@ -81,11 +81,24 @@
     </div>
 
     <!-- 忘记密码弹窗 -->
-    <van-dialog v-model:show="showForgot" title="忘记密码" show-cancel-button confirm-button-text="我知道了" :show-confirm-button="true">
-      <div style="padding:8px 4px 4px;font-size:14px;line-height:1.8;color:#333">
-        请联系客服重置密码。<br />
-        添加客服微信并提供注册手机号，我们会尽快为您重置。
+    <van-dialog
+      v-model:show="showForgot"
+      title="忘记密码"
+      show-cancel-button
+      confirm-button-text="联系在线客服"
+      confirm-button-color="#ff4b3a"
+      :before-close="onForgotClose"
+    >
+      <div style="padding:12px 16px 4px;font-size:14px;line-height:1.8;color:#333">
+        请联系在线客服重置密码。填写注册手机号，客服核实身份后会尽快为您重置。
       </div>
+      <van-field
+        v-model="forgotMobile"
+        type="tel"
+        maxlength="11"
+        label="注册手机号"
+        placeholder="请输入注册时的手机号"
+      />
     </van-dialog>
   </div>
 </template>
@@ -94,13 +107,14 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { showToast } from 'vant';
-import { api } from '../api';
+import { api, GUEST_KEY } from '../api';
 
 const tab = ref('login');
 const loading = ref(false);
 const pwdVisible = ref(false);
 const regPwdVisible = ref(false);
 const showForgot = ref(false);
+const forgotMobile = ref('');
 const route = useRoute();
 const router = useRouter();
 
@@ -197,6 +211,28 @@ onMounted(() => {
   // 注册页需要先加载一张验证码
   loadCaptcha();
 });
+
+function openForgot() {
+  forgotMobile.value = loginForm.value.mobile;
+  showForgot.value = true;
+}
+
+// 忘记密码 → 未登录也能直接进在线客服：先用手机号建访客会话，再进聊天页
+async function onForgotClose(action) {
+  if (action !== 'confirm') return true;
+  if (!/^1[3-9]\d{9}$/.test(forgotMobile.value)) {
+    showToast('手机号格式不对');
+    return false;
+  }
+  try {
+    const r = await api.guestSupportStart(forgotMobile.value);
+    localStorage.setItem(GUEST_KEY, r.guestKey);
+  } catch {
+    return false; // 拦截器已提示错误，弹窗留着让用户重试
+  }
+  router.push('/support/guest');
+  return true;
+}
 
 function back() {
   if (window.history.length > 1) router.back();

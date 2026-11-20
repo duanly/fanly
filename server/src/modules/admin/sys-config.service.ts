@@ -40,7 +40,9 @@ export const DEFAULT_CONFIG: Record<string, { value: string; remark: string }> =
   // 在线客服
   'support.welcome':         { value: '您好，欢迎联系客服，请问有什么可以帮您？工作时间内我们会尽快回复～', remark: '客服欢迎语（首次进入会话时发送）' },
   'support.fallback':        { value: '',     remark: '自动回复未命中时的兜底语；留空则不回复' },
-  'support.auto_reply':      { value: '1',    remark: '自动回复开关 1开 0关' },
+  'support.auto_reply':      { value: '1',    remark: '自动回复开关 1开 0关（关键词/兜底/默认回复都受它控制）' },
+  'support.default_reply':   { value: '您好，已收到您的消息，客服正在忙，会尽快回复您，请稍候～', remark: '默认回复：用户首次咨询、或消息超时没人回时自动发送；留空则不发' },
+  'support.default_reply_delay': { value: '60', remark: '用户消息多少秒没人回就发默认回复（最小 10）' },
 };
 
 @Injectable()

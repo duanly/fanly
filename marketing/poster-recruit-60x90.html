@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<!-- 招聘兼职竖版海报，成品尺寸 60cm × 90cm（2:3），渲染像素 7086×10630 @300dpi（设计稿 3543×5315，Retina 2x）。
+     版面分区：黄橙标题栏（APP 图标 + 省钱猫·招聘兼职，居中）→ 四条兼职说明（分类色渐变底）
+     → APP 二维码 / 营业执照 / 咨询微信 三张等宽白卡一行 → 底部官方信息栏。
+     渲染：swift marketing/render.swift poster-recruit-60x90.html poster-recruit-60x90.png 3543 5315
+     与横版 90x60 共用 assets/ 下的二维码与矫正后营业执照，改文案两版需同步。 -->
+<meta name="viewport" content="width=3543, initial-scale=1" />
+<title>省钱猫 · 招聘兼职（60×90cm 竖版）</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 3543px; }
+  body {
+    font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .poster {
+    width: 3543px; height: 5315px;
+    padding: 44px;
+    background:
+      radial-gradient(900px 700px at 4% 0%, rgba(245,110,0,.95), rgba(245,110,0,0) 70%),
+      radial-gradient(1000px 800px at 100% 2%, rgba(255,180,40,.95), rgba(255,180,40,0) 72%),
+      linear-gradient(160deg, #ff7a14 0%, #ffa01c 45%, #f4511e 100%);
+  }
+  .sheet {
+    width: 100%; height: 100%;
+    background: #fffdf8;
+    border-radius: 48px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    box-shadow: 0 24px 60px rgba(150,60,10,.25);
+  }
+
+  /* 蓝绿黄渐变，提高饱和度让海报底色更厚重 */
+  .soft-bg {
+    background:
+      radial-gradient(900px 700px at 2% 0%, rgba(80,150,255,.55), rgba(80,150,255,0) 70%),
+      radial-gradient(1000px 800px at 50% 110%, rgba(60,190,130,.50), rgba(60,190,130,0) 70%),
+      radial-gradient(900px 750px at 102% 0%, rgba(255,190,50,.58), rgba(255,190,50,0) 72%),
+      linear-gradient(150deg, #d8eaff 0%, #d6f4e2 50%, #ffefbf 100%);
+  }
+
+  /* ───────── 标题栏：黄橙底，居中 ───────── */
+  .title-bar {
+    flex: none;
+    height: 560px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 30px;
+    padding: 44px 60px;
+    background: linear-gradient(135deg, #ffc83d 0%, #ff9508 55%, #ef6c00 100%);
+    box-shadow: inset 0 -10px 24px rgba(140,55,0,.28);
+  }
+  .title-main { display: flex; align-items: center; gap: 40px; }
+  /* APP 图标随标题同比放大约 50%（142→214） */
+  .title-logo {
+    width: 214px; height: 214px; border-radius: 54px;
+    box-shadow: 0 18px 42px rgba(120,45,0,.35);
+  }
+  /* 标题在 172px 基础上放大约 50% */
+  .title-text {
+    font-size: 258px; font-weight: 900; color: #4d130f;
+    letter-spacing: 8px; white-space: nowrap;
+    text-shadow: 0 8px 0 rgba(140,55,0,.22);
+  }
+  .title-sub {
+    font-size: 70px; font-weight: 800; color: #5c2309;
+    letter-spacing: 12px;
+  }
+
+  /* ───────── 兼职说明区（撑满剩余竖向空间） ───────── */
+  .jobs-zone {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column;
+    padding: 56px 64px 60px;
+  }
+  /* 四条 pill 等高撑满，间距固定 10px（用户要求不要隔太远） */
+  .jobs { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+  .job {
+    flex: 1; min-height: 0;
+    display: flex; align-items: center; gap: 56px;
+    border: 8px solid #2e1c18;
+    border-radius: 120px;
+    padding: 0 72px;
+    box-shadow: 0 14px 0 rgba(58,36,32,.12);
+  }
+  /* 四条 pill 各自的加深渐变底，配色取自主页商品分类（蓝/橙/青/绿），饱和度加厚 */
+  /* j1 校园：京东红浅底；j3 外卖：美团黄浅底 */
+  .job.j1 { background: linear-gradient(135deg,#ffe4e5,#ffc3c7); }
+  .job.j2 { background: linear-gradient(135deg,#ffe0bf,#ffbd87); }
+  .job.j3 { background: linear-gradient(135deg,#fff7d2,#ffe99c); }
+  .job.j4 { background: linear-gradient(135deg,#d2f2d7,#97dda3); }
+  .job .j-ico {
+    flex: none;
+    width: 268px; height: 268px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 10px 24px rgba(40,60,100,.28);
+  }
+  /* 图标圆用主页分类同款饱和 135° 渐变，加深一档，线条转白色 */
+  /* j1 图标圆京东红；j3 图标圆美团黄（亮黄底配深棕线条，白线条会看不清） */
+  .job.j1 .j-ico { background: linear-gradient(135deg,#f23b3b,#c81623); }
+  .job.j2 .j-ico { background: linear-gradient(135deg,#ff7a1f,#e8440a); }
+  .job.j3 .j-ico { background: linear-gradient(135deg,#ffd100,#ff9500); }
+  .job.j4 .j-ico { background: linear-gradient(135deg,#58b45e,#2e8b3a); }
+  .job .j-ico svg { width: 176px; height: 176px; stroke: #fff; }
+  .job.j3 .j-ico svg { stroke: #7a4a00; }
+  .job .j-name { font-size: 150px; font-weight: 900; color: #2e1410; white-space: nowrap; }
+  .job .j-desc { font-size: 112px; font-weight: 700; color: #4a2c24; margin-left: 14px; white-space: nowrap; }
+  /* 右侧箭头图标：白圆底 + 同色系深色箭头，margin-left:auto 贴到 pill 右端 */
+  .job .j-arrow {
+    flex: none;
+    margin-left: auto;
+    width: 200px; height: 200px; border-radius: 50%;
+    background: rgba(255,255,255,.92);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 20px rgba(40,60,100,.20);
+  }
+  .job .j-arrow svg { width: 120px; height: 120px; fill: none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+  .job.j1 .j-arrow svg { stroke: #c81623; }
+  .job.j2 .j-arrow svg { stroke: #e8440a; }
+  .job.j3 .j-arrow svg { stroke: #c77700; }
+  .job.j4 .j-arrow svg { stroke: #2e8b3a; }
+
+  .audience {
+    flex: none;
+    margin-top: 40px;
+    font-size: 78px; font-weight: 900; color: #3d0f0b; letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  .audience .hl { color: #ff5a1f; }
+  .audience .audience-extra { color: #ff5a1f; margin-left: 22px; }
+
+  /* ───────── 三凭证一行：APP 码 / 营业执照 / 咨询微信，等宽白卡底色统一 ───────── */
+  .proof-row {
+    flex: none;
+    height: 1060px;
+    display: flex; gap: 26px;
+    padding: 26px 40px;
+    background: linear-gradient(160deg, #ff8a1e 0%, #f4511e 55%, #e23b12 100%);
+  }
+  .proof-card {
+    flex: 1; min-width: 0;
+    background: #fff; border-radius: 24px;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 22px 24px 24px;
+    box-shadow: 0 14px 34px rgba(150,50,10,.22);
+  }
+  .proof-card .card-lab {
+    flex: none;
+    font-size: 40px; font-weight: 900; color: #4a2018; letter-spacing: 2px;
+    padding: 2px 0 16px;
+    white-space: nowrap;
+  }
+  .proof-card img {
+    width: 100%; flex: 1; min-height: 0; object-fit: contain;
+    border-radius: 12px; display: block; background: #fff;
+  }
+  .mini-promo {
+    flex: none;
+    margin-top: 14px;
+    background: linear-gradient(135deg,#ffe79a,#ffd45e);
+    border: 3px solid #f3c64e;
+    border-radius: 999px;
+    padding: 10px 36px;
+    font-size: 36px; font-weight: 800; color: #5a3300;
+    white-space: nowrap;
+  }
+  .mini-promo b { font-size: 42px; letter-spacing: 3px; color: #e8441a; margin-left: 12px; }
+
+  /* ───────── 底部官方信息栏 ───────── */
+  .band {
+    flex: none;
+    background: linear-gradient(160deg, #ff8a1e 0%, #f4511e 55%, #e23b12 100%);
+    padding: 34px 56px 36px;
+    color: #fff;
+  }
+  .info-line { display: flex; align-items: center; gap: 16px; font-size: 42px; font-weight: 800; }
+  .info-line + .info-line { margin-top: 12px; }
+  .info-line .lab { opacity: .95; }
+  .info-line .val { font-weight: 700; opacity: .92; }
+  .info-line svg { width: 48px; height: 48px; flex: none; }
+  .remark-row { display: flex; align-items: stretch; gap: 20px; margin-top: 20px; }
+  .remark-lab { flex: none; font-size: 46px; font-weight: 900; display: flex; align-items: center; }
+  .remark-box { flex: 1; height: 116px; background: #fff; border-radius: 20px; }
+  .band-foot {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 34px; font-weight: 700;
+    color: rgba(255,255,255,.95);
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="poster">
+  <div class="sheet">
+
+    <!-- 标题栏：黄橙底居中 -->
+    <section class="title-bar">
+      <div class="title-main">
+        <img class="title-logo" src="../h5/public/icons/icon-square-256.png" alt="省钱猫 APP" />
+        <div class="title-text">省钱猫 · 招聘兼职</div>
+      </div>
+      <div class="title-sub">优辰网络科技有限公司</div>
+    </section>
+
+    <!-- 四条兼职说明 -->
+    <section class="jobs-zone soft-bg">
+      <div class="jobs">
+        <div class="job j1">
+          <span class="j-ico">
+            <!-- 手机 -->
+            <svg viewBox="0 0 48 48" fill="none" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="13" y="6" width="22" height="36" rx="4.5"/>
+              <line x1="20" y1="36" x2="28" y2="36"/>
+              <line x1="19" y1="11" x2="29" y2="11"/>
+            </svg>
+          </span>
+          <span class="j-name">校园兼职：</span>
+          <span class="j-desc">班级群、宿舍圈、校园周边推广</span>
+          <span class="j-arrow">
+            <svg viewBox="0 0 48 48"><path d="M8 24h30M26 12l12 12-12 12"/></svg>
+          </span>
+        </div>
+
+        <div class="job j2">
+          <span class="j-ico">
+            <!-- 快递包裹 -->
+            <svg viewBox="0 0 48 48" fill="none" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 16l14-8 14 8v18l-14 8-14-8V16z"/>
+              <path d="M10 16l14 8 14-8"/>
+              <path d="M24 24v18"/>
+              <path d="M17 12l14 8"/>
+            </svg>
+          </span>
+          <span class="j-name">快递兼职：</span>
+          <span class="j-desc">轻量推广，近水楼台，顺手而为</span>
+          <span class="j-arrow">
+            <svg viewBox="0 0 48 48"><path d="M8 24h30M26 12l12 12-12 12"/></svg>
+          </span>
+        </div>
+
+        <div class="job j3">
+          <span class="j-ico">
+            <!-- 外卖配送车 -->
+            <svg viewBox="0 0 48 48" fill="none" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="13" cy="35" r="6"/>
+              <circle cx="36" cy="35" r="6"/>
+              <path d="M13 35l6-13h9"/>
+              <path d="M21 22h6l5 13"/>
+              <path d="M27 22l3-8h7"/>
+              <path d="M33 14h4"/>
+            </svg>
+          </span>
+          <span class="j-name">外卖兼职：</span>
+          <span class="j-desc">轻量推广，近水楼台，顺手而为</span>
+          <span class="j-arrow">
+            <svg viewBox="0 0 48 48"><path d="M8 24h30M26 12l12 12-12 12"/></svg>
+          </span>
+        </div>
+
+        <div class="job j4">
+          <span class="j-ico">
+            <!-- 锁 -->
+            <svg viewBox="0 0 48 48" fill="none" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="21" width="30" height="21" rx="4.5"/>
+              <path d="M15 21v-5a9 9 0 0 1 18 0v5"/>
+              <circle cx="24" cy="30" r="3.2" fill="#fff" stroke="none"/>
+              <line x1="24" y1="32.5" x2="24" y2="37"/>
+            </svg>
+          </span>
+          <span class="j-name">本地兼职：</span>
+          <span class="j-desc">朋友圈、社群、线下轻量推广</span>
+          <span class="j-arrow">
+            <svg viewBox="0 0 48 48"><path d="M8 24h30M26 12l12 12-12 12"/></svg>
+          </span>
+        </div>
+      </div>
+
+      <div class="audience">
+        适合人群：<span class="hl">学生、骑手、快递、宝妈等</span><span class="audience-extra">时间自由，轻松灵活</span>
+      </div>
+    </section>
+
+    <!-- APP 二维码 / 营业执照 / 咨询微信：三张等宽白卡一行，底色统一 -->
+    <section class="proof-row">
+      <div class="proof-card app-card">
+        <div class="card-lab">扫码注册 · 马上开工</div>
+        <img src="qrcode-fanly.png" alt="省钱猫 APP 扫码注册" />
+        <div class="mini-promo">推广码<b>KXPETF</b></div>
+      </div>
+      <div class="proof-card license-card">
+        <div class="card-lab">营业执照（副本）</div>
+        <img src="assets/license.jpg" alt="优辰网络科技有限公司营业执照" />
+      </div>
+      <div class="proof-card wechat-card">
+        <div class="card-lab">咨询微信 · 扫码添加</div>
+        <img src="assets/wechat-qr.jpg" alt="咨询微信二维码" />
+      </div>
+    </section>
+
+    <!-- 底部官方信息栏（合规文件保留公司全称） -->
+    <section class="band">
+      <div class="info-line">
+        <svg viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M24 5l15 5v11c0 10-6.5 17.5-15 22-8.5-4.5-15-12-15-22V10l15-5z"/>
+          <path d="M16 24l6 6 11-12"/>
+        </svg>
+        <span class="lab">官方信息栏：</span>
+        <span class="val">耒阳市优辰网络科技有限公司</span>
+      </div>
+      <div class="info-line">
+        <span style="width:48px"></span>
+        <span class="lab">运营主体：</span>
+        <span class="val">耒阳市优辰网络科技有限公司</span>
+      </div>
+      <div class="remark-row">
+        <div class="remark-lab">备注：</div>
+        <div class="remark-box"></div>
+      </div>
+      <div class="band-foot">正规企业导购平台　｜　仅提供线上消费领券服务　｜　无多级分销</div>
+    </section>
+
+  </div>
+</div>
+</body>
+</html>

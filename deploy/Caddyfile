@@ -13,6 +13,12 @@
         reverse_proxy server:3000
     }
 
+    # 客服 IM 的 Socket.IO（WebSocket + 轮询）。漏了这条会落到下面的 H5 静态页，
+    # 实时推送全部失效：自动回复/客服回复要退出重进才看得到
+    handle /socket.io/* {
+        reverse_proxy server:3000
+    }
+
     # 上传的图片：由 server 提供静态文件
     handle /uploads/* {
         reverse_proxy server:3000

@@ -1,4 +1,5 @@
 import { get, post, del, uploadFile } from '../utils/request.js';
+import { storage } from '../utils/storage.js';
 
 /**
  * 用户端接口（1:1 对齐 H5 api/index.js 的 api 对象）
@@ -93,6 +94,17 @@ export const api = {
   sendSupportMessage: (type, content) => post('/api/support/messages', { type, content }),
   readSupport: () => post('/api/support/read'),
   supportUpload: (filePath) => uploadFile('/api/support/upload', filePath),
+  // 未登录访客客服（忘记密码入口）：凭本机存的 supportGuestKey 认会话
+  guestSupportStart: (mobile) =>
+    post('/api/support/guest/start', { mobile, guestKey: storage.get(GUEST_KEY) || undefined }),
+  guestSupportConversation: () => get('/api/support/guest/conversation', undefined, guestOpts()),
+  guestSupportSend: (content) => post('/api/support/guest/messages', { content }, guestOpts()),
+  guestSupportRead: () => post('/api/support/guest/read', {}, guestOpts()),
 };
+
+export const GUEST_KEY = 'supportGuestKey';
+function guestOpts() {
+  return { header: { 'x-guest-key': storage.get(GUEST_KEY) }, hideError: true };
+}
 
 export default api;

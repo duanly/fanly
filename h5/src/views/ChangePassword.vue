@@ -35,6 +35,9 @@
       <van-button block round type="primary" color="#ff4b3a" :loading="loading" @click="submit">
         确认修改
       </van-button>
+      <div class="forgot-tip">
+        忘记原密码？<span class="link" @click="router.push('/support')">联系客服重置 ›</span>
+      </div>
     </div>
   </div>
 </template>
@@ -83,5 +86,15 @@ async function submit() {
 .page {
   min-height: 100vh;
   background: #f5f6f8;
+}
+.forgot-tip {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #969799;
+}
+.forgot-tip .link {
+  color: #ff4b3a;
+  cursor: pointer;
 }
 </style>

@@ -35,6 +35,8 @@ const routes = [
   { path: '/i/:code', component: () => import('./views/Invite.vue') },
   { path: '/invite', component: () => import('./views/InviteQrcode.vue'), meta: { auth: true } },
   { path: '/support', component: () => import('./views/Support.vue'), meta: { auth: true } },
+  // 未登录访客客服：忘记密码时从登录页进来，不需要 token
+  { path: '/support/guest', component: () => import('./views/Support.vue'), meta: { guest: true } },
 
   // ───────── 手机端管理后台 ─────────
   { path: '/madmin/login', component: () => import('./views/madmin/Login.vue') },

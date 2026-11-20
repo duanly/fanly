@@ -24,7 +24,7 @@
         </view>
         <button class="submit" :loading="loading" @click="doLogin">登录</button>
         <view class="login-foot">
-          <text class="link" @click="showForgot = true">忘记密码？</text>
+          <text class="link" @click="openForgot">忘记密码？</text>
           <text class="link" @click="mode = 'register'">去注册 ›</text>
         </view>
       </template>
@@ -60,8 +60,9 @@
     <view v-if="showForgot" class="mask" @click="showForgot = false">
       <view class="dialog" @click.stop>
         <view class="d-title">忘记密码</view>
-        <view class="d-body">请联系客服重置密码，提供注册手机号，我们会尽快为您重置。</view>
-        <view class="d-btn" @click="goSupport">联系客服</view>
+        <view class="d-body">请联系在线客服重置密码。填写注册手机号，客服核实身份后会尽快为您重置。</view>
+        <input v-model="forgotMobile" type="number" maxlength="11" class="d-input" placeholder="注册时的手机号" />
+        <view class="d-btn" @click="goSupport">联系在线客服</view>
       </view>
     </view>
   </view>
@@ -70,7 +71,7 @@
 <script setup>
 import { ref, reactive } from 'vue';
 import { useUserStore } from '../../store/user.js';
-import { api } from '../../api/index.js';
+import { api, GUEST_KEY } from '../../api/index.js';
 import { storage } from '../../utils/storage.js';
 
 const userStore = useUserStore();
@@ -80,6 +81,8 @@ const loading = ref(false);
 const pwdVisible = ref(false);
 const regPwdVisible = ref(false);
 const showForgot = ref(false);
+const forgotMobile = ref('');
+let startingSupport = false;
 const captchaImg = ref('');
 
 const loginForm = reactive({ mobile: '', password: '' });
@@ -162,9 +165,30 @@ async function doRegister() {
   }
 }
 
-function goSupport() {
-  showForgot.value = false;
-  if (userStore.isLoggedIn) uni.navigateTo({ url: '/pages/support/support' });
+function openForgot() {
+  forgotMobile.value = loginForm.mobile;
+  showForgot.value = true;
+}
+
+// 忘记密码 → 未登录也能直接进在线客服：先用手机号建访客会话，再进聊天页
+async function goSupport() {
+  if (userStore.isLoggedIn) {
+    showForgot.value = false;
+    return uni.navigateTo({ url: '/pages/support/support' });
+  }
+  if (!/^1[3-9]\d{9}$/.test(String(forgotMobile.value))) {
+    return uni.showToast({ title: '手机号格式不对', icon: 'none' });
+  }
+  if (startingSupport) return;
+  startingSupport = true;
+  try {
+    const r = await api.guestSupportStart(String(forgotMobile.value));
+    storage.set(GUEST_KEY, r.guestKey);
+    showForgot.value = false;
+    uni.navigateTo({ url: '/pages/support/support?guest=1' });
+  } catch {} finally {
+    startingSupport = false;
+  }
 }
 </script>
 
@@ -234,6 +258,10 @@ function goSupport() {
 .dialog { width: 100%; background: #fff; border-radius: 24rpx; padding: 40rpx 32rpx 32rpx; }
 .d-title { font-size: 34rpx; font-weight: 700; text-align: center; }
 .d-body { font-size: 26rpx; color: #666; line-height: 1.7; margin-top: 20rpx; }
+.d-input {
+  margin-top: 24rpx; height: 88rpx; padding: 0 28rpx;
+  background: #f5f6f8; border-radius: 16rpx; font-size: 28rpx;
+}
 .d-btn {
   margin-top: 28rpx; height: 84rpx; line-height: 84rpx;
   text-align: center; background: $brand; color: #fff;
